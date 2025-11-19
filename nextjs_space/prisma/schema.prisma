@@ -1,3 +1,5 @@
+// Foto AI Agent - Database Schema
+
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
@@ -7,4 +9,223 @@ generator client {
 datasource db {
     provider = "postgresql"
     url      = env("DATABASE_URL")
+}
+
+// User Profile & Authentication
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  timezone  String   @default("America/Los_Angeles")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  preferences       UserPreferences?
+  gear              UserGear[]
+  challenges        DailyChallenge[]
+  itineraries       Itinerary[]
+  progress          UserProgress?
+  agentActions      AgentAction[]
+  submissions       ChallengeSubmission[]
+}
+
+// User Preferences & Schedule
+model UserPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Work Schedule
+  workDays          String[]  @default(["Mon", "Tue", "Wed", "Thu", "Fri"])
+  workStartTime     String    @default("09:00")
+  workEndTime       String    @default("17:00")
+  lunchStartTime    String    @default("12:00")
+  lunchEndTime      String    @default("13:00")
+
+  // Photography Availability
+  primaryPhotoDay        String    @default("Saturday")
+  secondaryPhotoDays     String[]  @default(["Sunday"])
+  lunchBreakPhotography  Boolean   @default(true)
+  eveningPhotography     Boolean   @default(true)
+  wfhFlexibility         Boolean   @default(true)
+
+  // Skill & Interests
+  skillLevel              String    @default("intermediate") // beginner, intermediate, advanced
+  photographyInterests    String[]  @default(["street", "portrait", "architecture"])
+  avoidsStyles            String[]  @default([])
+
+  // Challenge Preferences
+  saturdayComplexity    String    @default("high") // micro, short, medium, high
+  weekdayComplexity     String    @default("micro")
+  adaptToWeather        Boolean   @default(true)
+  adaptToCalendar       Boolean   @default(true)
+
+  // Notification Preferences
+  saturdayNotifTime     String    @default("07:00")
+  saturdayNotifChannels String[]  @default(["email"])
+  weekdayNotifTime      String    @default("11:30")
+  weekdayNotifChannels  String[]  @default(["email"])
+  eveningAlertsEnabled  Boolean   @default(true)
+  wfhNotifTime          String    @default("09:00")
+
+  // Location
+  officeLocation    String?
+  homeLocation      String?
+  currentLocation   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// User Gear Inventory
+model UserGear {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  category    String   // camera, lens, film, accessory
+  brand       String
+  model       String
+  specs       String?  // JSON string with specifications
+  isPrimary   Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Daily Challenges
+model DailyChallenge {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  challengeType   String   // WEEKEND_DEEP_DIVE, LUNCH_MICRO, AFTER_WORK, WORK_FROM_HOME
+  challengeText   String   @db.Text
+  difficulty      String   // micro, short, medium, deep
+  category        String   // street, portrait, architecture, etc.
+  duration        String   // "15-25 mins", "2-4 hours"
+  
+  // Context
+  weatherConditions  String?
+  location           String?
+  recommendedGear    String[]  @default([])
+  tips               String?   @db.Text
+  
+  // Scheduling
+  issuedDate      DateTime
+  scheduledTime   String?
+  bestTimeStart   String?
+  bestTimeEnd     String?
+  
+  // Status
+  status          String   @default("pending") // pending, accepted, skipped, completed
+  completedDate   DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  submissions     ChallengeSubmission[]
+}
+
+// Challenge Submissions
+model ChallengeSubmission {
+  id            String   @id @default(cuid())
+  challengeId   String
+  challenge     DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  photoUrl      String?
+  notes         String?  @db.Text
+  feedback      String?  @db.Text  // AI-generated feedback
+  rating        Int?     // User self-rating 1-5
+  
+  submittedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Location-Based Itineraries
+model Itinerary {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  location          String
+  title             String
+  description       String   @db.Text
+  
+  // Details
+  spots             String   @db.Text  // JSON array of spot details
+  suggestedTimes    String[] @default([])
+  weatherConditions String?
+  gearRecommendations String[] @default([])
+  duration          String?
+  
+  // PDF & Calendar
+  pdfUrl            String?
+  calendarEventId   String?
+  
+  // Status
+  status            String   @default("generated") // generated, in_progress, completed
+  generatedDate     DateTime @default(now())
+  scheduledDate     DateTime?
+  completedDate     DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// User Progress Tracking
+model UserProgress {
+  id        String @id @default(cuid())
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Stats
+  totalChallengesIssued    Int @default(0)
+  totalChallengesCompleted Int @default(0)
+  currentStreak            Int @default(0)
+  longestStreak            Int @default(0)
+  
+  // Completion Rates by Type
+  saturdayChallengesCompleted  Int @default(0)
+  saturdayChallengesIssued     Int @default(0)
+  lunchBreakCompleted          Int @default(0)
+  lunchBreakIssued             Int @default(0)
+  afterWorkCompleted           Int @default(0)
+  afterWorkIssued              Int @default(0)
+  wfhCompleted                 Int @default(0)
+  wfhIssued                    Int @default(0)
+  
+  // Learning & Adaptation
+  favoriteSubjects      String[] @default([])
+  improvementAreas      String[] @default([])
+  skillGrowthMetrics    String?  @db.Text  // JSON with skill progression data
+  
+  // Last Activity
+  lastChallengeDate     DateTime?
+  lastCompletionDate    DateTime?
+  lastStreakUpdate      DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Agent Actions Log
+model AgentAction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  actionType  String   // CHALLENGE_SENT, WEATHER_ALERT, ITINERARY_GENERATED, WEEKLY_REPORT, etc.
+  details     String   @db.Text  // JSON with action details
+  success     Boolean  @default(true)
+  errorMessage String?
+  
+  executedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
