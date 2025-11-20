@@ -12,11 +12,9 @@ echo "📊 Foto AI Agent - System Monitor"
 echo "=================================="
 echo ""
 
-cd nextjs_space
-
 # Check if containers are running
 echo -e "${BLUE}🐳 Docker Containers:${NC}"
-docker-compose ps
+docker compose ps
 echo ""
 
 # Health check
@@ -46,22 +44,22 @@ echo ""
 
 # Recent logs (last 10 lines from app)
 echo -e "${BLUE}📝 Recent Application Logs:${NC}"
-docker-compose logs --tail=10 app
+docker compose logs --tail=10 app
 echo ""
 
 # Database status
 echo -e "${BLUE}🗄️  Database Status:${NC}"
-if docker-compose exec -T postgres pg_isready -U foto > /dev/null 2>&1; then
+if docker compose exec -T postgres pg_isready -U foto > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Database is ready${NC}"
     
     # Get database size
-    DB_SIZE=$(docker-compose exec -T postgres psql -U foto -d foto -t -c "SELECT pg_size_pretty(pg_database_size('foto'));")
+    DB_SIZE=$(docker compose exec -T postgres psql -U foto -d foto -t -c "SELECT pg_size_pretty(pg_database_size('foto'));")
     echo "Database size: $DB_SIZE"
     
     # Get table counts
     echo ""
     echo "Table record counts:"
-    docker-compose exec -T postgres psql -U foto -d foto -t -c "
+    docker compose exec -T postgres psql -U foto -d foto -t -c "
     SELECT 
         'Users: ' || COUNT(*) FROM \"User\"
     UNION ALL
@@ -81,12 +79,12 @@ echo ""
 
 # Backup status
 echo -e "${BLUE}💾 Backup Status:${NC}"
-if [ -d "../backups" ]; then
-    BACKUP_COUNT=$(ls -1 ../backups/foto_db_*.sql 2>/dev/null | wc -l)
+if [ -d "./backups" ]; then
+    BACKUP_COUNT=$(ls -1 ./backups/foto_db_*.sql 2>/dev/null | wc -l)
     echo "Total backups: $BACKUP_COUNT"
     
     if [ $BACKUP_COUNT -gt 0 ]; then
-        LATEST_BACKUP=$(ls -t ../backups/foto_db_*.sql 2>/dev/null | head -1)
+        LATEST_BACKUP=$(ls -t ./backups/foto_db_*.sql 2>/dev/null | head -1)
         BACKUP_DATE=$(stat -c %y "$LATEST_BACKUP" 2>/dev/null | cut -d' ' -f1)
         echo "Latest backup: $(basename $LATEST_BACKUP) ($BACKUP_DATE)"
     fi
@@ -97,7 +95,7 @@ echo ""
 
 # Cron job status
 echo -e "${BLUE}⏰ Cron Job Status:${NC}"
-docker-compose logs scheduler --tail=20 | grep -E "challenge|weather|report|streak" | tail -5
+docker compose logs scheduler --tail=20 | grep -E "challenge|weather|report|streak" | tail -5
 echo ""
 
 # Network connectivity
