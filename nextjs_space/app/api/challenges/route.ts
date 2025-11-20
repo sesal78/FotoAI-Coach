@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         temperature: weather.temperature,
         time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       } : undefined,
-      recentChallenges: recentChallenges.map(c => c.challengeText),
+      recentChallenges: recentChallenges.map((c: { challengeText: string }) => c.challengeText),
     });
 
     // Save challenge to database
