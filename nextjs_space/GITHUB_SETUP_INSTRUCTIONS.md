@@ -1,5 +1,5 @@
 
-# GitHub Setup Instructions for foto-photography-coach
+# GitHub Setup Instructions for Foto-AI-Agent-DeepAgent
 
 ## Step 1: Create the Repository on GitHub
 
@@ -7,7 +7,7 @@
 2. Click the **"+"** icon in the top right corner
 3. Select **"New repository"**
 4. Fill in the details:
-   - **Repository name**: `foto-photography-coach`
+   - **Repository name**: `Foto-AI-Agent-DeepAgent`
    - **Description**: AI-powered photography coaching web application with personalized itineraries and daily challenges
    - **Visibility**: ✅ **Private**
    - **DO NOT** initialize with README, .gitignore, or license (we already have these)

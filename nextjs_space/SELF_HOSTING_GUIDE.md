@@ -46,8 +46,8 @@ Complete guide for deploying Foto AI Agent in your home lab.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/sesal78/foto-photography-coach.git
-cd foto-photography-coach
+git clone https://github.com/sesal78/Foto-AI-Agent-DeepAgent.git
+cd Foto-AI-Agent-DeepAgent
 ```
 
 ### 2. Configure Environment
@@ -198,7 +198,7 @@ Set up daily backups with cron:
 crontab -e
 
 # Add daily backup at 2 AM
-0 2 * * * /path/to/foto-photography-coach/backup.sh
+0 2 * * * /path/to/Foto-AI-Agent-DeepAgent/backup.sh
 ```
 
 ### Manual Backup

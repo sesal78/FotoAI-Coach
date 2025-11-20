@@ -63,8 +63,8 @@ A self-hosted, AI-powered photography coaching platform designed specifically fo
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/sesal78/foto-photography-coach.git
-cd foto-photography-coach
+git clone https://github.com/sesal78/Foto-AI-Agent-DeepAgent.git
+cd Foto-AI-Agent-DeepAgent
 ```
 
 2. **Deploy with Docker:**
