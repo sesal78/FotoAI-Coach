@@ -43,7 +43,7 @@ git push origin master
 if [ $? -eq 0 ]; then
     echo ""
     echo "✅ Successfully synced to GitHub!"
-    echo "🌐 View at: https://github.com/sesal78/foto-photography-coach"
+    echo "🌐 View at: https://github.com/sesal78/Foto-AI-Agent-DeepAgent"
     echo "📊 Commit: $(git log -1 --pretty=format:'%h - %s')"
 else
     echo ""
