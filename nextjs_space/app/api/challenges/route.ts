@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       name: user.name,
       skillLevel: user.preferences.skillLevel,
       interests: user.preferences.photographyInterests,
-      gear: user.gear.map(g => `${g.brand} ${g.model}`),
+      gear: user.gear.map((g: { brand: string; model: string }) => `${g.brand} ${g.model}`),
     };
 
     // Generate challenge using LLM
