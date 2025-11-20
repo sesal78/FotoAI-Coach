@@ -1,4 +1,3 @@
-
 # Foto AI Agent - Self-Hosted Dockerfile
 FROM node:18-alpine AS base
 
@@ -30,6 +29,19 @@ ARG OPENWEATHERMAP_API_KEY
 ARG FROM_EMAIL
 ARG USER_EMAIL
 
+# Export as ENV for build process
+ENV DATABASE_URL=$DATABASE_URL
+ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+ENV ABACUSAI_API_KEY=$ABACUSAI_API_KEY
+ENV SENDGRID_API_KEY=$SENDGRID_API_KEY
+ENV OPENWEATHERMAP_API_KEY=$OPENWEATHERMAP_API_KEY
+ENV FROM_EMAIL=$FROM_EMAIL
+ENV USER_EMAIL=$USER_EMAIL
+
+# Set Next.js to not require these at build time
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV SKIP_ENV_VALIDATION=1
+
 # Generate Prisma Client
 RUN npx prisma generate
 
@@ -40,7 +52,8 @@ RUN yarn build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -64,7 +77,7 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]

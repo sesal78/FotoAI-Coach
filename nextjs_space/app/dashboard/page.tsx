@@ -253,9 +253,15 @@ export default function DashboardPage() {
       {/* Main Content */}
       <Tabs defaultValue="challenge" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="challenge">Current Challenge</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
+          <TabsTrigger value="challenge" aria-label="View current photography challenge">
+            Current Challenge
+          </TabsTrigger>
+          <TabsTrigger value="history" aria-label="View challenge history and past submissions">
+            History
+          </TabsTrigger>
+          <TabsTrigger value="itinerary" aria-label="Plan photography itineraries">
+            Itinerary
+          </TabsTrigger>
         </TabsList>
 
         {/* Current Challenge Tab */}
