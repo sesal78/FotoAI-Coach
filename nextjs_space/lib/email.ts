@@ -256,6 +256,9 @@ export async function sendWeatherAlert(
       <p style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
         <strong>Suggestion:</strong> ${alert.suggestion}
       </p>
+      <p style="text-align: center; margin-top: 20px;">
+        <a href="https://myfoto.topues.com/dashboard" style="display: inline-block; padding: 12px 24px; background: #ffc107; color: #333; text-decoration: none; border-radius: 6px; font-weight: 500;">Go to Dashboard</a>
+      </p>
     </div>
   </div>
 </body>
