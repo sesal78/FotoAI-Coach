@@ -10,24 +10,32 @@ export interface EmailOptions {
   text?: string;
   html?: string;
   from?: string;
+  fromName?: string;
+  replyTo?: string;
 }
 
 /**
- * Send an email via SendGrid
+ * Send an email via SendGrid with Reply-To support
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    const msg: {
-      to: string;
-      from: string;
-      subject: string;
-      text?: string;
-      html?: string;
-    } = {
+    const fromEmail = options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com';
+    const fromName = options.fromName || process.env.FROM_NAME || 'Foto AI Coach';
+    const replyToEmail = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
+
+    const msg: any = {
       to: options.to,
-      from: options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com',
+      from: {
+        email: fromEmail,
+        name: fromName
+      },
       subject: options.subject,
     };
+
+    // Add reply-to if different from from email
+    if (replyToEmail !== fromEmail) {
+      msg.replyTo = replyToEmail;
+    }
 
     // Add text or html content
     if (options.html) {
@@ -41,11 +49,11 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       msg.text = options.subject;
     }
 
-    await sgMail.send(msg as any);
-    console.log(`Email sent successfully to ${options.to}`);
+    await sgMail.send(msg);
+    console.log(`✅ Email sent successfully to ${options.to} from ${fromName} <${fromEmail}>`);
     return true;
   } catch (error: any) {
-    console.error('Email sending failed:', error.response?.body || error);
+    console.error('❌ Email sending failed:', error.response?.body?.errors || error.message || error);
     return false;
   }
 }
