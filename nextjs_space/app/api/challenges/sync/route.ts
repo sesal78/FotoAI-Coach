@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
@@ -79,11 +78,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create new challenge
+    // Create new challenge with all required fields
     const challenge = await prisma.dailyChallenge.create({
       data: {
         userId: userId.toString(),
         challengeText,
+        challengeType: 'CHATBOT_GENERATED', // New field for chatbot-generated challenges
         category: category || 'General',
         difficulty: difficulty || 'Intermediate',
         duration: duration || '30 mins',
@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
         recommendedGear: recommendedGear || [],
         tips: tips || null,
         weatherConditions: weatherConditions || null,
+        issuedDate: new Date(), // Required field
         status: 'pending',
       },
     });

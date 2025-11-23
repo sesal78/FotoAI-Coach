@@ -65,6 +65,15 @@ export default function DashboardPage() {
   useEffect(() => {
     // Load dashboard data on mount (no auth required for single-user demo)
     loadDashboardData();
+
+    // Set up polling to check for new challenges every 10 seconds
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling for new challenges...');
+      loadDashboardData();
+    }, 10000); // Poll every 10 seconds
+
+    // Cleanup interval on unmount
+    return () => clearInterval(pollInterval);
   }, []);
 
   async function loadDashboardData() {
