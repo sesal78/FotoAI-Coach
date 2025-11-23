@@ -74,19 +74,23 @@ export default function DashboardPage() {
       // For demo purposes, use a hardcoded user ID
       // In production, this would come from the session
       const userId = '1';
+      console.log('🔍 Loading dashboard for userId:', userId);
 
       // Load current challenge
       const challengesRes = await fetch(`/api/challenges?userId=${userId}&status=pending&limit=1`, {
         cache: 'no-store', // Prevent caching
       });
       
+      console.log('📡 Challenges API response status:', challengesRes.status);
+      
       if (!challengesRes.ok) {
-        console.error('Failed to fetch challenges:', challengesRes.status, challengesRes.statusText);
+        console.error('❌ Failed to fetch challenges:', challengesRes.status, challengesRes.statusText);
         toast.error(`Failed to load challenges (${challengesRes.status})`);
       }
       
       const challengesData = await challengesRes.json();
-      console.log('📋 Loaded challenges:', challengesData);
+      console.log('📋 Loaded challenges data:', challengesData);
+      console.log('📊 Number of challenges:', challengesData?.challenges?.length || 0);
       
       if (challengesData.challenges && challengesData.challenges.length > 0) {
         const challenge = challengesData.challenges[0];
@@ -311,13 +315,13 @@ export default function DashboardPage() {
       {/* Main Content */}
       <Tabs defaultValue="challenge" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="challenge" aria-label="View current photography challenge" role="tab">
+          <TabsTrigger value="challenge">
             Current Challenge
           </TabsTrigger>
-          <TabsTrigger value="history" aria-label="View challenge history and past submissions" role="tab">
+          <TabsTrigger value="history">
             History
           </TabsTrigger>
-          <TabsTrigger value="itinerary" aria-label="Plan photography itineraries" role="tab">
+          <TabsTrigger value="itinerary">
             Itinerary
           </TabsTrigger>
         </TabsList>

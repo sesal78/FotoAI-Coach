@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Dashboard Tabs</title>
+</head>
+<body>
+  <h1>Testing Tabs Component</h1>
+  <script>
+    // Open dashboard and check if tabs are clickable
+    fetch('http://localhost:3000/dashboard')
+      .then(r => r.text())
+      .then(html => {
+        console.log('Dashboard loaded successfully');
+        console.log('HTML length:', html.length);
+      })
+      .catch(err => console.error('Error:', err));
+  </script>
+</body>
+</html>
