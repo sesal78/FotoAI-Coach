@@ -31,7 +31,7 @@ services:
       args:
         DATABASE_URL: postgresql://${POSTGRES_USER:-foto}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-foto}
         NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-        ABACUSAI_API_KEY: ${ABACUSAI_API_KEY}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
         SENDGRID_API_KEY: ${SENDGRID_API_KEY}
         OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
         FROM_EMAIL: ${FROM_EMAIL:-noreply@myfoto.topues.com}
@@ -44,7 +44,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-foto}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-foto}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      ABACUSAI_API_KEY: ${ABACUSAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
       FROM_EMAIL: ${FROM_EMAIL:-noreply@myfoto.topues.com}
