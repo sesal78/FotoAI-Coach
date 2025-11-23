@@ -43,6 +43,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert recommendedGear to array if it's a string
+    const gearArray = Array.isArray(recommendedGear) 
+      ? recommendedGear 
+      : recommendedGear 
+        ? [recommendedGear] 
+        : [];
+
     // Check if user has pending challenges
     const existingChallenge = await prisma.dailyChallenge.findFirst({
       where: {
@@ -63,7 +70,7 @@ export async function POST(request: NextRequest) {
           difficulty: difficulty || existingChallenge.difficulty,
           duration: duration || existingChallenge.duration,
           location: location || existingChallenge.location,
-          recommendedGear: recommendedGear || existingChallenge.recommendedGear,
+          recommendedGear: gearArray.length > 0 ? gearArray : existingChallenge.recommendedGear,
           tips: tips || existingChallenge.tips,
           weatherConditions: weatherConditions || existingChallenge.weatherConditions,
         },
@@ -88,7 +95,7 @@ export async function POST(request: NextRequest) {
         difficulty: difficulty || 'Intermediate',
         duration: duration || '30 mins',
         location: location || null,
-        recommendedGear: recommendedGear || [],
+        recommendedGear: gearArray,
         tips: tips || null,
         weatherConditions: weatherConditions || null,
         issuedDate: new Date(), // Required field
