@@ -76,26 +76,69 @@ export default function DashboardPage() {
       const userId = '1';
 
       // Load current challenge
-      const challengesRes = await fetch(`/api/challenges?userId=${userId}&status=pending&limit=1`);
+      const challengesRes = await fetch(`/api/challenges?userId=${userId}&status=pending&limit=1`, {
+        cache: 'no-store', // Prevent caching
+      });
+      
+      if (!challengesRes.ok) {
+        console.error('Failed to fetch challenges:', challengesRes.status, challengesRes.statusText);
+        toast.error(`Failed to load challenges (${challengesRes.status})`);
+      }
+      
       const challengesData = await challengesRes.json();
+      console.log('📋 Loaded challenges:', challengesData);
       
       if (challengesData.challenges && challengesData.challenges.length > 0) {
-        setCurrentChallenge(challengesData.challenges[0]);
+        const challenge = challengesData.challenges[0];
+        setCurrentChallenge(challenge);
+        
+        // Store in localStorage as backup
+        localStorage.setItem('currentChallenge', JSON.stringify(challenge));
+        console.log('✅ Challenge loaded and cached:', challenge.category);
+      } else {
+        console.log('ℹ️ No pending challenges found');
+        
+        // Try to load from localStorage as fallback
+        const cachedChallenge = localStorage.getItem('currentChallenge');
+        if (cachedChallenge) {
+          console.log('💾 Loaded challenge from localStorage backup');
+          setCurrentChallenge(JSON.parse(cachedChallenge));
+          toast.info('Loaded cached challenge');
+        } else {
+          setCurrentChallenge(null);
+        }
       }
 
       // Load progress
-      const progressRes = await fetch(`/api/progress?userId=${userId}`);
-      const progressData = await progressRes.json();
-      setProgress(progressData.progress);
+      const progressRes = await fetch(`/api/progress?userId=${userId}`, {
+        cache: 'no-store',
+      });
+      
+      if (progressRes.ok) {
+        const progressData = await progressRes.json();
+        setProgress(progressData.progress);
+      }
 
       // Load recent challenges
-      const recentRes = await fetch(`/api/challenges?userId=${userId}&status=all&limit=5`);
-      const recentData = await recentRes.json();
-      setRecentChallenges(recentData.challenges || []);
+      const recentRes = await fetch(`/api/challenges?userId=${userId}&status=all&limit=5`, {
+        cache: 'no-store',
+      });
+      
+      if (recentRes.ok) {
+        const recentData = await recentRes.json();
+        setRecentChallenges(recentData.challenges || []);
+      }
 
     } catch (error) {
       console.error('Failed to load dashboard:', error);
-      toast.error('Failed to load dashboard data');
+      toast.error('Failed to load dashboard data. Check console for details.');
+      
+      // Try localStorage fallback on error
+      const cachedChallenge = localStorage.getItem('currentChallenge');
+      if (cachedChallenge) {
+        setCurrentChallenge(JSON.parse(cachedChallenge));
+        toast.info('Loaded cached challenge (offline mode)');
+      }
     } finally {
       setLoading(false);
     }
@@ -113,20 +156,31 @@ export default function DashboardPage() {
           userId: '1', // Demo user ID
           challengeType: 'WEEKEND_DEEP_DIVE',
         }),
+        cache: 'no-store',
       });
 
       const data = await response.json();
+      console.log('🎯 Generated challenge:', data);
 
       if (response.ok) {
-        setCurrentChallenge(data.challenge);
+        const challenge = data.challenge;
+        setCurrentChallenge(challenge);
+        
+        // Store in localStorage
+        localStorage.setItem('currentChallenge', JSON.stringify(challenge));
+        console.log('✅ New challenge generated and cached');
+        
         toast.success('New challenge generated!');
+        
+        // Reload dashboard to update statistics
         await loadDashboardData();
       } else {
+        console.error('Challenge generation failed:', data);
         toast.error(data.error || 'Failed to generate challenge');
       }
     } catch (error) {
       console.error('Challenge generation failed:', error);
-      toast.error('Failed to generate challenge');
+      toast.error('Failed to generate challenge. Check console for details.');
     } finally {
       setGenerating(false);
     }
@@ -160,6 +214,10 @@ export default function DashboardPage() {
         toast.success('Challenge submitted! 🎉');
         toast.success(data.submission.feedback || 'Great work!');
         
+        // Clear localStorage cache
+        localStorage.removeItem('currentChallenge');
+        console.log('✅ Challenge completed and cache cleared');
+        
         // Reset form
         setPhoto(null);
         setNotes('');
@@ -173,7 +231,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Submission failed:', error);
-      toast.error('Failed to submit challenge');
+      toast.error('Failed to submit challenge. Check console for details.');
     } finally {
       setSubmitting(false);
     }
