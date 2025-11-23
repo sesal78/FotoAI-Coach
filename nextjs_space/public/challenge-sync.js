@@ -1,7 +1,8 @@
 /**
- * Foto Challenge Sync Integration v2
+ * Foto Challenge Sync Integration v3
  * Automatically syncs AI-generated photography challenges to the dashboard
  * Handles visible JSON and hides it from display
+ * NOW SUPPORTS: CHALLENGE_SYNC_DATA blocks
  */
 
 (function() {
@@ -10,7 +11,7 @@
   const SYNC_API_URL = 'https://myfoto.topues.com/api/challenges/sync';
   const USER_ID = '1';
   
-  console.log('[Foto Challenge Sync v2] Script loaded');
+  console.log('[Foto Challenge Sync v3] Script loaded');
   
   /**
    * Extract challenge data and hide JSON display
@@ -18,7 +19,30 @@
   function extractAndHideJSON(element) {
     const text = element.textContent || '';
     
-    // Match JSON object with challengeText field
+    // Method 1: Match CHALLENGE_SYNC_DATA block (new format)
+    if (text.includes('CHALLENGE_SYNC_DATA')) {
+      console.log('[Foto Challenge Sync] Found CHALLENGE_SYNC_DATA block!');
+      
+      // Extract JSON after the label
+      const jsonPattern = /\{[\s\S]*?"challengeText"\s*:[\s\S]*?\}/;
+      const match = text.match(jsonPattern);
+      
+      if (match) {
+        try {
+          const challengeData = JSON.parse(match[0]);
+          console.log('[Foto Challenge Sync] ✅ Extracted challenge from CHALLENGE_SYNC_DATA:', challengeData);
+          
+          // Hide the ENTIRE element (including label)
+          hideEntireElement(element);
+          
+          return challengeData;
+        } catch (error) {
+          console.error('[Foto Challenge Sync] JSON parse error:', error);
+        }
+      }
+    }
+    
+    // Method 2: Match standalone JSON (old format)
     const jsonPattern = /\{[\s\S]*?"challengeText"\s*:\s*"[\s\S]*?"[\s\S]*?\}/;
     const match = text.match(jsonPattern);
     
@@ -26,7 +50,7 @@
     
     try {
       const challengeData = JSON.parse(match[0]);
-      console.log('[Foto Challenge Sync] Extracted challenge:', challengeData);
+      console.log('[Foto Challenge Sync] ✅ Extracted challenge from JSON:', challengeData);
       
       // Hide the JSON from display
       hideJSONElement(element, match[0]);
@@ -36,6 +60,19 @@
       console.error('[Foto Challenge Sync] JSON parse error:', error);
       return null;
     }
+  }
+  
+  /**
+   * Hide entire element completely (for CHALLENGE_SYNC_DATA blocks)
+   */
+  function hideEntireElement(element) {
+    console.log('[Foto Challenge Sync] 🚫 Hiding entire element');
+    element.style.display = 'none';
+    element.style.opacity = '0';
+    element.style.visibility = 'hidden';
+    element.style.height = '0';
+    element.style.overflow = 'hidden';
+    element.setAttribute('data-foto-hidden', 'true');
   }
   
   /**
@@ -50,15 +87,15 @@
     const newText = element.textContent.replace(jsonText, '');
     
     // If element only contains JSON and separators, hide it completely
-    if (newText.trim().match(/^[-\s]*$/) || newText.trim() === '') {
-      element.style.display = 'none';
-      console.log('[Foto Challenge Sync] Hidden empty element');
+    if (newText.trim().match(/^[-\s]*$/) || newText.trim() === '' || newText.includes('CHALLENGE_SYNC_DATA')) {
+      hideEntireElement(element);
+      console.log('[Foto Challenge Sync] 🚫 Hidden empty element');
     } else {
       // Otherwise just remove the JSON part and show cleaned text
       element.textContent = newText.trim();
       element.style.opacity = '1';
       element.style.visibility = 'visible';
-      console.log('[Foto Challenge Sync] Removed JSON from element');
+      console.log('[Foto Challenge Sync] ✂️ Removed JSON from element');
     }
   }
   
@@ -71,29 +108,52 @@
       ...challengeData
     };
     
-    console.log('[Foto Challenge Sync] Syncing...', payload);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[Foto Challenge Sync] 🚀 Starting sync...');
+    console.log('[Foto Challenge Sync] 📦 Payload:', payload);
+    console.log('[Foto Challenge Sync] 🎯 Endpoint:', SYNC_API_URL);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     try {
       const response = await fetch(SYNC_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
       });
+      
+      console.log('[Foto Challenge Sync] 📡 Response status:', response.status);
       
       if (response.ok) {
         const result = await response.json();
-        console.log('[Foto Challenge Sync] ✅ Success:', result);
+        console.log('[Foto Challenge Sync] ✅ SUCCESS!');
+        console.log('[Foto Challenge Sync] 📊 Result:', result);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         showNotification('✅ Challenge saved to your dashboard!', 'success');
+        
+        // Log to help user verify
+        console.log('🎯 Go to dashboard to see the challenge: https://myfoto.topues.com/dashboard');
+        
         return true;
       } else {
-        const error = await response.text();
-        console.error('[Foto Challenge Sync] ❌ Failed:', response.status, error);
-        showNotification('⚠️ Could not save to dashboard', 'warning');
+        const errorText = await response.text();
+        console.error('[Foto Challenge Sync] ❌ FAILED!');
+        console.error('[Foto Challenge Sync] Status:', response.status);
+        console.error('[Foto Challenge Sync] Error:', errorText);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        showNotification('⚠️ Could not save to dashboard (check console)', 'warning');
         return false;
       }
     } catch (error) {
-      console.error('[Foto Challenge Sync] ❌ Network error:', error);
-      showNotification('⚠️ Could not save to dashboard', 'error');
+      console.error('[Foto Challenge Sync] ❌ NETWORK ERROR!');
+      console.error('[Foto Challenge Sync] Error:', error);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      showNotification('⚠️ Network error - could not save to dashboard', 'error');
       return false;
     }
   }
@@ -139,13 +199,27 @@
    * Process a node for challenge data
    */
   function processNode(node) {
-    if (!node || node.dataset?.fotoProcessed) return;
+    if (!node || node.nodeType !== 1) return; // Only process element nodes
+    if (node.dataset?.fotoProcessed) return;
     
     const text = node.textContent || '';
     
-    // Check if contains challenge JSON
+    // Priority 1: Check for CHALLENGE_SYNC_DATA block
+    if (text.includes('CHALLENGE_SYNC_DATA')) {
+      console.log('[Foto Challenge Sync] 🎯 Found CHALLENGE_SYNC_DATA block!');
+      
+      const challengeData = extractAndHideJSON(node);
+      
+      if (challengeData) {
+        node.dataset.fotoProcessed = 'true';
+        syncChallenge(challengeData);
+        return;
+      }
+    }
+    
+    // Priority 2: Check if contains challenge JSON
     if (text.includes('"challengeText"') && text.includes('"category"')) {
-      console.log('[Foto Challenge Sync] Found challenge JSON in node');
+      console.log('[Foto Challenge Sync] 📝 Found challenge JSON in node');
       
       const challengeData = extractAndHideJSON(node);
       
@@ -199,7 +273,7 @@
     console.log('[Foto Challenge Sync] Monitor active ✓');
   }
   
-  // Add animations
+  // Add animations and proactive hiding
   const style = document.createElement('style');
   style.textContent = `
     @keyframes slideIn {
@@ -209,6 +283,18 @@
     @keyframes slideOut {
       from { transform: translateX(0); opacity: 1; }
       to { transform: translateX(400px); opacity: 0; }
+    }
+    
+    /* Proactively hide CHALLENGE_SYNC_DATA blocks */
+    *:has-text("CHALLENGE_SYNC_DATA") {
+      display: none !important;
+    }
+    [data-foto-hidden="true"] {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      overflow: hidden !important;
     }
   `;
   document.head.appendChild(style);
