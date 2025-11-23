@@ -1,6 +1,5 @@
 
 // LLM API utilities for Foto AI Agent
-import OpenAI from 'openai';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -17,13 +16,8 @@ export interface LLMResponse {
   };
 }
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 /**
- * Call OpenAI LLM API
+ * Call Abacus.AI LLM API
  */
 export async function callLLM(
   messages: LLMMessage[],
@@ -35,14 +29,14 @@ export async function callLLM(
   } = {}
 ): Promise<LLMResponse> {
   const {
-    model = 'gpt-4o-mini',
+    model = 'gpt-4.1-mini',
     temperature = 0.7,
     max_tokens = 2000,
     json_mode = false,
   } = options;
 
   try {
-    const requestParams: any = {
+    const requestBody: any = {
       model,
       messages,
       temperature,
@@ -50,22 +44,32 @@ export async function callLLM(
     };
 
     if (json_mode) {
-      requestParams.response_format = { type: 'json_object' };
+      requestBody.response_format = { type: 'json_object' };
     }
 
-    const completion = await openai.chat.completions.create(requestParams);
+    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`LLM API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
     
     return {
-      content: completion.choices[0].message.content || '',
-      model: completion.model,
-      usage: completion.usage ? {
-        prompt_tokens: completion.usage.prompt_tokens,
-        completion_tokens: completion.usage.completion_tokens,
-        total_tokens: completion.usage.total_tokens,
-      } : undefined,
+      content: data.choices[0].message.content,
+      model: data.model,
+      usage: data.usage,
     };
   } catch (error) {
-    console.error('OpenAI API call failed:', error);
+    console.error('LLM API call failed:', error);
     throw error;
   }
 }
@@ -153,7 +157,7 @@ Respond with raw JSON only. Do not include code blocks, markdown, or any other f
         { role: 'user', content: `Generate a ${challengeType} photography challenge for today.` },
       ],
       {
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         temperature: 0.8,
         max_tokens: 1000,
         json_mode: true,
@@ -204,7 +208,7 @@ Please provide constructive feedback.`;
         { role: 'user', content: userMessage },
       ],
       {
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         temperature: 0.7,
         max_tokens: 300,
       }
@@ -290,7 +294,7 @@ Respond with raw JSON only. Do not include code blocks, markdown, or any other f
         { role: 'user', content: `Create a photography itinerary for ${location}.` },
       ],
       {
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         temperature: 0.7,
         max_tokens: 1500,
         json_mode: true,
