@@ -14,14 +14,37 @@
   console.log('[Foto Challenge Sync v3] Script loaded');
   
   /**
-   * Extract challenge data and hide JSON display
+   * Extract challenge data from HTML or text
    */
   function extractAndHideJSON(element) {
+    const html = element.innerHTML || '';
     const text = element.textContent || '';
     
-    // Method 1: Match CHALLENGE_SYNC_DATA block (new format)
+    // Method 1: Check for HTML comment with CHALLENGE_SYNC_DATA
+    const commentPattern = /<!--\s*CHALLENGE_SYNC_DATA\s*([\s\S]*?)\s*-->/;
+    const commentMatch = html.match(commentPattern);
+    
+    if (commentMatch) {
+      console.log('[Foto Challenge Sync] Found CHALLENGE_SYNC_DATA in HTML comment!');
+      const jsonText = commentMatch[1].trim();
+      
+      try {
+        const challengeData = JSON.parse(jsonText);
+        console.log('[Foto Challenge Sync] ✅ Extracted challenge from HTML comment:', challengeData);
+        
+        // Comment is already hidden - no need to hide element
+        // Just remove the comment from DOM to clean up
+        element.innerHTML = element.innerHTML.replace(commentMatch[0], '');
+        
+        return challengeData;
+      } catch (error) {
+        console.error('[Foto Challenge Sync] JSON parse error in comment:', error);
+      }
+    }
+    
+    // Method 2: Match CHALLENGE_SYNC_DATA block (visible format - legacy)
     if (text.includes('CHALLENGE_SYNC_DATA')) {
-      console.log('[Foto Challenge Sync] Found CHALLENGE_SYNC_DATA block!');
+      console.log('[Foto Challenge Sync] Found visible CHALLENGE_SYNC_DATA block!');
       
       // Extract JSON after the label
       const jsonPattern = /\{[\s\S]*?"challengeText"\s*:[\s\S]*?\}/;
@@ -30,7 +53,7 @@
       if (match) {
         try {
           const challengeData = JSON.parse(match[0]);
-          console.log('[Foto Challenge Sync] ✅ Extracted challenge from CHALLENGE_SYNC_DATA:', challengeData);
+          console.log('[Foto Challenge Sync] ✅ Extracted challenge from visible CHALLENGE_SYNC_DATA:', challengeData);
           
           // Hide the ENTIRE element (including label)
           hideEntireElement(element);
@@ -42,7 +65,7 @@
       }
     }
     
-    // Method 2: Match standalone JSON (old format)
+    // Method 3: Match standalone JSON (old format - legacy)
     const jsonPattern = /\{[\s\S]*?"challengeText"\s*:\s*"[\s\S]*?"[\s\S]*?\}/;
     const match = text.match(jsonPattern);
     
@@ -50,7 +73,7 @@
     
     try {
       const challengeData = JSON.parse(match[0]);
-      console.log('[Foto Challenge Sync] ✅ Extracted challenge from JSON:', challengeData);
+      console.log('[Foto Challenge Sync] ✅ Extracted challenge from standalone JSON:', challengeData);
       
       // Hide the JSON from display
       hideJSONElement(element, match[0]);
