@@ -42,16 +42,22 @@
    * Hide JSON element from display
    */
   function hideJSONElement(element, jsonText) {
+    // Immediately hide to prevent flash
+    element.style.opacity = '0';
+    element.style.visibility = 'hidden';
+    
     // Replace JSON with empty string
     const newText = element.textContent.replace(jsonText, '');
     
     // If element only contains JSON and separators, hide it completely
-    if (newText.trim().match(/^[-\s]*$/)) {
+    if (newText.trim().match(/^[-\s]*$/) || newText.trim() === '') {
       element.style.display = 'none';
       console.log('[Foto Challenge Sync] Hidden empty element');
     } else {
-      // Otherwise just remove the JSON part
+      // Otherwise just remove the JSON part and show cleaned text
       element.textContent = newText.trim();
+      element.style.opacity = '1';
+      element.style.visibility = 'visible';
       console.log('[Foto Challenge Sync] Removed JSON from element');
     }
   }
@@ -156,18 +162,20 @@
   function startMonitoring() {
     console.log('[Foto Challenge Sync] Starting monitor...');
     
-    // Process existing content
-    setTimeout(() => {
-      document.querySelectorAll('*').forEach(processNode);
-    }, 1000);
+    // Process existing content immediately
+    document.querySelectorAll('*').forEach(processNode);
     
-    // Watch for new content
+    // Watch for new content with high frequency
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === 1) {
+            // Process immediately to minimize flash
             processNode(node);
             node.querySelectorAll?.('*').forEach(processNode);
+          } else if (node.nodeType === 3 && node.textContent.includes('"challengeText"')) {
+            // Text node with JSON - process parent
+            processNode(node.parentElement);
           }
         });
       });
@@ -175,8 +183,18 @@
     
     observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      characterData: true,
+      characterDataOldValue: true
     });
+    
+    // Also poll aggressively for first 5 seconds
+    let pollCount = 0;
+    const pollInterval = setInterval(() => {
+      document.querySelectorAll('*').forEach(processNode);
+      pollCount++;
+      if (pollCount >= 50) clearInterval(pollInterval); // Stop after 5 seconds
+    }, 100);
     
     console.log('[Foto Challenge Sync] Monitor active ✓');
   }

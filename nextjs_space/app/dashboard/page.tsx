@@ -250,6 +250,49 @@ export default function DashboardPage() {
     }
   }
 
+  async function skipChallenge() {
+    if (!currentChallenge) return;
+
+    try {
+      setSubmitting(true);
+      toast.info('Skipping challenge...');
+
+      const response = await fetch(`/api/challenges/${currentChallenge.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'skipped'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Challenge skipped. Ready for a new one!');
+        
+        // Clear localStorage cache
+        localStorage.removeItem('currentChallenge');
+        console.log('✅ Challenge skipped and cache cleared');
+        
+        // Reset form
+        setPhoto(null);
+        setNotes('');
+        setRating(0);
+        setCurrentChallenge(null);
+        
+        // Reload dashboard
+        await loadDashboardData();
+      } else {
+        toast.error(data.error || 'Failed to skip challenge');
+      }
+    } catch (error) {
+      console.error('Skip failed:', error);
+      toast.error('Failed to skip challenge. Check console for details.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -439,21 +482,38 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <Button
-                    onClick={submitChallenge}
-                    disabled={submitting}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {submitting ? (
-                      <>Submitting...</>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Submit Challenge
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={submitChallenge}
+                      disabled={submitting}
+                      className="flex-1"
+                      size="lg"
+                    >
+                      {submitting ? (
+                        <>Submitting...</>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Submit Challenge
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={skipChallenge}
+                      disabled={submitting}
+                      variant="outline"
+                      className="flex-1"
+                      size="lg"
+                    >
+                      {submitting ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          Skip Challenge
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
