@@ -30,7 +30,7 @@ def sync_challenge_to_dashboard(
     location: str = "Flexible",
     recommended_gear: str = "",
     tips: str = "",
-    weather_condition: str = "Any"
+    weather_conditions: str = "Any"
 ):
     """Syncs a photography challenge to the Foto dashboard"""
     
@@ -45,7 +45,7 @@ def sync_challenge_to_dashboard(
         "location": location,
         "recommendedGear": recommended_gear,
         "tips": tips,
-        "weatherConditions": weather_condition
+        "weatherConditions": weather_conditions
     }
     
     try:

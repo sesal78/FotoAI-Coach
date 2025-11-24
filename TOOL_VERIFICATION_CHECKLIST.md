@@ -35,7 +35,7 @@ The tool MUST have these parameters (check the right panel):
 7. **tips** (string, optional)
    - Description: "Photography tips"
 
-8. **weather_condition** (string, optional)
+8. **weather_conditions** (string, optional)
    - Description: "Weather conditions"
 
 ### Python Code Verification
@@ -59,7 +59,7 @@ def sync_challenge_to_dashboard(
     location: str = "Flexible",
     recommended_gear: str = "",
     tips: str = "",
-    weather_condition: str = "Any"
+    weather_conditions: str = "Any"
 ):
     url = "https://myfoto.topues.com/api/challenges/sync"
     
@@ -72,7 +72,7 @@ def sync_challenge_to_dashboard(
         "location": location,
         "recommendedGear": recommended_gear,
         "tips": tips,
-        "weatherConditions": weather_condition
+        "weatherConditions": weather_conditions
     }
     
     try:
@@ -102,7 +102,7 @@ def sync_challenge_to_dashboard(
    location: "Melbourne CBD"
    recommended_gear: "Fujifilm X-T5"
    tips: "Test tips"
-   weather_condition: "Sunny"
+   weather_conditions: "Sunny"
    ```
 3. Click **"Run Test"**
 4. Expected result: `{"success": true, "message": "Challenge synced successfully"}`

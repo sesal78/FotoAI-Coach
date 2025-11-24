@@ -73,7 +73,7 @@ sync_challenge_to_dashboard(
     location="[Same location as above]",
     recommended_gear="[Same gear as above]",
     tips="[Brief summary of tips from above]",
-    weather_condition="[Same weather as above]"
+    weather_conditions="[Same weather as above]"
 )
 ```
 
@@ -147,7 +147,7 @@ sync_challenge_to_dashboard(
     location="Flinders Street Station area",
     recommended_gear="Fujifilm X-T5 with 23mm f/2 lens",
     tips="Look for leading lines, use low or high angles for drama, pay attention to light and shadow for contrast",
-    weather_condition="Partly cloudy"
+    weather_conditions="Partly cloudy"
 )
 ```
 
