@@ -274,7 +274,7 @@
         },
         body: JSON.stringify({
           ...challenge,
-          userEmail: 'seunsamuel11@gmail.com'
+          userEmail: 'seun_salami@outlook.com'
         })
       });
 
@@ -294,7 +294,7 @@
         console.log('[Foto Email] ✅ Challenge emailed successfully');
 
         // Show notification
-        showNotification('✅ Challenge emailed to seunsamuel11@gmail.com!', 'success');
+        showNotification('✅ Challenge emailed to seun_salami@outlook.com!', 'success');
 
         // Reset button after 3 seconds
         setTimeout(() => {

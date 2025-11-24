@@ -26,7 +26,7 @@ A **beautiful floating email button** that automatically appears when challenges
    - Visual confirmation with success animation
 
 4. **Check inbox**
-   - Email arrives at seunsamuel11@gmail.com
+   - Email arrives at seun_salami@outlook.com
    - Professional formatting with all challenge details
    - Gradient header, badges, tips, gear recommendations
 
@@ -90,7 +90,7 @@ Try any of these:
 ### 4. Click to Send
 - Button shows "Sending..." state
 - Success shows ✅ "Sent! Check Your Email"
-- Check inbox at seunsamuel11@gmail.com
+- Check inbox at seun_salami@outlook.com
 
 ### 5. Verify Email
 Email should include:
@@ -265,7 +265,7 @@ Visit your dashboard to track your progress.
 
 **Check:**
 1. Spam folder
-2. Email address: seunsamuel11@gmail.com
+2. Email address: seun_salami@outlook.com
 3. SendGrid configuration in .env
 
 **Test API directly:**
@@ -275,7 +275,7 @@ curl -X POST https://myfoto.topues.com/api/challenges/email \
   -d '{
     "challengeText": "Test Challenge",
     "category": "STREET",
-    "userEmail": "seunsamuel11@gmail.com"
+    "userEmail": "seun_salami@outlook.com"
   }'
 ```
 

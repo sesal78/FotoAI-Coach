@@ -42,7 +42,7 @@ def email_challenge_to_user(
     recommended_gear: str = "",
     tips: str = "",
     weather_conditions: str = "",
-    user_email: str = "seunsamuel11@gmail.com"
+    user_email: str = "seun_salami@outlook.com"
 ) -> Dict:
     """
     Emails a photography challenge to the user.
@@ -56,7 +56,7 @@ def email_challenge_to_user(
         recommended_gear: Camera gear recommendation
         tips: Photography tips and guidance
         weather_conditions: Weather conditions for the challenge
-        user_email: User's email address (default: seunsamuel11@gmail.com)
+        user_email: User's email address (default: seun_salami@outlook.com)
     
     Returns:
         Dict with success status and message
@@ -132,7 +132,7 @@ Configure these parameters (right panel):
 8. **weather_conditions** (string, optional)
    - Description: "Weather conditions"
 
-9. **user_email** (string, optional, default: "seunsamuel11@gmail.com")
+9. **user_email** (string, optional, default: "seun_salami@outlook.com")
    - Description: "User's email address"
 
 ---
@@ -175,7 +175,7 @@ email_challenge_to_user(
 
 After calling the tool, confirm to the user:
 
-✅ **Challenge emailed!** Check your inbox at seunsamuel11@gmail.com. The email includes all challenge details, tips, and gear recommendations in a beautifully formatted message.
+✅ **Challenge emailed!** Check your inbox at seun_salami@outlook.com. The email includes all challenge details, tips, and gear recommendations in a beautifully formatted message.
 
 ### Example Workflow
 
@@ -187,7 +187,7 @@ After calling the tool, confirm to the user:
 
 **You:** [Call email_challenge_to_user tool with all challenge details]
 
-**You:** "✅ Challenge emailed! Check your inbox at seunsamuel11@gmail.com. The email includes all challenge details, tips, and gear recommendations in a beautifully formatted message."
+**You:** "✅ Challenge emailed! Check your inbox at seun_salami@outlook.com. The email includes all challenge details, tips, and gear recommendations in a beautifully formatted message."
 
 ---
 
@@ -208,7 +208,7 @@ After calling the tool, confirm to the user:
 3. Chatbot generates challenge
 4. Say: "Send this to my email"
 5. Chatbot calls email tool
-6. Check your inbox at seunsamuel11@gmail.com
+6. Check your inbox at seun_salami@outlook.com
 
 **Expected Result:**
 - ✅ Beautiful HTML email with challenge details
@@ -269,7 +269,7 @@ Look for leading lines, use low or high angles for drama...
 **Check:**
 - SendGrid API key is configured in .env
 - FROM_EMAIL is set in .env
-- Email address is correct (seunsamuel11@gmail.com)
+- Email address is correct (seun_salami@outlook.com)
 - Check spam folder
 
 **Test manually:**
@@ -281,7 +281,7 @@ curl -X POST https://myfoto.topues.com/api/challenges/email \
     "category": "STREET",
     "difficulty": "MINI",
     "duration": "30 minutes",
-    "userEmail": "seunsamuel11@gmail.com"
+    "userEmail": "seun_salami@outlook.com"
   }'
 ```
 

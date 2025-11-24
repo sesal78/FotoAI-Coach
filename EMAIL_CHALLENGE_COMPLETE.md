@@ -57,7 +57,7 @@ def email_challenge_to_user(
     recommended_gear: str = "",
     tips: str = "",
     weather_conditions: str = "",
-    user_email: str = "seunsamuel11@gmail.com"
+    user_email: str = "seun_salami@outlook.com"
 ) -> Dict:
     """Emails a photography challenge to the user."""
     
@@ -104,7 +104,7 @@ def email_challenge_to_user(
 6. recommended_gear (string, optional)
 7. tips (string, optional)
 8. weather_conditions (string, optional)
-9. user_email (string, optional, default: "seunsamuel11@gmail.com")
+9. user_email (string, optional, default: "seun_salami@outlook.com")
 
 ---
 
@@ -146,7 +146,7 @@ email_challenge_to_user(
 ```
 
 **Then confirm:**
-✅ **Challenge emailed!** Check your inbox at seunsamuel11@gmail.com for all the details.
+✅ **Challenge emailed!** Check your inbox at seun_salami@outlook.com for all the details.
 
 ---
 
@@ -155,7 +155,7 @@ email_challenge_to_user(
 1. Go to https://myfoto.topues.com/chat
 2. Ask: "Give me a street photography challenge"
 3. Say: "Send this to my email"
-4. Check your inbox at seunsamuel11@gmail.com
+4. Check your inbox at seun_salami@outlook.com
 
 ---
 
@@ -219,7 +219,7 @@ curl -X POST https://myfoto.topues.com/api/challenges/email \
     "category": "STREET",
     "difficulty": "MINI",
     "duration": "30 minutes",
-    "userEmail": "seunsamuel11@gmail.com"
+    "userEmail": "seun_salami@outlook.com"
   }'
 ```
 
@@ -227,7 +227,7 @@ Expected response:
 ```json
 {
   "success": true,
-  "message": "Challenge emailed to seunsamuel11@gmail.com"
+  "message": "Challenge emailed to seun_salami@outlook.com"
 }
 ```
 

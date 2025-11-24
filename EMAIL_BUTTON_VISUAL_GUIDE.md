@@ -41,7 +41,7 @@ Chatbot: [Beautiful challenge description appears]
 ### Step 4: Check Email
 ```
 From: Foto AI Coach <noreply@myfoto.topues.com>
-To: seunsamuel11@gmail.com
+To: seun_salami@outlook.com
 Subject: 📸 Your Photography Challenge: Urban Geometry
 
 ┌─────────────────────────────────────────────────────┐
@@ -145,7 +145,7 @@ When email is sent, a notification appears:
 ```
 ┌────────────────────────────────────────┐
 │  ✅ Challenge emailed to               │  ← Top-right
-│     seunsamuel11@gmail.com!            │
+│     seun_salami@outlook.com!            │
 └────────────────────────────────────────┘
     (fades out after 3 seconds)
 ```
