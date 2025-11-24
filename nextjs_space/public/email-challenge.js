@@ -2,15 +2,15 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 2024112402
+ * Version: 2024112403
  * Target Email: seun_salami@outlook.com
- * Updates: Enhanced data extraction + improved email template with full challenge details
+ * Updates: Fixed dashboard link (now goes to chat), added send logging
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024112402');
+  console.log('[Foto Email] Script loaded - Version: 2024112403');
   console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
@@ -338,6 +338,9 @@
     `;
 
     try {
+      // Log what we're sending
+      console.log('[Foto Email] Sending challenge data:', challenge);
+      
       const response = await fetch('https://myfoto.topues.com/api/challenges/email', {
         method: 'POST',
         headers: {

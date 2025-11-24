@@ -273,11 +273,17 @@ export async function POST(request: Request) {
                 </div>
               ` : ''}
               
-              <center>
-                <a href="https://myfoto.topues.com/dashboard" class="cta-button">
-                  View Challenge & Submit Photos →
+              <div style="text-align: center; margin-top: 40px; padding: 25px; background: #f9fafb; border-radius: 10px; border: 2px solid #e5e7eb;">
+                <p style="font-size: 18px; font-weight: 600; color: #667eea; margin-bottom: 10px;">
+                  📸 Ready to Shoot?
+                </p>
+                <p style="color: #6b7280; font-size: 15px; line-height: 1.6; margin-bottom: 15px;">
+                  This challenge was created just for you in the chat. Head back to continue your conversation with your AI photography coach!
+                </p>
+                <a href="https://myfoto.topues.com/chat" class="cta-button">
+                  Continue Chat →
                 </a>
-              </center>
+              </div>
             </div>
             
             <div class="footer">
@@ -322,12 +328,19 @@ ${tips}
 
 ═══════════════════════════════════════
 
+📸 Ready to Shoot?
+
+This challenge was created just for you in the chat. 
+Head back to continue your conversation with your AI photography coach!
+
+🔗 Continue Chat:
+https://myfoto.topues.com/chat
+
+═══════════════════════════════════════
+
 Happy shooting! 📷
 
 This challenge was personalized for your gear and skill level.
-
-📊 View Challenge & Submit Photos:
-https://myfoto.topues.com/dashboard
 
 ---
 Foto Photography Coach
