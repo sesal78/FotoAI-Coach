@@ -2,13 +2,15 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 1.0.0
+ * Version: 2024112401
+ * Target Email: seun_salami@outlook.com
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded');
+  console.log('[Foto Email] Script loaded - Version: 2024112401');
+  console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
   let emailButton = null;
