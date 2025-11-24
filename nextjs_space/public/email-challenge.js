@@ -2,14 +2,15 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 2024112401
+ * Version: 2024112402
  * Target Email: seun_salami@outlook.com
+ * Updates: Enhanced data extraction + improved email template with full challenge details
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024112401');
+  console.log('[Foto Email] Script loaded - Version: 2024112402');
   console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
@@ -77,46 +78,99 @@
       location: '',
       recommendedGear: '',
       tips: '',
-      weatherConditions: ''
+      weatherConditions: '',
+      detailedDescription: '' // Added for full challenge description
     };
 
-    // Parse common patterns
+    let captureMode = null;
+    let capturedLines = [];
+
+    // Parse common patterns with improved multi-line support
     lines.forEach((line, i) => {
       const lower = line.toLowerCase();
+      const trimmed = line.trim();
       
-      if (lower.includes('challenge:') || (lower.includes('challenge') && i < 10)) {
-        challenge.challengeText = line.replace(/challenge:?/gi, '').trim();
+      // Capture challenge title/text
+      if (lower.includes('challenge:') || (lower.includes('photography challenge') && !challenge.challengeText)) {
+        challenge.challengeText = trimmed.replace(/challenge:?|photography challenge:?/gi, '').trim();
+        captureMode = 'description';
+        capturedLines = [];
       }
       
-      if (lower.includes('category:')) {
-        challenge.category = line.split(':')[1]?.trim() || '';
+      // Category
+      else if (lower.includes('category:')) {
+        challenge.category = trimmed.split(':')[1]?.trim() || '';
+        captureMode = null;
       }
       
-      if (lower.includes('difficulty:')) {
-        challenge.difficulty = line.split(':')[1]?.trim() || '';
+      // Difficulty
+      else if (lower.includes('difficulty:')) {
+        challenge.difficulty = trimmed.split(':')[1]?.trim() || '';
+        captureMode = null;
       }
       
-      if (lower.includes('duration:')) {
-        challenge.duration = line.split(':')[1]?.trim() || '';
+      // Duration
+      else if (lower.includes('duration:') || lower.includes('time:')) {
+        challenge.duration = trimmed.split(':')[1]?.trim() || '';
+        captureMode = null;
       }
       
-      if (lower.includes('location:')) {
-        challenge.location = line.split(':')[1]?.trim() || '';
+      // Location
+      else if (lower.includes('location:') || lower.includes('where:')) {
+        challenge.location = trimmed.split(':')[1]?.trim() || '';
+        captureMode = null;
       }
       
-      if (lower.includes('gear:') || lower.includes('equipment:')) {
-        challenge.recommendedGear = line.split(':')[1]?.trim() || '';
+      // Gear
+      else if (lower.includes('gear:') || lower.includes('equipment:') || lower.includes('recommended gear:')) {
+        captureMode = 'gear';
+        capturedLines = [];
+        const immediate = trimmed.split(':').slice(1).join(':').trim();
+        if (immediate) capturedLines.push(immediate);
       }
       
-      if (lower.includes('tips:')) {
-        const nextLines = lines.slice(i + 1, i + 4).join(' ');
-        challenge.tips = nextLines.trim();
+      // Tips
+      else if (lower.includes('tips:') || lower.includes('pro tips:') || lower.includes('advice:')) {
+        captureMode = 'tips';
+        capturedLines = [];
+        const immediate = trimmed.split(':').slice(1).join(':').trim();
+        if (immediate) capturedLines.push(immediate);
       }
       
-      if (lower.includes('weather:')) {
-        challenge.weatherConditions = line.split(':')[1]?.trim() || '';
+      // Weather
+      else if (lower.includes('weather:') || lower.includes('conditions:')) {
+        challenge.weatherConditions = trimmed.split(':')[1]?.trim() || '';
+        captureMode = null;
+      }
+      
+      // Capture multi-line content
+      else if (captureMode && trimmed && !lower.includes(':')) {
+        capturedLines.push(trimmed);
+        
+        // Store captured content
+        if (captureMode === 'gear') {
+          challenge.recommendedGear = capturedLines.join(', ');
+        } else if (captureMode === 'tips') {
+          challenge.tips = capturedLines.join(' ');
+        } else if (captureMode === 'description') {
+          challenge.detailedDescription = capturedLines.join(' ');
+        }
+      }
+      
+      // Stop capture mode on new section
+      else if (lower.includes(':') && captureMode) {
+        captureMode = null;
       }
     });
+
+    // Finalize captured content
+    if (captureMode === 'gear' && capturedLines.length > 0) {
+      challenge.recommendedGear = capturedLines.join(', ');
+    } else if (captureMode === 'tips' && capturedLines.length > 0) {
+      challenge.tips = capturedLines.join(' ');
+    } else if (captureMode === 'description' && capturedLines.length > 0) {
+      challenge.detailedDescription = capturedLines.join(' ');
+    }
 
     // Must have at least a challenge text
     if (!challenge.challengeText) {
@@ -127,6 +181,21 @@
           break;
         }
       }
+    }
+
+    // Log extracted challenge data for debugging
+    if (challenge.challengeText) {
+      console.log('[Foto Email] Extracted challenge data:', {
+        challengeText: challenge.challengeText,
+        category: challenge.category || '(not found)',
+        difficulty: challenge.difficulty || '(not found)',
+        duration: challenge.duration || '(not found)',
+        location: challenge.location || '(not found)',
+        recommendedGear: challenge.recommendedGear || '(not found)',
+        tips: challenge.tips ? challenge.tips.substring(0, 50) + '...' : '(not found)',
+        weatherConditions: challenge.weatherConditions || '(not found)',
+        detailedDescription: challenge.detailedDescription ? challenge.detailedDescription.substring(0, 50) + '...' : '(not found)'
+      });
     }
 
     return challenge.challengeText ? challenge : null;

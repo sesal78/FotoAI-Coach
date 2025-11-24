@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       recommendedGear,
       tips,
       weatherConditions,
+      detailedDescription,
       userEmail
     } = body
 
@@ -33,125 +34,259 @@ export async function POST(request: Request) {
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
             body {
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
               line-height: 1.6;
-              color: #333;
+              color: #1f2937;
+              background-color: #f3f4f6;
+              padding: 20px;
+            }
+            .email-container {
               max-width: 600px;
               margin: 0 auto;
-              padding: 20px;
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }
             .header {
               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
               color: white;
-              padding: 30px;
-              border-radius: 10px 10px 0 0;
+              padding: 40px 30px;
               text-align: center;
             }
             .header h1 {
+              margin: 0 0 10px 0;
+              font-size: 32px;
+              font-weight: 700;
+            }
+            .header p {
               margin: 0;
-              font-size: 28px;
+              font-size: 16px;
+              opacity: 0.95;
             }
             .content {
-              background: #f8f9fa;
-              padding: 30px;
-              border-radius: 0 0 10px 10px;
+              padding: 40px 30px;
             }
             .challenge-title {
-              font-size: 24px;
+              font-size: 28px;
               color: #667eea;
-              margin-top: 0;
-              margin-bottom: 20px;
+              margin: 0 0 30px 0;
+              font-weight: 700;
+              line-height: 1.3;
+              padding-bottom: 20px;
+              border-bottom: 3px solid #667eea;
+            }
+            .challenge-description {
+              background: #f9fafb;
+              padding: 20px;
+              border-radius: 8px;
+              border-left: 4px solid #667eea;
+              margin-bottom: 30px;
+              font-size: 16px;
+              line-height: 1.8;
+              color: #374151;
+            }
+            .details-grid {
+              display: table;
+              width: 100%;
+              margin: 30px 0;
             }
             .detail-row {
-              margin: 15px 0;
-              padding: 10px;
-              background: white;
-              border-radius: 5px;
+              display: table-row;
+              margin: 12px 0;
+            }
+            .detail-row > div {
+              display: table-cell;
+              padding: 16px;
+              border-bottom: 1px solid #e5e7eb;
             }
             .detail-label {
               font-weight: 600;
               color: #667eea;
-              margin-bottom: 5px;
+              font-size: 16px;
+              width: 40%;
+              vertical-align: top;
             }
-            .tips-list {
+            .detail-value {
+              color: #374151;
+              font-size: 15px;
+              line-height: 1.6;
+            }
+            .section {
+              margin: 30px 0;
+              padding: 25px;
+              background: #f9fafb;
+              border-radius: 10px;
+              border: 2px solid #e5e7eb;
+            }
+            .section-title {
+              font-size: 20px;
+              font-weight: 700;
+              color: #667eea;
+              margin-bottom: 15px;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            }
+            .section-content {
+              color: #374151;
+              font-size: 15px;
+              line-height: 1.8;
+            }
+            .tips-box {
+              background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+              padding: 20px;
+              border-radius: 8px;
+              border-left: 4px solid #f59e0b;
+              margin: 20px 0;
+            }
+            .gear-list {
               background: white;
-              padding: 15px;
-              border-radius: 5px;
+              padding: 15px 20px;
+              border-radius: 6px;
               margin-top: 10px;
+            }
+            .cta-button {
+              display: inline-block;
+              padding: 16px 32px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: 600;
+              font-size: 16px;
+              text-align: center;
+              margin: 30px 0 20px 0;
+              box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+              transition: all 0.3s ease;
             }
             .footer {
               text-align: center;
-              margin-top: 30px;
-              color: #666;
-              font-size: 14px;
+              padding: 30px;
+              background: #f9fafb;
+              border-top: 2px solid #e5e7eb;
             }
-            .emoji {
-              font-size: 1.2em;
+            .footer p {
+              color: #6b7280;
+              font-size: 14px;
+              margin: 10px 0;
+            }
+            @media only screen and (max-width: 600px) {
+              .content {
+                padding: 30px 20px;
+              }
+              .header {
+                padding: 30px 20px;
+              }
+              .challenge-title {
+                font-size: 24px;
+              }
+              .detail-row > div {
+                display: block;
+                padding: 12px 0;
+              }
+              .detail-label {
+                width: 100%;
+                padding-bottom: 5px;
+              }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>📸 Foto Photography Challenge</h1>
-          </div>
-          
-          <div class="content">
-            <h2 class="challenge-title">🎯 ${challengeText}</h2>
+          <div class="email-container">
+            <div class="header">
+              <h1>📸 Your Photography Challenge</h1>
+              <p>Ready to capture something amazing?</p>
+            </div>
             
-            ${category ? `
-              <div class="detail-row">
-                <div class="detail-label">📂 Category</div>
-                <div>${category}</div>
+            <div class="content">
+              <h2 class="challenge-title">🎯 ${challengeText}</h2>
+              
+              ${detailedDescription ? `
+                <div class="challenge-description">
+                  <strong>Challenge Description:</strong><br>
+                  ${detailedDescription}
+                </div>
+              ` : ''}
+              
+              <div class="details-grid">
+                ${category ? `
+                  <div class="detail-row">
+                    <div class="detail-label">📂 Category</div>
+                    <div class="detail-value"><strong>${category}</strong></div>
+                  </div>
+                ` : ''}
+                
+                ${difficulty ? `
+                  <div class="detail-row">
+                    <div class="detail-label">⚡ Difficulty</div>
+                    <div class="detail-value"><strong>${difficulty}</strong></div>
+                  </div>
+                ` : ''}
+                
+                ${duration ? `
+                  <div class="detail-row">
+                    <div class="detail-label">⏱️ Duration</div>
+                    <div class="detail-value">${duration}</div>
+                  </div>
+                ` : ''}
+                
+                ${location ? `
+                  <div class="detail-row">
+                    <div class="detail-label">📍 Location</div>
+                    <div class="detail-value">${location}</div>
+                  </div>
+                ` : ''}
+                
+                ${weatherConditions ? `
+                  <div class="detail-row">
+                    <div class="detail-label">🌤️ Weather</div>
+                    <div class="detail-value">${weatherConditions}</div>
+                  </div>
+                ` : ''}
               </div>
-            ` : ''}
-            
-            ${difficulty ? `
-              <div class="detail-row">
-                <div class="detail-label">⚡ Difficulty</div>
-                <div>${difficulty}</div>
-              </div>
-            ` : ''}
-            
-            ${duration ? `
-              <div class="detail-row">
-                <div class="detail-label">⏱️ Duration</div>
-                <div>${duration}</div>
-              </div>
-            ` : ''}
-            
-            ${location ? `
-              <div class="detail-row">
-                <div class="detail-label">📍 Location</div>
-                <div>${location}</div>
-              </div>
-            ` : ''}
-            
-            ${recommendedGear ? `
-              <div class="detail-row">
-                <div class="detail-label">📸 Recommended Gear</div>
-                <div>${recommendedGear}</div>
-              </div>
-            ` : ''}
-            
-            ${weatherConditions ? `
-              <div class="detail-row">
-                <div class="detail-label">🌤️ Weather</div>
-                <div>${weatherConditions}</div>
-              </div>
-            ` : ''}
-            
-            ${tips ? `
-              <div class="detail-row">
-                <div class="detail-label">💡 Tips</div>
-                <div class="tips-list">${tips}</div>
-              </div>
-            ` : ''}
+              
+              ${recommendedGear ? `
+                <div class="section">
+                  <div class="section-title">📸 Recommended Gear</div>
+                  <div class="gear-list">
+                    ${recommendedGear}
+                  </div>
+                </div>
+              ` : ''}
+              
+              ${tips ? `
+                <div class="tips-box">
+                  <div class="section-title">💡 Pro Tips</div>
+                  <div class="section-content">
+                    ${tips}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <center>
+                <a href="https://myfoto.topues.com/dashboard" class="cta-button">
+                  View Challenge & Submit Photos →
+                </a>
+              </center>
+            </div>
             
             <div class="footer">
-              <p>Happy shooting! 📷</p>
-              <p>Visit your <a href="https://myfoto.topues.com/dashboard">dashboard</a> to track your progress.</p>
+              <p><strong>Happy Shooting! 📷</strong></p>
+              <p>This challenge was personalized for your gear and skill level.</p>
+              <p style="font-size: 12px; margin-top: 20px;">
+                Foto Photography Coach • 
+                <a href="https://myfoto.topues.com" style="color: #667eea; text-decoration: none;">myfoto.topues.com</a>
+              </p>
             </div>
           </div>
         </body>
@@ -163,18 +298,40 @@ export async function POST(request: Request) {
 
 🎯 ${challengeText}
 
-${category ? `📂 Category: ${category}` : ''}
-${difficulty ? `⚡ Difficulty: ${difficulty}` : ''}
-${duration ? `⏱️ Duration: ${duration}` : ''}
-${location ? `📍 Location: ${location}` : ''}
-${recommendedGear ? `📸 Recommended Gear: ${recommendedGear}` : ''}
-${weatherConditions ? `🌤️ Weather: ${weatherConditions}` : ''}
-${tips ? `💡 Tips: ${tips}` : ''}
+${detailedDescription ? `
+Challenge Description:
+${detailedDescription}
+
+` : ''}═══════════════════════════════════════
+
+CHALLENGE DETAILS:
+
+${category ? `📂 Category: ${category}\n` : ''}${difficulty ? `⚡ Difficulty: ${difficulty}\n` : ''}${duration ? `⏱️ Duration: ${duration}\n` : ''}${location ? `📍 Location: ${location}\n` : ''}${weatherConditions ? `🌤️ Weather: ${weatherConditions}\n` : ''}
+${recommendedGear ? `
+═══════════════════════════════════════
+
+📸 RECOMMENDED GEAR:
+${recommendedGear}
+` : ''}
+${tips ? `
+═══════════════════════════════════════
+
+💡 PRO TIPS:
+${tips}
+` : ''}
+
+═══════════════════════════════════════
 
 Happy shooting! 📷
 
-Visit your dashboard to track your progress:
+This challenge was personalized for your gear and skill level.
+
+📊 View Challenge & Submit Photos:
 https://myfoto.topues.com/dashboard
+
+---
+Foto Photography Coach
+https://myfoto.topues.com
     `.trim()
 
     // Send email
