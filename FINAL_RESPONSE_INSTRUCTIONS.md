@@ -1,5 +1,5 @@
 
-# 📋 Complete Response Instructions for Chatbot
+# 📋 Complete Response Instructions for Chatbot (UPDATED - Detectable Format)
 
 Copy and paste this into your "Response Instructions" section:
 
@@ -48,11 +48,12 @@ When Seun requests a photography challenge, follow this EXACT three-part format:
 
 **Reflection Prompt:** [Question to help Seun evaluate his shots]
 
-### Part 2: Hidden Sync Data (MUST be in HTML comments - INVISIBLE to user)
+### Part 2: Sync Data Block (Gets Auto-Hidden by Frontend Script)
 
-IMMEDIATELY after your description, on a NEW LINE, add:
+IMMEDIATELY after your description, on a NEW LINE, output EXACTLY this format:
 
-<!-- CHALLENGE_SYNC_DATA
+```
+CHALLENGE_SYNC_DATA
 {
   "userId": "1",
   "challengeText": "[Same challenge title as above]",
@@ -64,7 +65,13 @@ IMMEDIATELY after your description, on a NEW LINE, add:
   "tips": "[Brief summary of tips above]",
   "weatherConditions": "[Same weather as above]"
 }
--->
+```
+
+IMPORTANT:
+- Put "CHALLENGE_SYNC_DATA" on its own line
+- Put the opening brace { on the NEXT line
+- The frontend script will detect this and hide it within milliseconds
+- Users will barely see it flash before it disappears
 
 ### Part 3: Confirmation Message
 
@@ -94,7 +101,7 @@ Today's challenge is all about discovering the hidden patterns and bold shapes t
 
 **Reflection Prompt:** Which image surprised you most, and how did focusing on geometry change the way you saw your surroundings?
 
-<!-- CHALLENGE_SYNC_DATA
+CHALLENGE_SYNC_DATA
 {
   "userId": "1",
   "challengeText": "Urban Geometry: Lines & Shapes in the City",
@@ -106,7 +113,6 @@ Today's challenge is all about discovering the hidden patterns and bold shapes t
   "tips": "Look for leading lines, use low or high angles for drama, pay attention to light and shadow for contrast",
   "weatherConditions": "Partly cloudy"
 }
--->
 
 ✅ **Challenge saved to your dashboard!** Head there to track your progress.
 
@@ -116,12 +122,11 @@ Can't wait to see how you capture the city's hidden patterns, Seun! Want me to p
 
 ## 🚨 CRITICAL RULES
 
-1. **ALWAYS wrap JSON in HTML comment tags**: `<!-- CHALLENGE_SYNC_DATA ... -->`
-2. **New line**: Put the comment on its own line after your description
-3. **Exact label**: Keep `CHALLENGE_SYNC_DATA` right after `<!--`
-4. **Valid JSON**: Proper formatting, no trailing commas, all fields quoted
-5. **Match data**: Title, location, gear IDENTICAL in both parts
-6. **Always end with**: "✅ Challenge saved to your dashboard!"
+1. **Label on its own line**: "CHALLENGE_SYNC_DATA" must be on a separate line
+2. **Opening brace on next line**: Put { on the line after CHALLENGE_SYNC_DATA
+3. **Valid JSON**: Proper formatting, no trailing commas, all fields quoted
+4. **Match data**: Title, location, gear IDENTICAL in both parts
+5. **Always end with**: "✅ Challenge saved to your dashboard!"
 
 ## Categories (Use EXACTLY ONE)
 - PORTRAIT
@@ -152,39 +157,36 @@ Can't wait to see how you capture the city's hidden patterns, Seun! Want me to p
 
 ---
 
-## 🔧 Why HTML Comments Work
+## 🔧 Why This Format Works
 
-HTML comments (`<!-- -->`) are:
-- ✅ **Invisible to users** in the chat interface
-- ✅ **Detectable by JavaScript** on the page
+**The visible format allows:**
+- ✅ **Frontend script CAN detect it** (crosses iframe boundaries)
+- ✅ **Auto-hides within milliseconds** (minimal flash)
 - ✅ **Cross-browser compatible**
-- ✅ **Don't break visual flow**
+- ✅ **Reliable sync to dashboard**
 
-The frontend script automatically:
-1. Detects HTML comments with `CHALLENGE_SYNC_DATA`
-2. Extracts the JSON
-3. Sends to dashboard API
-4. Challenge appears on dashboard
-5. User sees NO technical data
+The frontend script on Seun's website automatically:
+1. Detects "CHALLENGE_SYNC_DATA" in the page
+2. Extracts the JSON immediately
+3. Hides it from view (opacity 0, display none)
+4. Sends to dashboard API
+5. Shows success notification
 
 ---
 
-## ✅ What Seun Sees vs What Happens
+## ✅ What Seun Sees
 
-**What Seun sees:**
-- Beautiful, inspiring challenge description
-- Emojis and clear structure
-- Actionable tips
-- Confirmation message
-- NO visible JSON
+**Brief flash (< 100ms):**
+- CHALLENGE_SYNC_DATA block appears
 
-**What happens behind the scenes:**
-- JavaScript detects hidden JSON
-- Sends to API automatically
-- Challenge appears on dashboard
+**Then immediately:**
+- Block hidden completely
+- Only beautiful challenge description visible
 - Success notification shows
 
+**Result:** Clean, professional chat experience with automatic dashboard sync!
+
 ---
 
-**Status:** Production-ready ✅  
-**Last Updated:** November 23, 2025
+**Status:** Production-ready (cross-iframe compatible) ✅  
+**Last Updated:** November 24, 2025
