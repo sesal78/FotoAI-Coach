@@ -2,19 +2,18 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 2024112503 (Smart detection - real challenges only)
+ * Version: 2024112504 (Always show - URL fixed)
  * Target Email: seun_salami@outlook.com
  * Updates: 
- * - SMART validation: Requires explicit challenge structure
- * - Welcome screen exclusion: No false positives on welcome screen
- * - Strict fallback: Filters out UI fragments and React code
- * - Real challenges only: Button appears only for actual challenges
+ * - FIXED: Use relative URL /api/challenges/email instead of hardcoded domain
+ * - FLEXIBLE: Button appears for all challenge-like content
+ * - Minimal validation: Only basic sanity checks
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024112503 (Smart - real challenges only)');
+  console.log('[Foto Email] Script loaded - Version: 2024112504 (Always show - URL fixed)');
   console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
@@ -50,42 +49,32 @@
     const pageText = document.body.innerText;
     const lowerText = pageText.toLowerCase();
     
-    // STRICT EXCLUSION: Do not show button on welcome screen or generic pages
-    const isWelcomeScreen = lowerText.includes('welcome to foto') && 
-                           lowerText.includes('start chatting with your personal ai') &&
-                           !lowerText.includes('challenge:');
-    
-    const isGenericPage = lowerText.includes('photography tips') || 
-                         lowerText.includes('daily challenges') && !lowerText.includes('challenge:') ||
-                         lowerText.includes('itinerary help') ||
-                         lowerText.includes('coaching advice') ||
-                         (lowerText.includes('home') && lowerText.includes('about') && 
-                          lowerText.includes('chat') && lowerText.includes('dashboard'));
+    // FLEXIBLE VALIDATION: Look for any challenge-related keywords
+    const hasChallenge = lowerText.includes('challenge') || 
+                        lowerText.includes('difficulty') ||
+                        lowerText.includes('photography') ||
+                        lowerText.includes('shoot') ||
+                        lowerText.includes('capture');
 
-    if (isWelcomeScreen) {
-      console.log('[Foto Email] ⚠️ Welcome screen detected - no button');
+    if (!hasChallenge) {
+      console.log('[Foto Email] No challenge-related content found');
       return null;
     }
 
-    if (isGenericPage) {
-      console.log('[Foto Email] ⚠️ Generic page detected - no button');
-      return null;
-    }
-    
-    // SMART VALIDATION: Require specific challenge indicators AND structure
-    // A real challenge should have one of these explicit markers
-    const hasExplicitChallenge = lowerText.includes('challenge:') ||
-                                (lowerText.includes('photography challenge') && 
-                                 (lowerText.includes('difficulty:') || lowerText.includes('category:'))) ||
-                                (lowerText.includes('your challenge') && 
-                                 (lowerText.includes('difficulty:') || lowerText.includes('duration:')));
+    // Only exclude obvious navigation pages
+    const isNavigation = lowerText.includes('home') && 
+                        lowerText.includes('about') && 
+                        lowerText.includes('chat') && 
+                        lowerText.includes('dashboard') &&
+                        !lowerText.includes('challenge:') &&
+                        pageText.length < 500;
 
-    if (!hasExplicitChallenge) {
-      console.log('[Foto Email] No explicit challenge structure found');
+    if (isNavigation) {
+      console.log('[Foto Email] ⚠️ Navigation page detected');
       return null;
     }
 
-    console.log('[Foto Email] ✅ Real challenge detected on page!');
+    console.log('[Foto Email] ✅ Challenge-related content detected!');
 
     // Try to extract basic challenge info
     const lines = pageText.split('\n').filter(l => l.trim());
@@ -255,34 +244,28 @@
       }
     }
 
-    // STRICT FALLBACK: Only accept valid challenge-like text
+    // FLEXIBLE FALLBACK: Find any substantial text line
     if (!challenge.challengeText) {
-      console.log('[Foto Email] ⚠️ Could not extract challenge title - trying smart fallback');
-      // Look for lines that look like actual challenge titles
+      console.log('[Foto Email] ⚠️ Could not extract challenge title - trying fallback');
+      // Look for any substantial line
       for (let line of lines) {
         const lower = line.toLowerCase();
-        // Must be substantial, not contain common UI patterns, and look like a challenge
-        if (line.length > 20 && line.length < 150 && 
+        if (line.length > 15 && line.length < 200 && 
             !lower.includes('http') &&
-            !lower.includes('use') && // Filter out React fragments like "useΔ𝘂"
-            !lower.includes('click') &&
-            !lower.includes('button') &&
-            !lower.includes('menu') &&
-            !lower.includes('navigation') &&
-            !lower.includes('welcome') &&
-            !lower.match(/^(home|about|chat|dashboard|coach|contact)/i) &&
-            (line.includes(':') || line.match(/[A-Z][a-z]+ [A-Z][a-z]+/))) { // Has colon or title case
-          challenge.challengeText = line;
-          console.log('[Foto Email] Found smart fallback title:', challenge.challengeText);
+            !lower.includes('©') &&
+            !lower.includes('copyright') &&
+            (line.includes(':') || line.includes('challenge') || line.length > 30)) {
+          challenge.challengeText = line.replace(/^[🎯🎨📸⚡🔥]\s*/, '').trim();
+          console.log('[Foto Email] Found fallback title:', challenge.challengeText);
           break;
         }
       }
     }
 
-    // If still no challenge text, don't show the button (challenge is invalid)
+    // Use generic placeholder if still no text
     if (!challenge.challengeText) {
-      console.log('[Foto Email] ❌ Could not extract valid challenge - button will not appear');
-      return null; // Changed from using generic placeholder to returning null
+      challenge.challengeText = 'Photography Challenge from Chat';
+      console.log('[Foto Email] Using generic placeholder title');
     }
 
     // Log extracted challenge data for debugging
@@ -441,7 +424,7 @@
       // Log what we're sending
       console.log('[Foto Email] Sending challenge data:', challenge);
       
-      const response = await fetch('https://myfoto.topues.com/api/challenges/email', {
+      const response = await fetch('/api/challenges/email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
