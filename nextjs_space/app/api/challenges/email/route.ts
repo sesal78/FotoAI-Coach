@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 
 export async function POST(request: Request) {
+  let userEmail = 'unknown'; // Initialize to avoid scope issues
   try {
     const body = await request.json()
     
@@ -16,8 +17,10 @@ export async function POST(request: Request) {
       tips,
       weatherConditions,
       detailedDescription,
-      userEmail
+      userEmail: emailFromBody
     } = body
+    
+    userEmail = emailFromBody; // Assign to outer scope variable
 
     // Validate required fields
     if (!challengeText || !userEmail) {
@@ -351,6 +354,7 @@ https://myfoto.topues.com
     console.log('📧 Email API: Attempting to send challenge email...');
     console.log('  - Recipient:', userEmail);
     console.log('  - Subject:', emailSubject);
+    console.log('  - Challenge Text:', challengeText);
     
     const emailSent = await sendEmail({
       to: userEmail,
@@ -360,7 +364,16 @@ https://myfoto.topues.com
     })
 
     if (!emailSent) {
-      throw new Error('Email sending returned false');
+      console.error('❌ Email API: sendEmail returned false');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Failed to send email',
+          details: 'SendGrid API returned false. Check server logs for details.',
+          userEmail: userEmail
+        },
+        { status: 500 }
+      )
     }
 
     console.log('✅ Email API: Challenge email sent successfully');
@@ -369,14 +382,17 @@ https://myfoto.topues.com
       message: `Challenge emailed to ${userEmail}`
     })
   } catch (error: any) {
-    console.error('❌ Email API: Error sending challenge email');
+    console.error('❌ Email API: Exception while sending challenge email');
     console.error('   Error:', error);
+    console.error('   Message:', error.message);
     console.error('   Stack:', error.stack);
     return NextResponse.json(
       { 
+        success: false,
         error: 'Failed to send email',
-        details: error.message,
-        code: error.code || 'UNKNOWN'
+        details: error.message || 'Unknown error occurred',
+        code: error.code || 'EXCEPTION',
+        userEmail: userEmail
       },
       { status: 500 }
     )

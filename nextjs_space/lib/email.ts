@@ -1,6 +1,6 @@
 
 // Email notification utilities using SendGrid
-import sgMail from '@sendgrid/mail';
+import * as sgMail from '@sendgrid/mail';
 
 // Initialize SendGrid with API key
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
@@ -8,8 +8,12 @@ const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 if (!SENDGRID_API_KEY) {
   console.error('❌ SENDGRID_API_KEY is not set in environment variables');
 } else {
-  sgMail.setApiKey(SENDGRID_API_KEY);
-  console.log('✅ SendGrid API key configured');
+  try {
+    sgMail.setApiKey(SENDGRID_API_KEY);
+    console.log('✅ SendGrid API key configured');
+  } catch (error: any) {
+    console.error('❌ Failed to configure SendGrid:', error.message);
+  }
 }
 
 export interface EmailOptions {
@@ -30,7 +34,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     // Validate API key is set
     if (!SENDGRID_API_KEY) {
       console.error('❌ Cannot send email: SENDGRID_API_KEY is not configured');
-      throw new Error('SendGrid API key is not configured');
+      return false;
     }
 
     const fromEmail = options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com';
@@ -70,6 +74,14 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     }
 
     console.log('📤 Sending email via SendGrid...');
+    console.log('   Message object:', JSON.stringify({
+      to: msg.to,
+      from: msg.from,
+      subject: msg.subject,
+      hasHtml: !!msg.html,
+      hasText: !!msg.text
+    }, null, 2));
+
     const response = await sgMail.send(msg);
     console.log(`✅ Email sent successfully to ${options.to}`);
     console.log(`   Status: ${response[0].statusCode}`);
@@ -81,7 +93,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     if (error.response?.body) {
       console.error('   Response body:', JSON.stringify(error.response.body, null, 2));
     }
-    throw error;  // Re-throw to propagate to API route
+    return false;
   }
 }
 
