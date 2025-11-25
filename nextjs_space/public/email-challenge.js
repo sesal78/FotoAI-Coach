@@ -2,19 +2,18 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 2024112501 (Fixed false positive detection)
+ * Version: 2024112502 (Flexible detection - email any challenge)
  * Target Email: seun_salami@outlook.com
  * Updates: 
- * - STRICT validation: Requires 3+ challenge indicators (not just 1)
- * - Confidence scoring: Validates metadata fields
- * - Pattern rejection: Filters out UI elements and button text
- * - Length validation: Rejects suspiciously short challenge text
+ * - FLEXIBLE validation: Only 1 challenge indicator needed
+ * - Minimal filtering: Only excludes obvious navigation elements
+ * - User-friendly: Allows emailing any challenge content
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024112501 (Fixed false positives)');
+  console.log('[Foto Email] Script loaded - Version: 2024112502 (Flexible - email any challenge)');
   console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
@@ -50,56 +49,33 @@
     const pageText = document.body.innerText;
     const lowerText = pageText.toLowerCase();
     
-    // STRICT VALIDATION: Require multiple indicators, not just one
-    const requiredIndicators = {
-      hasChallengeKeyword: lowerText.includes('challenge:') || 
-                           lowerText.includes('photography challenge') ||
-                           lowerText.includes('your challenge'),
-      hasDifficulty: lowerText.includes('difficulty:'),
-      hasDuration: lowerText.includes('duration:'),
-      hasCategory: lowerText.includes('category:') || 
-                   lowerText.includes('street') || 
-                   lowerText.includes('portrait') || 
-                   lowerText.includes('landscape'),
-      hasLocation: lowerText.includes('location:') || 
-                   lowerText.includes('melbourne') || 
-                   lowerText.includes('city')
-    };
+    // FLEXIBLE VALIDATION: Only need 1 indicator to detect a challenge
+    const hasChallenge = lowerText.includes('challenge:') || 
+                        lowerText.includes('photography challenge') ||
+                        lowerText.includes('your challenge') ||
+                        lowerText.includes('difficulty:') ||
+                        lowerText.includes('duration:') ||
+                        lowerText.includes('category:') ||
+                        lowerText.includes('location:') ||
+                        lowerText.includes('recommended gear:');
 
-    // Count how many indicators we found
-    const indicatorCount = Object.values(requiredIndicators).filter(v => v).length;
-
-    // REQUIRE AT LEAST 3 INDICATORS (not just 1)
-    if (indicatorCount < 3) {
-      console.log('[Foto Email] Not enough challenge indicators found:', indicatorCount, '/ 5 required: 3+');
+    if (!hasChallenge) {
+      console.log('[Foto Email] No challenge indicators found');
       return null;
     }
 
-    // EXCLUDE common false positives (UI elements, button text)
-    const falsePositivePatterns = [
-      'tell me about your gear',
-      'photography tips',
-      'daily challenges',
-      'itinerary help',
-      'coaching advice',
-      'start chatting',
-      'write something',
-      'home about chat',
-      'privacy policy',
-      'terms of service',
-      'back to home'
-    ];
+    // Only exclude obvious navigation (very minimal filtering)
+    const isNavigation = (lowerText.includes('home about chat dashboard') || 
+                         lowerText.includes('privacy policy') || 
+                         lowerText.includes('terms of service')) &&
+                         !lowerText.includes('challenge:');
 
-    const hasFalsePositive = falsePositivePatterns.some(pattern => 
-      lowerText.includes(pattern)
-    );
-
-    if (hasFalsePositive && indicatorCount < 4) {
-      console.log('[Foto Email] ⚠️ Possible false positive detected (UI element text found)');
+    if (isNavigation) {
+      console.log('[Foto Email] ⚠️ Detected navigation page (not a challenge)');
       return null;
     }
 
-    console.log('[Foto Email] ✅ Valid challenge detected (', indicatorCount, 'indicators found)');
+    console.log('[Foto Email] ✅ Challenge detected on page!');
 
     // Try to extract basic challenge info
     const lines = pageText.split('\n').filter(l => l.trim());
@@ -269,66 +245,37 @@
       }
     }
 
-    // STRICT VALIDATION: Ensure we have a real challenge, not UI text
+    // FLEXIBLE VALIDATION: Accept challenge if we have any text
     if (!challenge.challengeText) {
-      console.log('[Foto Email] ❌ No challenge text extracted');
-      return null;
+      console.log('[Foto Email] ⚠️ Could not extract challenge title - trying fallback');
+      // Use first substantial line as fallback
+      for (let line of lines) {
+        if (line.length > 10 && line.length < 200 && 
+            !line.toLowerCase().includes('http')) {
+          challenge.challengeText = line;
+          console.log('[Foto Email] Using fallback title:', challenge.challengeText);
+          break;
+        }
+      }
     }
 
-    // Reject if challenge text looks like a UI element or button
-    const suspiciousPatterns = [
-      /^●/,  // Bullet point at start
-      /^tell me/i,
-      /^write something/i,
-      /^start chatting/i,
-      /^(home|about|chat|dashboard)/i,
-      /gear\s*$/i,  // Ends with "gear"
-      /tips\s*$/i   // Ends with "tips"
-    ];
-
-    const isSuspicious = suspiciousPatterns.some(pattern => 
-      pattern.test(challenge.challengeText)
-    );
-
-    if (isSuspicious) {
-      console.log('[Foto Email] ⚠️ Challenge text looks like UI element:', challenge.challengeText);
-      return null;
-    }
-
-    // Reject if challenge text is too short (likely a fragment)
-    if (challenge.challengeText.length < 15) {
-      console.log('[Foto Email] ⚠️ Challenge text too short:', challenge.challengeText);
-      return null;
-    }
-
-    // CONFIDENCE SCORING: Calculate how confident we are this is a real challenge
-    let confidence = 0;
-    if (challenge.category && challenge.category !== '(not found)') confidence++;
-    if (challenge.difficulty && challenge.difficulty !== '(not found)') confidence++;
-    if (challenge.duration && challenge.duration !== '(not found)') confidence++;
-    if (challenge.location && challenge.location !== '(not found)') confidence++;
-    if (challenge.recommendedGear && challenge.recommendedGear !== '(not found)') confidence++;
-
-    console.log('[Foto Email] Confidence score:', confidence, '/ 5');
-
-    // REQUIRE at least 2 metadata fields to be confident it's a real challenge
-    if (confidence < 2) {
-      console.log('[Foto Email] ⚠️ Low confidence - missing too many metadata fields');
-      return null;
+    // If still no challenge text, use a generic placeholder
+    if (!challenge.challengeText) {
+      challenge.challengeText = 'Photography Challenge';
+      console.log('[Foto Email] Using generic placeholder title');
     }
 
     // Log extracted challenge data for debugging
-    console.log('[Foto Email] ✅ Valid challenge extracted:', {
+    console.log('[Foto Email] ✅ Challenge ready to email:', {
       challengeText: challenge.challengeText,
-      category: challenge.category || '(not found)',
-      difficulty: challenge.difficulty || '(not found)',
-      duration: challenge.duration || '(not found)',
-      location: challenge.location || '(not found)',
-      recommendedGear: challenge.recommendedGear || '(not found)',
-      tips: challenge.tips ? challenge.tips.substring(0, 50) + '...' : '(not found)',
-      weatherConditions: challenge.weatherConditions || '(not found)',
-      detailedDescription: challenge.detailedDescription ? challenge.detailedDescription.substring(0, 50) + '...' : '(not found)',
-      confidence: confidence + '/ 5'
+      category: challenge.category || '(not specified)',
+      difficulty: challenge.difficulty || '(not specified)',
+      duration: challenge.duration || '(not specified)',
+      location: challenge.location || '(not specified)',
+      recommendedGear: challenge.recommendedGear || '(not specified)',
+      tips: challenge.tips ? challenge.tips.substring(0, 50) + '...' : '(not specified)',
+      weatherConditions: challenge.weatherConditions || '(not specified)',
+      detailedDescription: challenge.detailedDescription ? challenge.detailedDescription.substring(0, 50) + '...' : '(not specified)'
     });
 
     return challenge;
