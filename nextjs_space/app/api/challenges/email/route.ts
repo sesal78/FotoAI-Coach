@@ -348,23 +348,35 @@ https://myfoto.topues.com
     `.trim()
 
     // Send email
-    await sendEmail({
+    console.log('📧 Email API: Attempting to send challenge email...');
+    console.log('  - Recipient:', userEmail);
+    console.log('  - Subject:', emailSubject);
+    
+    const emailSent = await sendEmail({
       to: userEmail,
       subject: emailSubject,
       text: emailText,
       html: emailHtml
     })
 
+    if (!emailSent) {
+      throw new Error('Email sending returned false');
+    }
+
+    console.log('✅ Email API: Challenge email sent successfully');
     return NextResponse.json({
       success: true,
       message: `Challenge emailed to ${userEmail}`
     })
   } catch (error: any) {
-    console.error('Error sending challenge email:', error)
+    console.error('❌ Email API: Error sending challenge email');
+    console.error('   Error:', error);
+    console.error('   Stack:', error.stack);
     return NextResponse.json(
       { 
         error: 'Failed to send email',
-        details: error.message 
+        details: error.message,
+        code: error.code || 'UNKNOWN'
       },
       { status: 500 }
     )

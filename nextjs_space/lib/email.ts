@@ -2,7 +2,15 @@
 // Email notification utilities using SendGrid
 import sgMail from '@sendgrid/mail';
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
+// Initialize SendGrid with API key
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+
+if (!SENDGRID_API_KEY) {
+  console.error('❌ SENDGRID_API_KEY is not set in environment variables');
+} else {
+  sgMail.setApiKey(SENDGRID_API_KEY);
+  console.log('✅ SendGrid API key configured');
+}
 
 export interface EmailOptions {
   to: string;
@@ -19,9 +27,21 @@ export interface EmailOptions {
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
+    // Validate API key is set
+    if (!SENDGRID_API_KEY) {
+      console.error('❌ Cannot send email: SENDGRID_API_KEY is not configured');
+      throw new Error('SendGrid API key is not configured');
+    }
+
     const fromEmail = options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com';
     const fromName = options.fromName || process.env.FROM_NAME || 'Foto AI Coach';
     const replyToEmail = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
+
+    console.log('📧 Preparing to send email:');
+    console.log('  - To:', options.to);
+    console.log('  - From:', `${fromName} <${fromEmail}>`);
+    console.log('  - Subject:', options.subject);
+    console.log('  - API Key present:', !!SENDGRID_API_KEY);
 
     const msg: any = {
       to: options.to,
@@ -49,12 +69,19 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       msg.text = options.subject;
     }
 
-    await sgMail.send(msg);
-    console.log(`✅ Email sent successfully to ${options.to} from ${fromName} <${fromEmail}>`);
+    console.log('📤 Sending email via SendGrid...');
+    const response = await sgMail.send(msg);
+    console.log(`✅ Email sent successfully to ${options.to}`);
+    console.log(`   Status: ${response[0].statusCode}`);
     return true;
   } catch (error: any) {
-    console.error('❌ Email sending failed:', error.response?.body?.errors || error.message || error);
-    return false;
+    console.error('❌ Email sending failed:');
+    console.error('   Error code:', error.code);
+    console.error('   Error message:', error.message);
+    if (error.response?.body) {
+      console.error('   Response body:', JSON.stringify(error.response.body, null, 2));
+    }
+    throw error;  // Re-throw to propagate to API route
   }
 }
 
