@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   Clock,
   Upload,
-  Send
+  Send,
+  Mail
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ export default function DashboardPage() {
   const [recentChallenges, setRecentChallenges] = useState<Challenge[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [emailing, setEmailing] = useState(false);
 
   // Submission form state
   const [photo, setPhoto] = useState<File | null>(null);
@@ -206,6 +208,43 @@ export default function DashboardPage() {
       toast.error('Failed to generate challenge. Check console for details.');
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function emailChallenge() {
+    if (!currentChallenge) return;
+
+    try {
+      setEmailing(true);
+      toast.info('Sending challenge to your email...');
+
+      const response = await fetch('/api/challenges/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeText: currentChallenge.challengeText,
+          category: currentChallenge.category,
+          difficulty: currentChallenge.difficulty,
+          duration: currentChallenge.duration,
+          tips: currentChallenge.tips,
+          recommendedGear: currentChallenge.recommendedGear,
+          location: currentChallenge.location,
+          weatherConditions: currentChallenge.weatherConditions,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Challenge sent to your email! 📧');
+      } else {
+        toast.error(data.error || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Email failed:', error);
+      toast.error('Failed to send email');
+    } finally {
+      setEmailing(false);
     }
   }
 
@@ -492,11 +531,11 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-wrap">
                     <Button
                       onClick={submitChallenge}
                       disabled={submitting}
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
                       size="lg"
                     >
                       {submitting ? (
@@ -509,10 +548,26 @@ export default function DashboardPage() {
                       )}
                     </Button>
                     <Button
+                      onClick={emailChallenge}
+                      disabled={emailing}
+                      variant="secondary"
+                      className="flex-1 min-w-[140px]"
+                      size="lg"
+                    >
+                      {emailing ? (
+                        <>Sending...</>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Email Challenge
+                        </>
+                      )}
+                    </Button>
+                    <Button
                       onClick={skipChallenge}
                       disabled={submitting}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
                       size="lg"
                     >
                       {submitting ? (

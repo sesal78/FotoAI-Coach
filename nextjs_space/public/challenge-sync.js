@@ -8,7 +8,7 @@
 (function() {
   'use strict';
   
-  const SYNC_API_URL = 'https://myfoto.topues.com/api/challenges/sync';
+  const SYNC_API_URL = '/api/challenges/sync';
   const USER_ID = '1';
   
   console.log('[Foto Challenge Sync v3] Script loaded');
