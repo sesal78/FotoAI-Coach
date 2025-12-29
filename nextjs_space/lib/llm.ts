@@ -84,7 +84,7 @@ export async function generateChallenge(context: {
     interests: string[];
     gear: string[];
   };
-  challengeType: 'WEEKEND_DEEP_DIVE' | 'LUNCH_MICRO' | 'AFTER_WORK' | 'WORK_FROM_HOME';
+  challengeType: 'WEEKEND_DEEP_DIVE' | 'LUNCH_BREAK' | 'AFTER_WORK' | 'WFH_MICRO';
   location?: string;
   weather?: {
     condition: string;
@@ -102,19 +102,30 @@ export async function generateChallenge(context: {
 }> {
   const { userProfile, challengeType, location, weather, recentChallenges } = context;
 
-  const complexityMap = {
-    WEEKEND_DEEP_DIVE: 'high - A substantial creative project',
-    LUNCH_MICRO: 'micro - Quick 15-20 minute exercise',
-    AFTER_WORK: 'short - 30-45 minute session',
-    WORK_FROM_HOME: 'medium - Flexible home/neighborhood project',
+  const challengeTypeDescriptions: Record<string, { complexity: string; duration: string; focus: string }> = {
+    WEEKEND_DEEP_DIVE: {
+      complexity: 'high - A substantial, immersive creative project',
+      duration: '2-4 hours',
+      focus: 'Comprehensive exploration, multiple locations, detailed photo essays'
+    },
+    LUNCH_BREAK: {
+      complexity: 'micro - Quick creative burst during lunch break',
+      duration: '30-45 mins',
+      focus: 'One focused subject, nearby location, single concept execution'
+    },
+    AFTER_WORK: {
+      complexity: 'medium - Golden hour focused session',
+      duration: '1-2 hours',
+      focus: 'Evening light, urban exploration, accessible locations'
+    },
+    WFH_MICRO: {
+      complexity: 'micro - Creative break from home office',
+      duration: '15-20 mins',
+      focus: 'Indoor/balcony shots, still life, window light, immediate surroundings'
+    },
   };
 
-  const durationMap = {
-    WEEKEND_DEEP_DIVE: '2-4 hours',
-    LUNCH_MICRO: '15-25 mins',
-    AFTER_WORK: '30-60 mins',
-    WORK_FROM_HOME: '45-90 mins',
-  };
+  const typeInfo = challengeTypeDescriptions[challengeType] || challengeTypeDescriptions.WEEKEND_DEEP_DIVE;
 
   const systemPrompt = `You are Foto AI, an expert photography coach specializing in personalized challenges for ${userProfile.name}.
 
@@ -125,25 +136,33 @@ User Profile:
 
 Challenge Context:
 - Type: ${challengeType}
-- Complexity: ${complexityMap[challengeType]}
-- Duration: ${durationMap[challengeType]}
+- Complexity: ${typeInfo.complexity}
+- Duration: ${typeInfo.duration}
+- Focus: ${typeInfo.focus}
 ${location ? `- Location: ${location}` : ''}
 ${weather ? `- Weather: ${weather.condition}, ${weather.temperature}°F at ${weather.time}` : ''}
 ${recentChallenges && recentChallenges.length > 0 ? `\nRecent challenges to avoid repeating:\n${recentChallenges.join('\n')}` : ''}
 
+IMPORTANT: Generate a UNIQUE challenge every time. Be creative and vary:
+- The specific locations within the city
+- The photography techniques and approaches
+- The subjects and themes
+- The creative angles and perspectives
+
 Your task is to generate a specific, actionable photography challenge that:
 1. Matches the user's skill level and interests
-2. Fits the time constraints and complexity level
+2. Fits the time constraints and complexity level for ${challengeType}
 3. Considers the weather and location context
 4. Recommends specific gear from their collection
 5. Provides practical tips for execution
+6. Is DIFFERENT from any recent challenges
 
 Respond in JSON format with the following structure:
 {
   "challengeText": "Clear, specific challenge description",
   "difficulty": "micro|short|medium|deep",
   "category": "street|portrait|architecture|abstract|nature|etc",
-  "duration": "${durationMap[challengeType]}",
+  "duration": "${typeInfo.duration}",
   "tips": "Practical execution tips and creative suggestions",
   "recommendedGear": ["specific gear items from user's collection"]
 }

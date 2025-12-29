@@ -61,6 +61,15 @@ export default function DashboardPage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
   const [rating, setRating] = useState<number>(0);
+  const [selectedChallengeType, setSelectedChallengeType] = useState<string>('WEEKEND_DEEP_DIVE');
+
+  // Challenge type options
+  const challengeTypes = [
+    { value: 'WEEKEND_DEEP_DIVE', label: '🌅 Weekend Deep Dive', description: '2-4 hours of comprehensive exploration' },
+    { value: 'LUNCH_BREAK', label: '🥪 Lunch Break', description: '30-45 min quick creative burst' },
+    { value: 'AFTER_WORK', label: '🌆 After Work', description: '1-2 hours golden hour session' },
+    { value: 'WFH_MICRO', label: '🏠 WFH Micro', description: '15-20 min creative break at home' },
+  ];
 
   useEffect(() => {
     // Load dashboard data on mount (no auth required for single-user demo)
@@ -167,7 +176,8 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: '1', // Demo user ID
-          challengeType: 'WEEKEND_DEEP_DIVE',
+          challengeType: selectedChallengeType,
+          forceGenerate: true, // Force new challenge generation
         }),
         cache: 'no-store',
       });
@@ -525,14 +535,35 @@ export default function DashboardPage() {
                   Generate a new photography challenge tailored to your schedule and interests.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Challenge Type Selector */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">Choose Challenge Type:</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {challengeTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => setSelectedChallengeType(type.value)}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          selectedChallengeType === type.value
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="font-medium">{type.label}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{type.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
                 <Button
                   onClick={generateNewChallenge}
                   disabled={generating}
                   size="lg"
                   className="w-full"
                 >
-                  {generating ? 'Generating...' : 'Generate New Challenge'}
+                  {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
                 </Button>
               </CardContent>
             </Card>
