@@ -27,6 +27,18 @@ export interface EmailOptions {
 }
 
 /**
+ * Sanitize text to remove invalid unicode characters that SendGrid rejects
+ */
+function sanitizeText(text: string): string {
+  // Remove surrogate pairs and other invalid unicode characters
+  return text
+    .replace(/[\uD800-\uDFFF]/g, '') // Remove surrogate pairs
+    .replace(/[\uFFFE\uFFFF]/g, '') // Remove non-characters
+    .replace(/\uFFFD/g, '') // Remove replacement character
+    .trim();
+}
+
+/**
  * Send an email via SendGrid with Reply-To support
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
@@ -47,13 +59,16 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     console.log('  - Subject:', options.subject);
     console.log('  - API Key present:', !!SENDGRID_API_KEY);
 
+    // Sanitize subject to remove invalid unicode characters
+    const sanitizedSubject = sanitizeText(options.subject);
+    
     const msg: any = {
       to: options.to,
       from: {
         email: fromEmail,
         name: fromName
       },
-      subject: options.subject,
+      subject: sanitizedSubject,
     };
 
     // Add reply-to if different from from email
@@ -61,16 +76,16 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       msg.replyTo = replyToEmail;
     }
 
-    // Add text or html content
+    // Add text or html content (sanitized)
     if (options.html) {
-      msg.html = options.html;
+      msg.html = sanitizeText(options.html);
     }
     if (options.text) {
-      msg.text = options.text;
+      msg.text = sanitizeText(options.text);
     }
     // Fallback to text if no html
     if (!msg.html && !msg.text) {
-      msg.text = options.subject;
+      msg.text = sanitizedSubject;
     }
 
     console.log('📤 Sending email via SendGrid...');
