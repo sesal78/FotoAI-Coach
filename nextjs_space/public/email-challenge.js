@@ -2,18 +2,18 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 2024112504 (Always show - URL fixed)
+ * Version: 2024123001 (Structured Data Fix)
  * Target Email: seun_salami@outlook.com
  * Updates: 
- * - FIXED: Use relative URL /api/challenges/email instead of hardcoded domain
- * - FLEXIBLE: Button appears for all challenge-like content
- * - Minimal validation: Only basic sanity checks
+ * - FIXED: Now looks for structured CHALLENGE_SYNC_DATA format only
+ * - FIXED: No longer scrapes entire page (was sending generic content)
+ * - Requires chatbot to output CHALLENGE_SYNC_DATA with JSON
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024112504 (Always show - URL fixed)');
+  console.log('[Foto Email] Script loaded - Version: 2024123001 (Structured Data Fix)');
   console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
@@ -44,244 +44,66 @@
     }
   }
 
-  // Alternative: Look for visible challenge indicators
+  // Alternative: Look for structured CHALLENGE_SYNC_DATA
   function extractFromVisibleElements() {
     const pageText = document.body.innerText;
-    const lowerText = pageText.toLowerCase();
+    const pageHTML = document.body.innerHTML;
     
-    // FLEXIBLE VALIDATION: Look for any challenge-related keywords
-    const hasChallenge = lowerText.includes('challenge') || 
-                        lowerText.includes('difficulty') ||
-                        lowerText.includes('photography') ||
-                        lowerText.includes('shoot') ||
-                        lowerText.includes('capture');
-
-    if (!hasChallenge) {
-      console.log('[Foto Email] No challenge-related content found');
-      return null;
-    }
-
-    // Only exclude obvious navigation pages
-    const isNavigation = lowerText.includes('home') && 
-                        lowerText.includes('about') && 
-                        lowerText.includes('chat') && 
-                        lowerText.includes('dashboard') &&
-                        !lowerText.includes('challenge:') &&
-                        pageText.length < 500;
-
-    if (isNavigation) {
-      console.log('[Foto Email] ⚠️ Navigation page detected');
-      return null;
-    }
-
-    console.log('[Foto Email] ✅ Challenge-related content detected!');
-
-    // Try to extract basic challenge info
-    const lines = pageText.split('\n').filter(l => l.trim());
+    console.log('[Foto Email] Looking for CHALLENGE_SYNC_DATA...');
     
-    let challenge = {
-      challengeText: '',
-      category: '',
-      difficulty: '',
-      duration: '',
-      location: '',
-      recommendedGear: '',
-      tips: '',
-      weatherConditions: '',
-      detailedDescription: '' // Added for full challenge description
-    };
-
-    let captureMode = null;
-    let capturedLines = [];
-    let foundChallengeTitle = false;
-
-    // Parse common patterns with improved multi-line support
-    lines.forEach((line, i) => {
-      const lower = line.toLowerCase();
-      const trimmed = line.trim();
+    // Method 1: Look for CHALLENGE_SYNC_DATA in text
+    if (pageText.includes('CHALLENGE_SYNC_DATA')) {
+      console.log('[Foto Email] Found CHALLENGE_SYNC_DATA marker!');
       
-      // Skip common UI elements and user queries
-      if (trimmed.length < 5 || 
-          lower.includes('home') && lower.includes('about') ||
-          lower.includes('privacy') ||
-          lower.includes('terms') ||
-          lower.includes('copyright') ||
-          lower.includes('©')) {
-        return;
-      }
+      // Extract JSON after the label
+      const jsonPattern = /\{[\s\S]*?"challengeText"\s*:[\s\S]*?\}/;
+      const match = pageText.match(jsonPattern);
       
-      // Capture challenge title/text - Look for emoji + title pattern
-      // Example: 🎯 Reflections & Mirrors: Double the Story
-      if (!foundChallengeTitle && (trimmed.match(/^🎯|^🎨|^📸|^⚡|^🔥/) || 
-          (trimmed.includes(':') && trimmed.length > 20 && trimmed.length < 100 && 
-           !lower.includes('location:') && !lower.includes('duration:') && 
-           !lower.includes('category:') && !lower.includes('difficulty:') &&
-           !lower.includes('gear:') && !lower.includes('tips:') && !lower.includes('weather:')))) {
-        
-        // This might be the challenge title
-        // Clean up emoji and format
-        challenge.challengeText = trimmed.replace(/^[🎯🎨📸⚡🔥]\s*/, '').trim();
-        foundChallengeTitle = true;
-        captureMode = 'description';
-        capturedLines = [];
-        console.log('[Foto Email] Found potential title:', challenge.challengeText);
-        return;
-      }
-      
-      // Category
-      if (lower.includes('category:') || lower.includes('📂')) {
-        const value = trimmed.split(/category:|📂/i)[1]?.trim() || '';
-        challenge.category = value.split(/\s+/)[0].trim(); // Take first word
-        captureMode = null;
-        return;
-      }
-      
-      // Difficulty
-      if (lower.includes('difficulty:') || lower.includes('⚡')) {
-        const value = trimmed.split(/difficulty:|⚡/i)[1]?.trim() || '';
-        challenge.difficulty = value.split(/\s+/)[0].trim(); // Take first word
-        captureMode = null;
-        return;
-      }
-      
-      // Duration
-      if (lower.includes('duration:') || lower.includes('⏱️') || lower.includes('time:')) {
-        const value = trimmed.split(/duration:|⏱️|time:/i)[1]?.trim() || '';
-        challenge.duration = value.trim();
-        captureMode = null;
-        return;
-      }
-      
-      // Location
-      if (lower.includes('location:') || lower.includes('📍') || lower.includes('where:')) {
-        const value = trimmed.split(/location:|📍|where:/i)[1]?.trim() || '';
-        challenge.location = value.trim();
-        captureMode = null;
-        return;
-      }
-      
-      // Gear - can be multi-line
-      if (lower.includes('gear:') || lower.includes('equipment:') || lower.includes('recommended gear:') || lower.includes('📸')) {
-        captureMode = 'gear';
-        capturedLines = [];
-        const value = trimmed.split(/gear:|equipment:|recommended gear:|📸/i);
-        const immediate = value[value.length - 1].trim();
-        if (immediate && immediate.length > 2) {
-          capturedLines.push(immediate);
-        }
-        return;
-      }
-      
-      // Tips - can be multi-line
-      if (lower.includes('tips:') || lower.includes('pro tips:') || lower.includes('shooting tips:') || lower.includes('advice:') || lower.includes('💡')) {
-        captureMode = 'tips';
-        capturedLines = [];
-        const value = trimmed.split(/tips:|pro tips:|shooting tips:|advice:|💡/i);
-        const immediate = value[value.length - 1].trim();
-        if (immediate && immediate.length > 2) {
-          capturedLines.push(immediate);
-        }
-        return;
-      }
-      
-      // Weather
-      if (lower.includes('weather:') || lower.includes('🌤️') || lower.includes('conditions:')) {
-        const value = trimmed.split(/weather:|🌤️|conditions:/i)[1]?.trim() || '';
-        challenge.weatherConditions = value.trim();
-        captureMode = null;
-        return;
-      }
-      
-      // Capture multi-line content for description, gear, or tips
-      if (captureMode && trimmed && trimmed.length > 3) {
-        // Stop if we hit another field marker
-        if (lower.includes('category:') || lower.includes('difficulty:') || 
-            lower.includes('duration:') || lower.includes('location:') ||
-            lower.includes('gear:') || lower.includes('tips:') || lower.includes('weather:') ||
-            lower.includes('📂') || lower.includes('⚡') || lower.includes('⏱️') || 
-            lower.includes('📍') || lower.includes('💡') || lower.includes('🌤️')) {
-          captureMode = null;
-          return;
-        }
-        
-        // Collect line
-        capturedLines.push(trimmed);
-        
-        // Store captured content
-        if (captureMode === 'gear') {
-          challenge.recommendedGear = capturedLines.join(', ');
-        } else if (captureMode === 'tips') {
-          challenge.tips = capturedLines.join(' ');
-        } else if (captureMode === 'description') {
-          challenge.detailedDescription = capturedLines.join(' ');
-        }
-      }
-    });
-
-    // Finalize captured content
-    if (captureMode === 'gear' && capturedLines.length > 0) {
-      challenge.recommendedGear = capturedLines.join(', ');
-    } else if (captureMode === 'tips' && capturedLines.length > 0) {
-      challenge.tips = capturedLines.join(' ');
-    } else if (captureMode === 'description' && capturedLines.length > 0) {
-      challenge.detailedDescription = capturedLines.join(' ');
-    }
-
-    // Must have at least a challenge text
-    if (!challenge.challengeText) {
-      console.log('[Foto Email] ⚠️ Could not extract challenge title - looking for fallback');
-      // Try to find line with colon that's substantive
-      for (let line of lines) {
-        if (line.includes(':') && line.length > 25 && line.length < 150 && 
-            !line.toLowerCase().includes('http') &&
-            !line.toLowerCase().includes('location:') &&
-            !line.toLowerCase().includes('duration:') &&
-            !line.toLowerCase().includes('gear:')) {
-          challenge.challengeText = line;
-          console.log('[Foto Email] Found fallback title:', challenge.challengeText);
-          break;
+      if (match) {
+        try {
+          const challengeData = JSON.parse(match[0]);
+          console.log('[Foto Email] ✅ Extracted structured challenge data:', challengeData);
+          return challengeData;
+        } catch (error) {
+          console.error('[Foto Email] JSON parse error:', error);
         }
       }
     }
-
-    // FLEXIBLE FALLBACK: Find any substantial text line
-    if (!challenge.challengeText) {
-      console.log('[Foto Email] ⚠️ Could not extract challenge title - trying fallback');
-      // Look for any substantial line
-      for (let line of lines) {
-        const lower = line.toLowerCase();
-        if (line.length > 15 && line.length < 200 && 
-            !lower.includes('http') &&
-            !lower.includes('©') &&
-            !lower.includes('copyright') &&
-            (line.includes(':') || line.includes('challenge') || line.length > 30)) {
-          challenge.challengeText = line.replace(/^[🎯🎨📸⚡🔥]\s*/, '').trim();
-          console.log('[Foto Email] Found fallback title:', challenge.challengeText);
-          break;
-        }
+    
+    // Method 2: Look for HTML comment with CHALLENGE_SYNC_DATA
+    const commentPattern = /<!--\s*CHALLENGE_SYNC_DATA\s*([\s\S]*?)\s*-->/;
+    const commentMatch = pageHTML.match(commentPattern);
+    
+    if (commentMatch) {
+      console.log('[Foto Email] Found CHALLENGE_SYNC_DATA in HTML comment!');
+      const jsonText = commentMatch[1].trim();
+      
+      try {
+        const challengeData = JSON.parse(jsonText);
+        console.log('[Foto Email] ✅ Extracted challenge from HTML comment:', challengeData);
+        return challengeData;
+      } catch (error) {
+        console.error('[Foto Email] JSON parse error in comment:', error);
       }
     }
-
-    // Use generic placeholder if still no text
-    if (!challenge.challengeText) {
-      challenge.challengeText = 'Photography Challenge from Chat';
-      console.log('[Foto Email] Using generic placeholder title');
+    
+    // Method 3: Look for standalone JSON object with challengeText
+    const jsonPattern = /\{[\s\S]*?"challengeText"\s*:\s*"[^"]*?"[\s\S]*?\}/;
+    const match = pageText.match(jsonPattern);
+    
+    if (match) {
+      try {
+        const challengeData = JSON.parse(match[0]);
+        console.log('[Foto Email] ✅ Extracted standalone JSON:', challengeData);
+        return challengeData;
+      } catch (error) {
+        console.error('[Foto Email] JSON parse error:', error);
+      }
     }
-
-    // Log extracted challenge data for debugging
-    console.log('[Foto Email] ✅ Challenge ready to email:', {
-      challengeText: challenge.challengeText,
-      category: challenge.category || '(not specified)',
-      difficulty: challenge.difficulty || '(not specified)',
-      duration: challenge.duration || '(not specified)',
-      location: challenge.location || '(not specified)',
-      recommendedGear: challenge.recommendedGear || '(not specified)',
-      tips: challenge.tips ? challenge.tips.substring(0, 50) + '...' : '(not specified)',
-      weatherConditions: challenge.weatherConditions || '(not specified)',
-      detailedDescription: challenge.detailedDescription ? challenge.detailedDescription.substring(0, 50) + '...' : '(not specified)'
-    });
-
-    return challenge;
+    
+    console.log('[Foto Email] ⚠️ No structured challenge data found');
+    console.log('[Foto Email] Page must contain CHALLENGE_SYNC_DATA with proper JSON format');
+    return null;
   }
 
   // Parse messages for challenge data
