@@ -10,7 +10,9 @@ function getSlackToken(): string | null {
     const secretsPath = '/home/ubuntu/.config/abacusai_auth_secrets.json'
     if (fs.existsSync(secretsPath)) {
       const secrets = JSON.parse(fs.readFileSync(secretsPath, 'utf-8'))
-      return secrets?.SLACK?.secrets?.access_token?.value || null
+      // Check both lowercase and uppercase keys
+      return secrets?.slack?.secrets?.access_token?.value || 
+             secrets?.SLACK?.secrets?.access_token?.value || null
     }
   } catch (error) {
     console.error('Error reading Slack token:', error)
