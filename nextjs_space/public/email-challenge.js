@@ -1,24 +1,27 @@
 
 /**
- * Email Challenge Button - Foto AI
- * Detects challenges in chat and provides one-click email delivery
- * Version: 2024123002 (Hybrid Detection)
+ * Challenge Share Buttons - Foto AI
+ * Detects challenges in chat and provides one-click email/Slack delivery
+ * Version: 2024123003 (Email + Slack Integration)
  * Target Email: seun_salami@outlook.com
+ * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
+ * - NEW: Added Slack integration button
  * - BEST: Structured CHALLENGE_SYNC_DATA format (when chatbot provides it)
  * - FALLBACK: Flexible detection with keyword matching (works now!)
  * - Filters out UI elements to prevent false positives
- * - Shows button for any photography challenge content
+ * - Shows buttons for any photography challenge content
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024123002 (Hybrid Detection)');
-  console.log('[Foto Email] Target email: seun_salami@outlook.com');
+  console.log('[Foto Share] Script loaded - Version: 2024123003 (Email + Slack)');
+  console.log('[Foto Share] Target email: seun_salami@outlook.com');
+  console.log('[Foto Share] Target Slack: #fotoai');
 
   let lastProcessedText = '';
-  let emailButton = null;
+  let shareButtonContainer = null;
   let currentChallenge = null;
 
   // Extract challenge data from chat messages
@@ -177,76 +180,98 @@
     return extractFromVisibleElements();
   }
 
-  // Create and show email button
+  // Create and show share buttons (Email + Slack)
   function showEmailButton(challenge) {
-    if (emailButton) {
-      // Update existing button
-      emailButton.style.display = 'flex';
+    if (shareButtonContainer) {
+      // Update existing buttons
+      shareButtonContainer.style.display = 'flex';
       currentChallenge = challenge;
       return;
     }
 
-    // Create button
-    emailButton = document.createElement('div');
-    emailButton.id = 'foto-email-challenge-btn';
-    emailButton.innerHTML = `
-      <button class="foto-email-btn">
+    // Create button container
+    shareButtonContainer = document.createElement('div');
+    shareButtonContainer.id = 'foto-share-btns';
+    shareButtonContainer.innerHTML = `
+      <button class="foto-share-btn foto-email-btn" data-action="email">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="4" width="20" height="16" rx="2"/>
           <path d="M22 6l-10 7L2 6"/>
         </svg>
-        <span>Email This Challenge</span>
+        <span>Email</span>
+      </button>
+      <button class="foto-share-btn foto-slack-btn" data-action="slack">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+        </svg>
+        <span>Slack</span>
       </button>
     `;
 
     // Add styles
     const style = document.createElement('style');
     style.textContent = `
-      #foto-email-challenge-btn {
+      #foto-share-btns {
         position: fixed;
         bottom: 24px;
         right: 24px;
         z-index: 9999;
         display: flex;
+        gap: 8px;
         animation: slideInUp 0.3s ease-out;
       }
 
-      .foto-email-btn {
+      .foto-share-btn {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 12px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        gap: 6px;
+        padding: 10px 16px;
         color: white;
         border: none;
         border-radius: 8px;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         transition: all 0.2s ease;
       }
 
-      .foto-email-btn:hover {
+      .foto-email-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+
+      .foto-slack-btn {
+        background: linear-gradient(135deg, #4A154B 0%, #611f69 100%);
+        box-shadow: 0 4px 12px rgba(74, 21, 75, 0.4);
+      }
+
+      .foto-share-btn:hover {
         transform: translateY(-2px);
+      }
+
+      .foto-email-btn:hover {
         box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
       }
 
-      .foto-email-btn:active {
+      .foto-slack-btn:hover {
+        box-shadow: 0 6px 20px rgba(74, 21, 75, 0.5);
+      }
+
+      .foto-share-btn:active {
         transform: translateY(0);
       }
 
-      .foto-email-btn.sending {
+      .foto-share-btn.sending {
         opacity: 0.7;
         pointer-events: none;
       }
 
-      .foto-email-btn.success {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      .foto-share-btn.success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
       }
 
-      .foto-email-btn.error {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      .foto-share-btn.error {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
       }
 
       @keyframes slideInUp {
@@ -261,40 +286,44 @@
       }
 
       @media (max-width: 640px) {
-        #foto-email-challenge-btn {
+        #foto-share-btns {
           bottom: 16px;
           right: 16px;
+          flex-direction: column;
         }
         
-        .foto-email-btn {
-          padding: 10px 16px;
-          font-size: 13px;
+        .foto-share-btn {
+          padding: 10px 14px;
+          font-size: 12px;
         }
       }
     `;
     document.head.appendChild(style);
 
-    // Add click handler
-    const btn = emailButton.querySelector('.foto-email-btn');
-    btn.addEventListener('click', () => sendChallengeEmail(challenge));
+    // Add click handlers
+    const emailBtn = shareButtonContainer.querySelector('[data-action="email"]');
+    const slackBtn = shareButtonContainer.querySelector('[data-action="slack"]');
+    
+    emailBtn.addEventListener('click', () => sendChallengeEmail(challenge));
+    slackBtn.addEventListener('click', () => sendChallengeSlack(challenge));
 
     // Add to page
-    document.body.appendChild(emailButton);
+    document.body.appendChild(shareButtonContainer);
     currentChallenge = challenge;
 
-    console.log('[Foto Email] Button added to page');
+    console.log('[Foto Share] Buttons added to page (Email + Slack)');
   }
 
-  // Hide email button
+  // Hide share buttons
   function hideEmailButton() {
-    if (emailButton) {
-      emailButton.style.display = 'none';
+    if (shareButtonContainer) {
+      shareButtonContainer.style.display = 'none';
     }
   }
 
   // Send challenge via email
   async function sendChallengeEmail(challenge) {
-    const btn = emailButton.querySelector('.foto-email-btn');
+    const btn = shareButtonContainer.querySelector('[data-action="email"]');
     const originalText = btn.innerHTML;
     
     btn.classList.add('sending');
@@ -364,6 +393,76 @@
       showNotification('❌ Failed to send email. Please try again.', 'error');
 
       // Reset button after 3 seconds
+      setTimeout(() => {
+        btn.classList.remove('error');
+        btn.innerHTML = originalText;
+      }, 3000);
+    }
+  }
+
+  // Send challenge via Slack
+  async function sendChallengeSlack(challenge) {
+    const btn = shareButtonContainer.querySelector('[data-action="slack"]');
+    const originalText = btn.innerHTML;
+    
+    btn.classList.add('sending');
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" opacity="0.3"/>
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83" style="animation: spin 1s linear infinite"/>
+      </svg>
+      <span>Sending...</span>
+    `;
+
+    try {
+      console.log('[Foto Slack] Sending challenge data:', challenge);
+      
+      const response = await fetch('/api/challenges/slack', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(challenge)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        btn.classList.remove('sending');
+        btn.classList.add('success');
+        btn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>Sent to #fotoai!</span>
+        `;
+
+        console.log('[Foto Slack] ✅ Challenge sent to Slack');
+        showNotification('✅ Challenge sent to #fotoai on Slack!', 'success');
+
+        setTimeout(() => {
+          btn.classList.remove('success');
+          btn.innerHTML = originalText;
+        }, 3000);
+      } else {
+        throw new Error(result.error || 'Failed to send to Slack');
+      }
+    } catch (error) {
+      console.error('[Foto Slack] ❌ Error:', error);
+      
+      btn.classList.remove('sending');
+      btn.classList.add('error');
+      btn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span>Failed</span>
+      `;
+
+      showNotification('❌ Failed to send to Slack. Please try again.', 'error');
+
       setTimeout(() => {
         btn.classList.remove('error');
         btn.innerHTML = originalText;
