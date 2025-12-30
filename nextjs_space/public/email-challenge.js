@@ -2,21 +2,21 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 2024123003 (Email + Slack Integration)
+ * Version: 2024123004 (Smart Detection Fix)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
+ * - FIX: Now filters out generic intro/welcome text
+ * - Detects actual AI-generated challenges only
+ * - Looks for challenge structure patterns (difficulty, tips, gear)
  * - NEW: Added Slack integration button
  * - BEST: Structured CHALLENGE_SYNC_DATA format (when chatbot provides it)
- * - FALLBACK: Flexible detection with keyword matching (works now!)
- * - Filters out UI elements to prevent false positives
- * - Shows buttons for any photography challenge content
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123003 (Email + Slack)');
+  console.log('[Foto Share] Script loaded - Version: 2024123004 (Smart Detection)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -105,66 +105,81 @@
       }
     }
     
-    // Method 4: FALLBACK - Flexible detection for challenges without structured data
-    // This helps when chatbot doesn't output CHALLENGE_SYNC_DATA format yet
-    console.log('[Foto Email] No structured data found, trying flexible detection...');
+    // Method 4: FALLBACK - Look for AI-generated challenge content
+    console.log('[Foto Email] No structured data found, trying AI response detection...');
     
-    // Filter out UI elements and navigation
-    const uiPatterns = [
-      /^(Home|About|Dashboard|Chat|Locations|Profile|Settings|Sign|Login|Logout)/i,
-      /^Foto - /i,
-      /©.*\d{4}/,
-      /Terms|Privacy|Cookie/i,
-      /Menu|Navigation/i
+    // Patterns that indicate generic/intro text (NOT a challenge)
+    const genericPatterns = [
+      /Get personalized itineraries/i,
+      /daily challenges.*expert guidance/i,
+      /Photography Coach|Your Photography/i,
+      /Sent from Foto/i,
+      /melbourne.based creative/i,
+      /elevate your skills/i,
+      /specializing in street/i
     ];
     
-    // Look for photography challenge indicators
-    const challengeKeywords = [
-      'challenge', 'photography', 'shoot', 'capture', 'photo',
-      'camera', 'lens', 'composition', 'lighting', 'portrait',
-      'landscape', 'street', 'difficulty', 'beginner', 'intermediate',
-      'advanced', 'melbourne', 'tips', 'gear'
+    // Strong indicators of an actual generated challenge
+    const challengeIndicators = [
+      /your.*challenge/i,
+      /today.*challenge/i,
+      /challenge.*for you/i,
+      /here.*challenge/i,
+      /photography challenge/i,
+      /📸|🎯|📷/,  // Challenge emojis
+      /difficulty.*:/i,
+      /location.*:/i,
+      /tips.*:/i,
+      /gear.*:/i,
+      /recommended.*:/i
     ];
     
-    // Split into lines and find challenge-like content
-    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+    // Check if this looks like a generic intro page
+    const isGenericContent = genericPatterns.some(pattern => pattern.test(pageText));
+    const hasStrongChallengeIndicators = challengeIndicators.filter(p => p.test(pageText)).length >= 2;
     
-    let challengeContent = [];
-    let foundKeywords = new Set();
+    if (isGenericContent && !hasStrongChallengeIndicators) {
+      console.log('[Foto Email] ⚠️ Detected generic intro text, not a challenge');
+      return null;
+    }
+    
+    // Look for specific challenge structure patterns
+    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
+    
+    // Find lines that look like challenge titles or descriptions
+    let challengeTitle = null;
+    let challengeDetails = [];
     
     for (const line of lines) {
-      // Skip UI elements
-      if (uiPatterns.some(pattern => pattern.test(line))) {
-        continue;
+      // Skip known generic patterns
+      if (genericPatterns.some(p => p.test(line))) continue;
+      
+      // Look for challenge title patterns
+      if (!challengeTitle && (
+        /challenge.*:/i.test(line) ||
+        /^(capture|shoot|photograph|find|explore|document)/i.test(line) ||
+        /📸|🎯/.test(line)
+      )) {
+        challengeTitle = line.substring(0, 100);
       }
       
-      // Count challenge keywords in this line
-      const keywordsInLine = challengeKeywords.filter(keyword => 
-        line.toLowerCase().includes(keyword)
-      );
-      
-      if (keywordsInLine.length >= 2) {
-        challengeContent.push(line);
-        keywordsInLine.forEach(k => foundKeywords.add(k));
+      // Look for challenge details
+      if (/^(difficulty|location|duration|tips|gear|recommended|category).*:/i.test(line)) {
+        challengeDetails.push(line);
       }
     }
     
-    // If we found enough challenge-related content, create a basic challenge object
-    if (challengeContent.length >= 2 && foundKeywords.size >= 3) {
-      console.log('[Foto Email] ✅ Found flexible challenge content');
-      console.log('[Foto Email] Keywords detected:', Array.from(foundKeywords).join(', '));
+    // Only return if we found actual challenge content
+    if (challengeTitle || challengeDetails.length >= 2) {
+      console.log('[Foto Email] ✅ Found AI challenge content');
       
-      // Extract title (first meaningful line)
-      const challengeText = challengeContent[0].substring(0, 80);
-      
-      // Build flexible challenge object
       const flexibleChallenge = {
-        challengeText: challengeText,
-        detailedDescription: challengeContent.join('\n\n'),
-        _source: 'flexible_detection'
+        challengeText: challengeTitle || 'Photography Challenge',
+        detailedDescription: challengeDetails.join('\n'),
+        _source: 'ai_response_detection'
       };
       
-      console.log('[Foto Email] Flexible challenge:', flexibleChallenge);
+      console.log('[Foto Email] Detected challenge:', flexibleChallenge);
       return flexibleChallenge;
     }
     
