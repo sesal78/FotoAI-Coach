@@ -2,18 +2,19 @@
 /**
  * Email Challenge Button - Foto AI
  * Detects challenges in chat and provides one-click email delivery
- * Version: 2024123001 (Structured Data Fix)
+ * Version: 2024123002 (Hybrid Detection)
  * Target Email: seun_salami@outlook.com
  * Updates: 
- * - FIXED: Now looks for structured CHALLENGE_SYNC_DATA format only
- * - FIXED: No longer scrapes entire page (was sending generic content)
- * - Requires chatbot to output CHALLENGE_SYNC_DATA with JSON
+ * - BEST: Structured CHALLENGE_SYNC_DATA format (when chatbot provides it)
+ * - FALLBACK: Flexible detection with keyword matching (works now!)
+ * - Filters out UI elements to prevent false positives
+ * - Shows button for any photography challenge content
  */
 
 (function() {
   'use strict';
 
-  console.log('[Foto Email] Script loaded - Version: 2024123001 (Structured Data Fix)');
+  console.log('[Foto Email] Script loaded - Version: 2024123002 (Hybrid Detection)');
   console.log('[Foto Email] Target email: seun_salami@outlook.com');
 
   let lastProcessedText = '';
@@ -44,14 +45,14 @@
     }
   }
 
-  // Alternative: Look for structured CHALLENGE_SYNC_DATA
+  // Alternative: Look for structured CHALLENGE_SYNC_DATA or flexible challenge content
   function extractFromVisibleElements() {
     const pageText = document.body.innerText;
     const pageHTML = document.body.innerHTML;
     
-    console.log('[Foto Email] Looking for CHALLENGE_SYNC_DATA...');
+    console.log('[Foto Email] Looking for challenge data...');
     
-    // Method 1: Look for CHALLENGE_SYNC_DATA in text
+    // Method 1: Look for structured CHALLENGE_SYNC_DATA in text (BEST)
     if (pageText.includes('CHALLENGE_SYNC_DATA')) {
       console.log('[Foto Email] Found CHALLENGE_SYNC_DATA marker!');
       
@@ -101,8 +102,71 @@
       }
     }
     
-    console.log('[Foto Email] ⚠️ No structured challenge data found');
-    console.log('[Foto Email] Page must contain CHALLENGE_SYNC_DATA with proper JSON format');
+    // Method 4: FALLBACK - Flexible detection for challenges without structured data
+    // This helps when chatbot doesn't output CHALLENGE_SYNC_DATA format yet
+    console.log('[Foto Email] No structured data found, trying flexible detection...');
+    
+    // Filter out UI elements and navigation
+    const uiPatterns = [
+      /^(Home|About|Dashboard|Chat|Locations|Profile|Settings|Sign|Login|Logout)/i,
+      /^Foto - /i,
+      /©.*\d{4}/,
+      /Terms|Privacy|Cookie/i,
+      /Menu|Navigation/i
+    ];
+    
+    // Look for photography challenge indicators
+    const challengeKeywords = [
+      'challenge', 'photography', 'shoot', 'capture', 'photo',
+      'camera', 'lens', 'composition', 'lighting', 'portrait',
+      'landscape', 'street', 'difficulty', 'beginner', 'intermediate',
+      'advanced', 'melbourne', 'tips', 'gear'
+    ];
+    
+    // Split into lines and find challenge-like content
+    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+    
+    let challengeContent = [];
+    let foundKeywords = new Set();
+    
+    for (const line of lines) {
+      // Skip UI elements
+      if (uiPatterns.some(pattern => pattern.test(line))) {
+        continue;
+      }
+      
+      // Count challenge keywords in this line
+      const keywordsInLine = challengeKeywords.filter(keyword => 
+        line.toLowerCase().includes(keyword)
+      );
+      
+      if (keywordsInLine.length >= 2) {
+        challengeContent.push(line);
+        keywordsInLine.forEach(k => foundKeywords.add(k));
+      }
+    }
+    
+    // If we found enough challenge-related content, create a basic challenge object
+    if (challengeContent.length >= 2 && foundKeywords.size >= 3) {
+      console.log('[Foto Email] ✅ Found flexible challenge content');
+      console.log('[Foto Email] Keywords detected:', Array.from(foundKeywords).join(', '));
+      
+      // Extract title (first meaningful line)
+      const challengeText = challengeContent[0].substring(0, 80);
+      
+      // Build flexible challenge object
+      const flexibleChallenge = {
+        challengeText: challengeText,
+        detailedDescription: challengeContent.join('\n\n'),
+        _source: 'flexible_detection'
+      };
+      
+      console.log('[Foto Email] Flexible challenge:', flexibleChallenge);
+      return flexibleChallenge;
+    }
+    
+    console.log('[Foto Email] ⚠️ No challenge data found');
+    console.log('[Foto Email] Tip: Chatbot should output CHALLENGE_SYNC_DATA for best results');
     return null;
   }
 
