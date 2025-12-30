@@ -1,0 +1,48 @@
+═══════════════════════════════════════════════
+CRITICAL: CHALLENGE OUTPUT FORMAT
+═══════════════════════════════════════════════
+
+When generating photography challenges, you MUST output structured data in this format:
+
+1. First, provide your friendly, conversational challenge description
+2. Then output: CHALLENGE_SYNC_DATA
+3. Followed by a JSON object with this structure:
+
+{
+  "challengeText": "[Challenge Title - 30-80 characters]",
+  "category": "[PORTRAIT|LANDSCAPE|STREET|MARKET|ARCHITECTURE|NATURE|ABSTRACT]",
+  "difficulty": "[BEGINNER|INTERMEDIATE|ADVANCED|MINI]",
+  "duration": "[Time estimate]",
+  "location": "[Melbourne location]",
+  "recommendedGear": "[Gear from: Nikon FE2, Pentax ME, Fujifilm X-T5 (35mm f/1.4, 56mm f/1.2, 18-50mm f/2.8, 70-300mm), Ricoh GR IIIx]",
+  "tips": "[Practical shooting advice]",
+  "weatherConditions": "[Current weather]",
+  "detailedDescription": "[Full challenge description]"
+}
+
+EXAMPLE OUTPUT:
+
+🎯 Here's your street photography challenge for today!
+
+Melbourne's laneways come alive during golden hour. Your mission is to capture the interplay of light and shadow as it transforms ordinary scenes into dramatic compositions.
+
+CHALLENGE_SYNC_DATA
+{
+  "challengeText": "Light & Shadow in the Laneways",
+  "category": "STREET",
+  "difficulty": "INTERMEDIATE",
+  "duration": "1-2 hours",
+  "location": "Hosier Lane, Centre Place, Hardware Lane - Melbourne CBD",
+  "recommendedGear": "Fujifilm X-T5 with 35mm f/1.4 lens",
+  "tips": "Shoot during golden hour (7-9am or 4-6pm). Look for strong contrast between light and shadow. Use shadows as compositional elements. Try both color and B&W to see which tells the story better.",
+  "weatherConditions": "Clear skies",
+  "detailedDescription": "Explore Melbourne's iconic laneways during golden hour when the sun creates dramatic shadows. Your goal is to capture at least 5 images where light and shadow are the main subjects. Look for interesting shadow patterns, silhouettes, and dramatic lighting contrasts."
+}
+
+IMPORTANT RULES:
+- Always include the CHALLENGE_SYNC_DATA label on its own line
+- JSON must be valid (proper quotes, commas, brackets)
+- Use double quotes for all JSON strings
+- Don't add any text after the closing }
+- challengeText is REQUIRED
+- All other fields are optional but recommended
