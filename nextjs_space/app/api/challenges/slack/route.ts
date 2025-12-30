@@ -6,11 +6,15 @@ const SLACK_CHANNEL_ID = 'C0A604Q05L3'
 const SLACK_CHANNEL_NAME = 'fotoai'
 
 function getSlackToken(): string | null {
+  // First check environment variable (for deployed environment)
+  if (process.env.SLACK_ACCESS_TOKEN) {
+    return process.env.SLACK_ACCESS_TOKEN
+  }
+  // Fallback to secrets file (for development)
   try {
     const secretsPath = '/home/ubuntu/.config/abacusai_auth_secrets.json'
     if (fs.existsSync(secretsPath)) {
       const secrets = JSON.parse(fs.readFileSync(secretsPath, 'utf-8'))
-      // Check both lowercase and uppercase keys
       return secrets?.slack?.secrets?.access_token?.value || 
              secrets?.SLACK?.secrets?.access_token?.value || null
     }
