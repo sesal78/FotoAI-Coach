@@ -16,7 +16,7 @@
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123004 (Smart Detection)');
+  console.log('[Foto Share] Script loaded - Version: 2024123005 (Flexible Detection)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -105,81 +105,59 @@
       }
     }
     
-    // Method 4: FALLBACK - Look for AI-generated challenge content
-    console.log('[Foto Email] No structured data found, trying AI response detection...');
+    // Method 4: FALLBACK - Flexible keyword detection
+    console.log('[Foto Email] No structured data found, trying flexible detection...');
     
-    // Patterns that indicate generic/intro text (NOT a challenge)
-    const genericPatterns = [
-      /Get personalized itineraries/i,
-      /daily challenges.*expert guidance/i,
-      /Photography Coach|Your Photography/i,
-      /Sent from Foto/i,
-      /melbourne.based creative/i,
-      /elevate your skills/i,
-      /specializing in street/i
+    // Photography-related keywords
+    const challengeKeywords = [
+      'challenge', 'photography', 'shoot', 'capture', 'photo',
+      'camera', 'lens', 'composition', 'lighting', 'portrait',
+      'landscape', 'street', 'difficulty', 'beginner', 'intermediate',
+      'advanced', 'melbourne', 'tips', 'gear', 'aperture', 'shutter',
+      'iso', 'focus', 'frame'
     ];
     
-    // Strong indicators of an actual generated challenge
-    const challengeIndicators = [
-      /your.*challenge/i,
-      /today.*challenge/i,
-      /challenge.*for you/i,
-      /here.*challenge/i,
-      /photography challenge/i,
-      /📸|🎯|📷/,  // Challenge emojis
-      /difficulty.*:/i,
-      /location.*:/i,
-      /tips.*:/i,
-      /gear.*:/i,
-      /recommended.*:/i
+    // Filter out UI elements
+    const uiPatterns = [
+      /^(Home|About|Dashboard|Chat|Locations|Profile|Settings|Sign|Login|Logout)/i,
+      /^Foto - /i,
+      /©.*\d{4}/,
+      /Terms|Privacy|Cookie/i,
+      /Menu|Navigation/i
     ];
     
-    // Check if this looks like a generic intro page
-    const isGenericContent = genericPatterns.some(pattern => pattern.test(pageText));
-    const hasStrongChallengeIndicators = challengeIndicators.filter(p => p.test(pageText)).length >= 2;
+    // Split into lines and find challenge-like content
+    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 20);
     
-    if (isGenericContent && !hasStrongChallengeIndicators) {
-      console.log('[Foto Email] ⚠️ Detected generic intro text, not a challenge');
-      return null;
-    }
-    
-    // Look for specific challenge structure patterns
-    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
-    
-    // Find lines that look like challenge titles or descriptions
-    let challengeTitle = null;
-    let challengeDetails = [];
+    let challengeContent = [];
+    let foundKeywords = new Set();
     
     for (const line of lines) {
-      // Skip known generic patterns
-      if (genericPatterns.some(p => p.test(line))) continue;
+      // Skip UI elements
+      if (uiPatterns.some(pattern => pattern.test(line))) continue;
       
-      // Look for challenge title patterns
-      if (!challengeTitle && (
-        /challenge.*:/i.test(line) ||
-        /^(capture|shoot|photograph|find|explore|document)/i.test(line) ||
-        /📸|🎯/.test(line)
-      )) {
-        challengeTitle = line.substring(0, 100);
-      }
+      // Count keywords in this line
+      const keywordsInLine = challengeKeywords.filter(keyword => 
+        line.toLowerCase().includes(keyword)
+      );
       
-      // Look for challenge details
-      if (/^(difficulty|location|duration|tips|gear|recommended|category).*:/i.test(line)) {
-        challengeDetails.push(line);
+      if (keywordsInLine.length >= 1) {
+        challengeContent.push(line);
+        keywordsInLine.forEach(k => foundKeywords.add(k));
       }
     }
     
-    // Only return if we found actual challenge content
-    if (challengeTitle || challengeDetails.length >= 2) {
-      console.log('[Foto Email] ✅ Found AI challenge content');
+    // Lower threshold - just need some challenge content
+    if (challengeContent.length >= 1 && foundKeywords.size >= 2) {
+      console.log('[Foto Email] ✅ Found challenge content via keywords');
+      console.log('[Foto Email] Keywords:', Array.from(foundKeywords).join(', '));
       
       const flexibleChallenge = {
-        challengeText: challengeTitle || 'Photography Challenge',
-        detailedDescription: challengeDetails.join('\n'),
-        _source: 'ai_response_detection'
+        challengeText: challengeContent[0].substring(0, 100),
+        detailedDescription: challengeContent.join('\n\n'),
+        _source: 'flexible_detection'
       };
       
-      console.log('[Foto Email] Detected challenge:', flexibleChallenge);
       return flexibleChallenge;
     }
     
