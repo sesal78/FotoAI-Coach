@@ -1,40 +1,33 @@
-
 'use client'
 
-import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { useInView } from 'react-intersection-observer'
-import { Camera, Aperture, Timer, Zap } from 'lucide-react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 
-const cameras = [
+const gear = [
   {
     name: 'Fujifilm X-T5',
-    type: 'Mirrorless Digital',
-    image: 'https://www.popphoto.com/uploads/2022/02/06/fujifilm-x-t5-camera-front.jpg?auto=webp',
-    features: ['40.2MP APS-C Sensor', 'Film Simulation Modes', '7 FPS Burst'],
-    description: 'Professional mirrorless camera perfect for street and travel photography with exceptional image quality.',
+    type: 'Digital Mirrorless',
+    description: '40MP sensor, incredible color science',
+    image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80',
   },
   {
     name: 'Ricoh GR IIIx',
-    type: 'Compact Digital',
-    image: 'https://us.ricoh-imaging.com/wp-content/uploads/2024/03/grIIIx-hdf1.png',
-    features: ['24.2MP APS-C Sensor', '40mm Equivalent Lens', 'Ultra Portable'],
-    description: 'The ultimate street photography companion with outstanding image quality in a pocket-sized form.',
+    type: 'Compact',
+    description: 'Street photography legend, 40mm equiv.',
+    image: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=600&q=80',
   },
   {
     name: 'Nikon FE2',
-    type: '35mm Film Camera',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/NikonFE2blkfrt50f14.jpg/1200px-NikonFE2blkfrt50f14.jpg',
-    features: ['1/4000s Shutter Speed', 'Titanium Shutter', 'Manual Focus'],
-    description: 'Classic 35mm SLR camera beloved by photographers for its reliability and exceptional build quality.',
+    type: 'Film SLR',
+    description: 'Classic mechanical reliability',
+    image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?w=600&q=80',
   },
   {
     name: 'Pentax ME',
-    type: '35mm Film Camera',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/6/6e/Pentax_ME_M50mm.jpg',
-    features: ['Compact SLR Design', 'Aperture Priority', 'K-Mount Lenses'],
-    description: 'Vintage compact SLR camera known for its precision engineering and beautiful color rendition.',
+    type: 'Film SLR',
+    description: 'Compact, lightweight film body',
+    image: 'https://images.unsplash.com/photo-1510127034890-ba27508e9f1c?w=600&q=80',
   },
 ]
 
@@ -45,71 +38,71 @@ export default function GearShowcase() {
   })
 
   return (
-    <section className="py-20 bg-slate-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          ref={ref}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-            Gear-Specific Coaching
-          </h2>
-          <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-            Foto provides expert guidance tailored specifically to your camera equipment, 
-            helping you maximize the potential of every piece of gear in your kit.
-          </p>
-        </motion.div>
+    <section className="py-24 lg:py-32 bg-foreground text-background overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={ref}>
+        {/* Header */}
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 mb-16 lg:mb-20">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
+            transition={{ duration: 0.8 }}
+          >
+            <span className="overline text-background/50 mb-4 block">Your Gear</span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight tracking-tight display-font">
+              Coaching tailored to
+              <br />
+              <span className="text-primary">your equipment</span>
+            </h2>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="flex items-end"
+          >
+            <p className="text-lg text-background/60 leading-relaxed">
+              Every piece of advice, challenge, and itinerary is customized 
+              for the specific capabilities of your camera bodies and lenses.
+            </p>
+          </motion.div>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {cameras?.map((camera, index) => (
+        {/* Gear Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {gear?.map((item, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
-              transition={{ duration: 0.8, delay: index * 0.2 }}
-              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 photography-card"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 40 }}
+              transition={{ duration: 0.8, delay: index * 0.1 }}
+              className="group"
             >
-              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="relative aspect-[4/3] w-full lg:w-48 flex-shrink-0">
-                  <div className="relative w-full h-full bg-slate-100 rounded-xl overflow-hidden">
-                    <Image
-                      src={camera?.image ?? ''}
-                      alt={camera?.name ?? ''}
-                      fill
-                      className="object-contain p-4"
-                    />
-                  </div>
-                </div>
+              {/* Image */}
+              <div className="relative aspect-[4/5] mb-5 overflow-hidden bg-background/10">
+                <Image
+                  src={item?.image}
+                  alt={item?.name}
+                  fill
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent" />
                 
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Camera className="h-5 w-5 text-slate-600" />
-                    <span className="text-sm font-medium text-slate-600">
-                      {camera?.type}
-                    </span>
-                  </div>
-                  
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                    {camera?.name}
-                  </h3>
-                  
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    {camera?.description}
-                  </p>
-                  
-                  <div className="space-y-2">
-                    {camera?.features?.map((feature, featureIndex) => (
-                      <div key={featureIndex} className="flex items-center space-x-2">
-                        <Zap className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm text-slate-700">{feature}</span>
-                      </div>
-                    )) ?? []}
-                  </div>
+                {/* Type Badge */}
+                <div className="absolute top-4 left-4">
+                  <span className="inline-block px-3 py-1 bg-background/90 text-foreground text-xs font-semibold tracking-wide">
+                    {item?.type}
+                  </span>
                 </div>
               </div>
+              
+              {/* Content */}
+              <h3 className="text-xl font-semibold text-background mb-1 display-font group-hover:text-primary transition-colors">
+                {item?.name}
+              </h3>
+              <p className="text-background/50 text-sm">
+                {item?.description}
+              </p>
             </motion.div>
           )) ?? []}
         </div>

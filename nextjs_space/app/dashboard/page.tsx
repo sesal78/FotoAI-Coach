@@ -344,269 +344,256 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your photography journey...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-muted-foreground text-sm">Loading your journey...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Welcome back, Seun! 📸</h1>
-        <p className="text-muted-foreground">Your personal photography coaching dashboard</p>
-      </div>
+    <div className="min-h-screen bg-background pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+        {/* Header */}
+        <div className="mb-10 lg:mb-14">
+          <span className="overline mb-3 block">Dashboard</span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-3 display-font">
+            Welcome back, <span className="text-primary">Seun</span>
+          </h1>
+          <p className="text-muted-foreground text-lg">Your personal photography coaching dashboard</p>
+        </div>
 
-      {/* Progress Stats */}
-      {progress && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Completed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{progress.totalChallengesCompleted}</div>
-              <p className="text-xs text-muted-foreground">of {progress.totalChallengesIssued} challenges</p>
-            </CardContent>
-          </Card>
+        {/* Progress Stats */}
+        {progress && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-10 lg:mb-14">
+            <div className="editorial-card p-5 lg:p-6">
+              <span className="overline mb-2 block">Completed</span>
+              <div className="display-number text-3xl lg:text-4xl">{progress.totalChallengesCompleted}</div>
+              <p className="text-sm text-muted-foreground mt-1">of {progress.totalChallengesIssued} challenges</p>
+            </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Current Streak</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold flex items-center gap-2">
-                {progress.currentStreak} 🔥
+            <div className="editorial-card p-5 lg:p-6">
+              <span className="overline mb-2 block">Current Streak</span>
+              <div className="display-number text-3xl lg:text-4xl flex items-baseline gap-2">
+                {progress.currentStreak}
+                <span className="text-2xl">🔥</span>
               </div>
-              <p className="text-xs text-muted-foreground">Longest: {progress.longestStreak} days</p>
-            </CardContent>
-          </Card>
+              <p className="text-sm text-muted-foreground mt-1">Longest: {progress.longestStreak} days</p>
+            </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{progress.completionRate}%</div>
-              <Progress value={progress.completionRate} className="mt-2" />
-            </CardContent>
-          </Card>
+            <div className="editorial-card p-5 lg:p-6">
+              <span className="overline mb-2 block">Completion Rate</span>
+              <div className="display-number text-3xl lg:text-4xl">{progress.completionRate}%</div>
+              <Progress value={progress.completionRate} className="mt-3 h-1.5" />
+            </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Top Styles</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-1">
+            <div className="editorial-card p-5 lg:p-6">
+              <span className="overline mb-2 block">Top Styles</span>
+              <div className="flex flex-wrap gap-2 mt-2">
                 {progress.favoriteSubjects.slice(0, 3).map((subject) => (
-                  <Badge key={subject} variant="secondary" className="text-xs">
+                  <Badge key={subject} variant="secondary" className="text-xs font-medium">
                     {subject}
                   </Badge>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          </div>
+        )}
 
-      {/* Main Content */}
-      <Tabs defaultValue="challenge" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="challenge">
-            Current Challenge
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            History
-          </TabsTrigger>
-          <TabsTrigger value="itinerary">
-            Itinerary
-          </TabsTrigger>
-        </TabsList>
+        {/* Main Content */}
+        <Tabs defaultValue="challenge" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 bg-muted p-1 h-auto">
+            <TabsTrigger value="challenge" className="py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Current Challenge
+            </TabsTrigger>
+            <TabsTrigger value="history" className="py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              History
+            </TabsTrigger>
+            <TabsTrigger value="itinerary" className="py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Itinerary
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Current Challenge Tab */}
-        <TabsContent value="challenge" className="space-y-6">
-          {currentChallenge ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-2xl mb-2">Today's Challenge</CardTitle>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge variant="default">{currentChallenge.category}</Badge>
-                      <Badge variant="secondary">{currentChallenge.difficulty}</Badge>
-                      <Badge variant="outline">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {currentChallenge.duration}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <h3 className="font-semibold mb-2">Your Mission:</h3>
-                  <p className="text-lg leading-relaxed">{currentChallenge.challengeText}</p>
-                </div>
-
-                {currentChallenge.tips && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>Pro Tips:</strong> {currentChallenge.tips}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {currentChallenge.recommendedGear.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Recommended Gear:</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {currentChallenge.recommendedGear.map((gear, index) => (
-                        <Badge key={index} variant="outline">
-                          <Camera className="w-3 h-3 mr-1" />
-                          {gear}
+          {/* Current Challenge Tab */}
+          <TabsContent value="challenge" className="space-y-6">
+            {currentChallenge ? (
+              <div className="editorial-card">
+                <div className="p-6 lg:p-8 border-b border-border">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div>
+                      <span className="overline mb-2 block">Today&apos;s Challenge</span>
+                      <h2 className="text-2xl lg:text-3xl font-bold tracking-tight display-font mb-4">Your Mission</h2>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className="bg-primary text-white">{currentChallenge.category}</Badge>
+                        <Badge variant="secondary">{currentChallenge.difficulty}</Badge>
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {currentChallenge.duration}
                         </Badge>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {currentChallenge.weatherConditions && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Cloud className="w-4 h-4" />
-                    <span>{currentChallenge.weatherConditions}</span>
-                    {currentChallenge.location && (
-                      <>
-                        <MapPin className="w-4 h-4 ml-2" />
-                        <span>{currentChallenge.location}</span>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Submission Form */}
-                <div className="border-t pt-6 space-y-4">
-                  <h3 className="font-semibold text-lg">Submit Your Challenge</h3>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Upload Photo (Optional)</label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-                    />
-                    {photo && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Selected: {photo.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Notes & Reflections</label>
-                    <Textarea
-                      placeholder="Share your experience, what you learned, challenges you faced..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Rate Your Experience</label>
-                    <div className="flex gap-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          onClick={() => setRating(star)}
-                          className={`text-2xl ${rating >= star ? 'text-yellow-500' : 'text-gray-300'}`}
-                        >
-                          ⭐
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 flex-wrap">
-                    <Button
-                      onClick={submitChallenge}
-                      disabled={submitting}
-                      className="flex-1 min-w-[140px]"
-                      size="lg"
-                    >
-                      {submitting ? (
-                        <>Submitting...</>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4 mr-2" />
-                          Submit Challenge
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={emailChallenge}
-                      disabled={emailing}
-                      variant="secondary"
-                      className="flex-1 min-w-[140px]"
-                      size="lg"
-                    >
-                      {emailing ? (
-                        <>Sending...</>
-                      ) : (
-                        <>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Email Challenge
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={skipChallenge}
-                      disabled={submitting}
-                      variant="outline"
-                      className="flex-1 min-w-[140px]"
-                      size="lg"
-                    >
-                      {submitting ? (
-                        <>Processing...</>
-                      ) : (
-                        <>
-                          Skip Challenge
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>No Active Challenge</CardTitle>
-                <CardDescription>
+                <div className="p-6 lg:p-8 space-y-6">
+                  <div>
+                    <p className="text-lg lg:text-xl leading-relaxed text-foreground">{currentChallenge.challengeText}</p>
+                  </div>
+
+                  {currentChallenge.tips && (
+                    <div className="bg-accent/50 border border-accent p-4 flex gap-3">
+                      <AlertCircle className="h-5 w-5 text-accent-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-accent-foreground">Pro Tips:</span>
+                        <p className="text-foreground mt-1">{currentChallenge.tips}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentChallenge.recommendedGear.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-muted-foreground">Recommended Gear</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {currentChallenge.recommendedGear.map((gear, index) => (
+                          <Badge key={index} variant="outline" className="py-1.5 px-3">
+                            <Camera className="w-3 h-3 mr-1.5" />
+                            {gear}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {currentChallenge.weatherConditions && (
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground pt-2 border-t border-border">
+                      <div className="flex items-center gap-2">
+                        <Cloud className="w-4 h-4" />
+                        <span>{currentChallenge.weatherConditions}</span>
+                      </div>
+                      {currentChallenge.location && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          <span>{currentChallenge.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Submission Form */}
+                  <div className="border-t border-border pt-8 mt-8 space-y-6">
+                    <h3 className="text-xl font-semibold display-font">Submit Your Challenge</h3>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-muted-foreground">Upload Photo (Optional)</label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setPhoto(e.target.files?.[0] || null)}
+                        className="h-12"
+                      />
+                      {photo && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Selected: {photo.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-muted-foreground">Notes & Reflections</label>
+                      <Textarea
+                        placeholder="Share your experience, what you learned, challenges you faced..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        rows={4}
+                        className="resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-3 text-muted-foreground">Rate Your Experience</label>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setRating(star)}
+                            className={`text-3xl transition-transform hover:scale-110 ${rating >= star ? 'text-primary' : 'text-border'}`}
+                          >
+                            ⭐
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                      <Button
+                        onClick={submitChallenge}
+                        disabled={submitting}
+                        className="flex-1 h-12 bg-foreground text-background hover:bg-primary font-semibold tracking-wide"
+                        size="lg"
+                      >
+                        {submitting ? (
+                          <>Submitting...</>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            Submit Challenge
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={emailChallenge}
+                        disabled={emailing}
+                        variant="secondary"
+                        className="flex-1 h-12 font-semibold tracking-wide"
+                        size="lg"
+                      >
+                        {emailing ? (
+                          <>Sending...</>
+                        ) : (
+                          <>
+                            <Mail className="w-4 h-4 mr-2" />
+                            Email
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={skipChallenge}
+                        disabled={submitting}
+                        variant="outline"
+                        className="flex-1 h-12 font-semibold tracking-wide"
+                        size="lg"
+                      >
+                        {submitting ? <>Processing...</> : <>Skip</>}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="editorial-card p-6 lg:p-8">
+                <span className="overline mb-2 block">Get Started</span>
+                <h2 className="text-2xl lg:text-3xl font-bold tracking-tight display-font mb-2">No Active Challenge</h2>
+                <p className="text-muted-foreground mb-8">
                   Generate a new photography challenge tailored to your schedule and interests.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </p>
+                
                 {/* Challenge Type Selector */}
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground">Choose Challenge Type:</label>
+                <div className="space-y-4 mb-8">
+                  <label className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Choose Challenge Type</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {challengeTypes.map((type) => (
                       <button
                         key={type.value}
                         onClick={() => setSelectedChallengeType(type.value)}
-                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        className={`p-5 border-2 text-left transition-all ${
                           selectedChallengeType === type.value
-                            ? 'border-primary bg-primary/10'
-                            : 'border-border hover:border-primary/50'
+                            ? 'border-primary bg-accent'
+                            : 'border-border hover:border-primary/50 bg-transparent'
                         }`}
                       >
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{type.description}</div>
+                        <div className="font-semibold text-foreground">{type.label}</div>
+                        <div className="text-sm text-muted-foreground mt-1">{type.description}</div>
                       </button>
                     ))}
                   </div>
@@ -616,77 +603,78 @@ export default function DashboardPage() {
                   onClick={generateNewChallenge}
                   disabled={generating}
                   size="lg"
-                  className="w-full"
+                  className="w-full h-14 bg-foreground text-background hover:bg-primary font-semibold tracking-wide text-base"
                 >
                   {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* History Tab */}
-        <TabsContent value="history" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Challenges</CardTitle>
-              <CardDescription>Your photography journey so far</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentChallenges.length > 0 ? (
-                recentChallenges.map((challenge) => (
-                  <div
-                    key={challenge.id}
-                    className="border rounded-lg p-4 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{challenge.category}</Badge>
-                        <Badge
-                          variant={
-                            challenge.status === 'completed'
-                              ? 'default'
-                              : challenge.status === 'skipped'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                        >
-                          {challenge.status === 'completed' && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                          {challenge.status}
-                        </Badge>
+          {/* History Tab */}
+          <TabsContent value="history" className="space-y-4">
+            <div className="editorial-card p-6 lg:p-8">
+              <span className="overline mb-2 block">Your Journey</span>
+              <h2 className="text-2xl font-bold tracking-tight display-font mb-6">Recent Challenges</h2>
+              
+              <div className="space-y-4">
+                {recentChallenges.length > 0 ? (
+                  recentChallenges.map((challenge) => (
+                    <div
+                      key={challenge.id}
+                      className="border border-border p-5 transition-colors hover:bg-muted/30"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{challenge.category}</Badge>
+                          <Badge
+                            variant={
+                              challenge.status === 'completed'
+                                ? 'default'
+                                : challenge.status === 'skipped'
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                            className={challenge.status === 'completed' ? 'bg-primary' : ''}
+                          >
+                            {challenge.status === 'completed' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                            {challenge.status}
+                          </Badge>
+                        </div>
+                        <span className="text-sm text-muted-foreground font-mono">
+                          {new Date(challenge.issuedDate).toLocaleDateString()}
+                        </span>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(challenge.issuedDate).toLocaleDateString()}
-                      </span>
+                      <p className="text-foreground leading-relaxed">{challenge.challengeText}</p>
                     </div>
-                    <p className="text-sm">{challenge.challengeText}</p>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Camera className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <p>No challenges yet. Generate your first one!</p>
                   </div>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  No challenges yet. Generate your first one!
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                )}
+              </div>
+            </div>
+          </TabsContent>
 
-        {/* Itinerary Tab */}
-        <TabsContent value="itinerary">
-          <Card>
-            <CardHeader>
-              <CardTitle>Photography Itineraries</CardTitle>
-              <CardDescription>
-                Generate location-based photo tours (Coming soon)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center py-12 text-muted-foreground">
-              <MapPin className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Itinerary generation feature will be added in the next update!</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          {/* Itinerary Tab */}
+          <TabsContent value="itinerary">
+            <div className="editorial-card p-6 lg:p-8">
+              <span className="overline mb-2 block">Photo Tours</span>
+              <h2 className="text-2xl font-bold tracking-tight display-font mb-2">Photography Itineraries</h2>
+              <p className="text-muted-foreground mb-8">
+                Generate location-based photo tours tailored to your interests.
+              </p>
+              
+              <div className="text-center py-16 border border-dashed border-border">
+                <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+                <p className="text-muted-foreground">Coming soon in the next update!</p>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

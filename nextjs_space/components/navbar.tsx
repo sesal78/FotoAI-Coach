@@ -1,11 +1,9 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Camera, Menu, X } from 'lucide-react'
+import { Menu, X, ArrowUpRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const navItems = [
@@ -32,106 +30,159 @@ export default function Navbar() {
     }
   }, [])
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsOpen(false)
+  }, [pathname])
+
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm'
-          : 'bg-transparent'
-      }`}
-    >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="p-2 rounded-lg bg-gradient-to-r from-slate-900 to-slate-700 group-hover:from-slate-800 group-hover:to-slate-600 transition-all duration-300">
-              <Camera className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-              Foto
-            </span>
-          </Link>
+    <>
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+          isScrolled
+            ? 'bg-background/95 backdrop-blur-md border-b border-border'
+            : 'bg-transparent'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            {/* Logo */}
+            <Link href="/" className="group relative">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight display-font">
+                Foto
+              </span>
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
+            </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navItems?.map((item) => (
-              <Link
-                key={item?.href}
-                href={item?.href ?? '/'}
-                className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 ${
-                  pathname === item?.href
-                    ? 'text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {item?.label}
-                {pathname === item?.href && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900"
-                    initial={false}
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
-                )}
-              </Link>
-            )) ?? []}
-            <Button
-              asChild
-              className="bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 text-white"
-            >
-              <Link href="/chat">Start Coaching</Link>
-            </Button>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-slate-600 hover:text-slate-900"
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Navigation */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-200"
-          >
-            <div className="px-4 py-4 space-y-4">
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center gap-1">
               {navItems?.map((item) => (
                 <Link
                   key={item?.href}
                   href={item?.href ?? '/'}
-                  onClick={() => setIsOpen(false)}
-                  className={`block px-3 py-2 text-base font-medium rounded-md transition-colors duration-200 ${
+                  className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-200 ${
                     pathname === item?.href
-                      ? 'text-slate-900 bg-slate-100'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {item?.label}
+                  {pathname === item?.href && (
+                    <motion.div
+                      layoutId="activeNavIndicator"
+                      className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
                 </Link>
               )) ?? []}
-              <Button
-                asChild
-                className="w-full bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 text-white"
-                onClick={() => setIsOpen(false)}
+              
+              {/* CTA Button */}
+              <Link
+                href="/chat"
+                className="ml-4 group flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-sm font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
               >
-                <Link href="/chat">Start Coaching</Link>
-              </Button>
+                <span>Start Coaching</span>
+                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
             </div>
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="lg:hidden p-2 -mr-2 text-foreground hover:text-primary transition-colors"
+              aria-label={isOpen ? 'Close menu' : 'Open menu'}
+            >
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Navigation Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 lg:hidden"
+          >
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+              onClick={() => setIsOpen(false)}
+            />
+            
+            {/* Menu Panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-background border-l border-border shadow-2xl"
+            >
+              <div className="flex flex-col h-full">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border">
+                  <span className="text-2xl font-bold tracking-tight display-font">Menu</span>
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Close menu"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                {/* Navigation Links */}
+                <div className="flex-1 overflow-y-auto py-6">
+                  {navItems?.map((item, index) => (
+                    <motion.div
+                      key={item?.href}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Link
+                        href={item?.href ?? '/'}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center justify-between px-6 py-4 text-lg font-medium transition-colors duration-200 ${
+                          pathname === item?.href
+                            ? 'text-foreground bg-muted'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <span>{item?.label}</span>
+                        {pathname === item?.href && (
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </Link>
+                    </motion.div>
+                  )) ?? []}
+                </div>
+                
+                {/* CTA */}
+                <div className="p-6 border-t border-border">
+                  <Link
+                    href="/chat"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full py-4 bg-foreground text-background text-base font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
+                  >
+                    <span>Start Coaching</span>
+                    <ArrowUpRight className="h-5 w-5" />
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </nav>
+    </>
   )
 }

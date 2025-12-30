@@ -1,108 +1,83 @@
-
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { useInView } from 'react-intersection-observer'
-import { MessageCircle, ArrowRight, Camera } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function CallToAction() {
   const [ref, inView] = useInView({
     triggerOnce: true,
-    threshold: 0.1,
+    threshold: 0.2,
   })
 
   return (
-    <section className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 25% 25%, white 2px, transparent 2px)`,
-          backgroundSize: '50px 50px'
-        }} />
-      </div>
-
-      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <motion.div
-          ref={ref}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="flex items-center justify-center space-x-2 mb-6">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full">
-              <Camera className="h-6 w-6 text-white" />
-            </div>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-            Ready to Transform Your
-            <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent block">
-              Photography Journey?
-            </span>
-          </h2>
-
-          <p className="text-xl text-gray-300 mb-10 leading-relaxed max-w-3xl mx-auto">
-            Join thousands of photographers who have elevated their skills with Foto's personalized AI coaching. 
-            Start your photography transformation today.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <Button
-              asChild
-              size="lg"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10 py-4 text-xl font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1"
+    <section className="py-24 lg:py-32 bg-muted overflow-hidden" ref={ref}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative">
+          {/* Large decorative number */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: inView ? 0.05 : 0, scale: inView ? 1 : 0.8 }}
+            transition={{ duration: 1 }}
+            className="absolute -top-20 -left-10 text-[20rem] font-bold display-font text-foreground select-none pointer-events-none hidden lg:block"
+          >
+            →
+          </motion.div>
+          
+          <div className="relative z-10 max-w-3xl mx-auto text-center">
+            <motion.span
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 20 }}
+              transition={{ duration: 0.6 }}
+              className="overline mb-4 block"
             >
-              <Link href="/chat" className="flex items-center space-x-3">
-                <MessageCircle className="h-6 w-6" />
-                <span>Start Your Coaching</span>
-                <ArrowRight className="h-6 w-6" />
-              </Link>
-            </Button>
+              Ready to Begin?
+            </motion.span>
             
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="border-2 border-white text-white hover:bg-white hover:text-slate-900 px-10 py-4 text-xl font-semibold backdrop-blur-sm"
+            <motion.h2
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
+              className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight tracking-tight mb-6 display-font"
             >
-              <Link href="/about">Learn More</Link>
-            </Button>
-          </div>
-
-          {/* Stats */}
-          <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 20 }}
+              Start your photography
+              <br />
+              journey <span className="text-primary">today</span>
+            </motion.h2>
+            
+            <motion.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-center"
+              className="text-lg text-muted-foreground leading-relaxed mb-10"
             >
-              <div className="text-3xl font-bold text-white mb-2">10K+</div>
-              <div className="text-gray-400">Photos Reviewed</div>
-            </motion.div>
+              Get personalized coaching, daily challenges, and expert guidance 
+              tailored specifically to your gear and creative goals.
+            </motion.p>
+            
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 20 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-center"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center"
             >
-              <div className="text-3xl font-bold text-white mb-2">500+</div>
-              <div className="text-gray-400">Photographers Coached</div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 20 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
-              className="text-center"
-            >
-              <div className="text-3xl font-bold text-white mb-2">24/7</div>
-              <div className="text-gray-400">AI Coaching Available</div>
+              <Link
+                href="/chat"
+                className="group inline-flex items-center justify-center gap-3 px-8 py-4 bg-foreground text-background font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
+              >
+                <span>Start Free Coaching</span>
+                <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center gap-3 px-8 py-4 border-2 border-foreground/20 text-foreground font-semibold tracking-wide transition-all duration-300 hover:border-foreground hover:bg-foreground/5"
+              >
+                <span>View Dashboard</span>
+              </Link>
             </motion.div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   )

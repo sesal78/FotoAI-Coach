@@ -1,16 +1,12 @@
-
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from 'sonner'
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
 
-const inter = Inter({ subsets: ['latin'] })
-
 export const metadata: Metadata = {
-  title: 'Foto - AI Photography Coach',
+  title: 'Foto — AI Photography Coach',
   description: 'Professional AI photography coaching platform by Seun. Get personalized photography itineraries, daily challenges, and expert guidance for street, travel, landscape, and storytelling photography.',
   keywords: 'photography coach, AI photography, photography training, street photography, landscape photography, travel photography, Fujifilm, Ricoh, Nikon, Pentax',
 }
@@ -22,13 +18,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className="antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >
+          {/* Subtle grain texture overlay */}
+          <div className="grain-overlay" aria-hidden="true" />
+          
           <div className="min-h-screen flex flex-col">
             <Navbar />
             <main className="flex-1">
@@ -36,7 +35,17 @@ export default function RootLayout({
             </main>
             <Footer />
           </div>
-          <Toaster />
+          <Toaster 
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                fontFamily: 'DM Sans, sans-serif',
+                background: 'hsl(30 10% 12%)',
+                color: 'hsl(45 20% 95%)',
+                border: 'none',
+              }
+            }}
+          />
         </ThemeProvider>
       </body>
     </html>

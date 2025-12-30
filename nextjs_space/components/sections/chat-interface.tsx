@@ -1,10 +1,7 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MessageCircle, Camera, ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
+import { MessageCircle, Aperture, Map, Target } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function ChatInterface() {
@@ -15,80 +12,45 @@ export default function ChatInterface() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="lg:hidden"
-              >
-                <Link href="/" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back</span>
-                </Link>
-              </Button>
-              
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-r from-slate-900 to-slate-700 rounded-lg">
-                  <Camera className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Foto Photography Coach</h1>
-                  <p className="text-slate-600">Your personal AI photography coach</p>
-                </div>
-              </div>
-            </div>
-            
-            <Button
-              asChild
-              variant="outline"
-              className="hidden lg:flex"
-            >
-              <Link href="/">Back to Home</Link>
-            </Button>
-          </div>
+      <div className="bg-foreground text-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: isLoaded ? 1 : 0, y: isLoaded ? 0 : 20 }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <span className="overline text-background/50 mb-3 block">AI Photography Coach</span>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight display-font mb-4">
+              Welcome to <span className="text-primary">Foto</span>
+            </h1>
+            <p className="text-lg text-background/70 max-w-2xl mx-auto leading-relaxed">
+              Get personalized itineraries, daily challenges, and expert guidance tailored to your gear and style.
+            </p>
+          </motion.div>
         </div>
       </div>
 
-      {/* Chat Container */}
+      {/* Chatbot Container */}
       <div className="w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: isLoaded ? 1 : 0, y: isLoaded ? 0 : 20 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
           className="w-full"
         >
-          {/* Introduction Banner */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-8">
-            <div className="px-4 sm:px-6 lg:px-8">
-              <div className="text-center">
-                <div className="flex items-center justify-center space-x-2 mb-4">
-                  <MessageCircle className="h-8 w-8" />
-                  <span className="text-2xl font-bold">Welcome to Foto</span>
-                </div>
-                <p className="text-lg text-blue-100 max-w-3xl mx-auto">
-                  Start chatting with your personal AI photography coach! Get personalized itineraries, 
-                  daily challenges, and expert guidance tailored to your gear and style.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Chatbot Iframe */}
-          <div className="w-full h-screen bg-white">
+          <div className="w-full bg-background">
             <iframe
               src="https://apps.abacus.ai/chatllm/?appId=13a86b8346&hideTopBar=2"
               width="100%"
-              height="800"
+              height="700"
               frameBorder="0"
               title="Foto Photography Coach"
               className="w-full border-0"
-              style={{ minHeight: '800px' }}
+              style={{ minHeight: '700px' }}
               sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
               loading="lazy"
             />
@@ -97,31 +59,48 @@ export default function ChatInterface() {
       </div>
 
       {/* Quick Tips */}
-      <div className="bg-slate-50 border-t py-6">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Start Tips:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-slate-900 mb-2">📸 Tell me about your gear</h4>
-                <p className="text-sm text-slate-600">
-                  "I have a Fujifilm X-T5 with a 35mm lens"
+      <div className="bg-muted border-t border-border py-12 lg:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: isLoaded ? 1 : 0, y: isLoaded ? 0 : 20 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <span className="overline mb-3 block">Quick Start</span>
+            <h2 className="text-2xl font-bold tracking-tight display-font mb-8">Try these prompts</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+              <div className="editorial-card p-6 group">
+                <div className="w-10 h-10 flex items-center justify-center bg-primary/10 text-primary mb-4 transition-colors group-hover:bg-primary group-hover:text-white">
+                  <Aperture className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">Tell me about your gear</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  &ldquo;I have a Fujifilm X-T5 with a 35mm lens&rdquo;
                 </p>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-slate-900 mb-2">🗺️ Request an itinerary</h4>
-                <p className="text-sm text-slate-600">
-                  "Create a street photography itinerary for Tokyo"
+              
+              <div className="editorial-card p-6 group">
+                <div className="w-10 h-10 flex items-center justify-center bg-primary/10 text-primary mb-4 transition-colors group-hover:bg-primary group-hover:text-white">
+                  <Map className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">Request an itinerary</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  &ldquo;Create a street photography itinerary for Melbourne&rdquo;
                 </p>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-slate-900 mb-2">🎯 Get daily challenges</h4>
-                <p className="text-sm text-slate-600">
-                  "Give me a landscape photography challenge"
+              
+              <div className="editorial-card p-6 group">
+                <div className="w-10 h-10 flex items-center justify-center bg-primary/10 text-primary mb-4 transition-colors group-hover:bg-primary group-hover:text-white">
+                  <Target className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">Get daily challenges</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  &ldquo;Give me a landscape photography challenge&rdquo;
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
