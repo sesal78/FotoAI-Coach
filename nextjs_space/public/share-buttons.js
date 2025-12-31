@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 20241231003 (Always Show)
+ * Version: 20241231004 (Fetch from DB)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -280,11 +280,46 @@
   }
 
   // Send challenge via email
+  // Fetch latest challenge from database
+  async function fetchLatestChallenge() {
+    try {
+      const response = await fetch('/api/challenges?latest=true');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.challenge) {
+          console.log('[Foto Share] ✅ Fetched latest challenge from DB:', data.challenge.title);
+          return {
+            challengeText: data.challenge.title || 'Photography Challenge',
+            detailedDescription: data.challenge.description || '',
+            location: data.challenge.location,
+            duration: data.challenge.duration,
+            gear: data.challenge.gear,
+            tips: data.challenge.tips,
+            weather: data.challenge.weather,
+            difficulty: data.challenge.difficulty,
+            _source: 'database'
+          };
+        }
+      }
+      console.log('[Foto Share] ⚠️ No challenge in database');
+      return null;
+    } catch (err) {
+      console.error('[Foto Share] Error fetching challenge:', err);
+      return null;
+    }
+  }
+
   async function sendChallengeEmail(challenge) {
     const btn = shareButtonContainer.querySelector('[data-action="email"]');
     const originalText = btn.innerHTML;
     
     btn.classList.add('sending');
+    
+    // Always fetch latest from database
+    const dbChallenge = await fetchLatestChallenge();
+    if (dbChallenge) {
+      challenge = dbChallenge;
+    }
     btn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10" opacity="0.3"/>
@@ -364,6 +399,12 @@
     const originalText = btn.innerHTML;
     
     btn.classList.add('sending');
+    
+    // Always fetch latest from database
+    const dbChallenge = await fetchLatestChallenge();
+    if (dbChallenge) {
+      challenge = dbChallenge;
+    }
     btn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10" opacity="0.3"/>

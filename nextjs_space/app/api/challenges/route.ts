@@ -15,6 +15,20 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const status = searchParams.get('status'); // pending, completed, all
     const limit = parseInt(searchParams.get('limit') || '10');
+    const latest = searchParams.get('latest');
+
+    // Fetch latest challenge for share buttons (no auth required)
+    if (latest === 'true') {
+      const latestChallenge = await prisma.dailyChallenge.findFirst({
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+      
+      if (latestChallenge) {
+        return NextResponse.json({ challenge: latestChallenge });
+      }
+      return NextResponse.json({ challenge: null });
+    }
 
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
