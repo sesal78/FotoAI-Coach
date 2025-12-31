@@ -80,22 +80,13 @@ export default function DashboardPage() {
   ];
 
   useEffect(() => {
-    // Load dashboard data on mount (no auth required for single-user demo)
-    loadDashboardData();
-
-    // Set up polling to check for new challenges every 10 seconds
-    const pollInterval = setInterval(() => {
-      console.log('🔄 Polling for new challenges...');
-      loadDashboardData();
-    }, 10000); // Poll every 10 seconds
-
-    // Cleanup interval on unmount
-    return () => clearInterval(pollInterval);
+    // Load dashboard data on mount
+    loadDashboardData(true);
   }, []);
 
-  async function loadDashboardData() {
+  async function loadDashboardData(showLoading = false) {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
 
       // For demo purposes, use a hardcoded user ID
       // In production, this would come from the session
@@ -213,8 +204,8 @@ export default function DashboardPage() {
         
         toast.success('New challenge generated!');
         
-        // Reload dashboard to update statistics
-        await loadDashboardData();
+        // Reload dashboard to update statistics (no loading spinner)
+        await loadDashboardData(false);
       } else {
         console.error('Challenge generation failed:', data);
         toast.error(data.error || 'Failed to generate challenge');
@@ -302,8 +293,8 @@ export default function DashboardPage() {
         setRating(0);
         setCurrentChallenge(null);
         
-        // Reload dashboard
-        await loadDashboardData();
+        // Reload dashboard (no loading spinner)
+        await loadDashboardData(false);
       } else {
         toast.error(data.error || 'Failed to submit challenge');
       }
@@ -345,8 +336,8 @@ export default function DashboardPage() {
         setRating(0);
         setCurrentChallenge(null);
         
-        // Reload dashboard
-        await loadDashboardData();
+        // Reload dashboard (no loading spinner)
+        await loadDashboardData(false);
       } else {
         toast.error(data.error || 'Failed to skip challenge');
       }
