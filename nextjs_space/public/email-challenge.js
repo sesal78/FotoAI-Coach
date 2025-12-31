@@ -2,13 +2,14 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 2024123006 (Structure-Based Detection)
+ * Version: 2024123007 (Flexible Structure Detection)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
- * - FIX: Strict structure-based detection (requires 3+ challenge markers)
+ * - FIX: Flexible structure-based detection (requires 2+ challenge markers)
+ * - MATCHES: "Recommended Gear:", "Shooting Tips:", "Weather:", "Location:", "Duration:"
  * - FILTERS: Excludes welcome text, UI prompts, example quotes
- * - REQUIRES: Difficulty, Tips, Gear, Duration, or technical specs
+ * - Lower threshold for better detection of real challenges
  * - Prevents false positives from intro/welcome screens
  * - NEW: Added Slack integration button
  * - BEST: Structured CHALLENGE_SYNC_DATA format (when chatbot provides it)
@@ -17,7 +18,7 @@
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123006 (Structure-Based Detection)');
+  console.log('[Foto Share] Script loaded - Version: 2024123007 (Flexible Structure Detection)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -112,15 +113,16 @@
     // STRICT: Look for actual challenge structure markers
     const structureMarkers = [
       /\bdifficulty\s*:?\s*(beginner|intermediate|advanced)/i,
-      /\btips?\s*:?\s+[a-z]/i,
-      /\bgear\s*(recommendations?|needed)?\s*:?\s+[a-z]/i,
+      /\b(shooting\s+)?tips?\s*:?\s*/i,
+      /\b(recommended\s+)?gear\s*(recommendations?|needed)?\s*:?\s*/i,
       /\bduration\s*:?\s*\d+/i,
       /\bfocal length\s*:?\s*\d+mm/i,
       /\baperture\s*:?\s*f\//i,
       /\bshutter speed\s*:?\s*1\//i,
       /\bISO\s*:?\s*\d+/i,
       /\btime of day\s*:?\s*(morning|afternoon|evening|golden hour)/i,
-      /\blocation\s*:?\s*[A-Z]/i
+      /\blocation\s*:?\s*/i,
+      /\bweather\s*:?\s*/i
     ];
     
     // Patterns to EXCLUDE (welcome text, UI prompts, examples)
@@ -167,8 +169,8 @@
       }
     }
     
-    // STRICT: Need at least 3 structure markers to be considered a real challenge
-    if (structureMarkersFound >= 3 && challengeContent.length >= 3) {
+    // STRICT: Need at least 2 structure markers to be considered a real challenge
+    if (structureMarkersFound >= 2 && challengeContent.length >= 2) {
       console.log('[Foto Email] ✅ Found challenge with', structureMarkersFound, 'structure markers');
       
       // Find the challenge title/description (usually first substantial line)
