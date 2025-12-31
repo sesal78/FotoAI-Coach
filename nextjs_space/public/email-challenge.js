@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 2024123008 (Hidden Data Support)
+ * Version: 2024123009 (Visible Text Detection)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -18,7 +18,7 @@
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123008 (Hidden Data Support)');
+  console.log('[Foto Share] Script loaded - Version: 2024123009 (Visible Text Detection)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -50,75 +50,49 @@
     }
   }
 
-  // Alternative: Look for structured CHALLENGE_SYNC_DATA or flexible challenge content
+  // Alternative: Look for photography challenge content on the visible page
   function extractFromVisibleElements() {
     const pageText = document.body.innerText;
-    const pageHTML = document.body.innerHTML;
     
-    console.log('[Foto Email] Looking for challenge data...');
-    console.log('[Foto Email] Checking innerHTML for hidden CHALLENGE_SYNC_DATA...');
+    console.log('[Foto Email] Looking for challenge data in visible content...');
     
-    // Method 1: Look for CHALLENGE_SYNC_DATA in HTML (including hidden elements!)
-    if (pageHTML.includes('CHALLENGE_SYNC_DATA')) {
-      console.log('[Foto Email] Found CHALLENGE_SYNC_DATA in HTML!');
+    // Simple approach: Look for photography terms in visible text
+    const photographyTerms = [
+      'aperture', 'shutter', 'iso', 'f/', '1/', 'mm lens', 'focal',
+      'exposure', 'photograph', 'camera', 'shoot', 'capture',
+      'street', 'portrait', 'landscape', 'golden hour', 'composition',
+      'framing', 'focus', 'lighting', 'gear', 'tips'
+    ];
+    
+    const lowerText = pageText.toLowerCase();
+    const matchCount = photographyTerms.filter(term => lowerText.includes(term)).length;
+    
+    console.log('[Foto Email] Photography terms found:', matchCount);
+    
+    // If we see photography content, extract it
+    if (matchCount >= 3) {
+      // Extract meaningful lines (skip short lines and UI elements)
+      const lines = pageText.split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 20 && l.length < 500)
+        .filter(l => !/(^Home|^About|^Dashboard|^Chat|^Sign|Welcome to Foto|Get personalized|©|Menu|Navigation)/i.test(l));
       
-      // Extract JSON after the label - handles hidden divs too
-      const jsonPattern = /CHALLENGE_SYNC_DATA[^{]*(\{[\s\S]*?"challengeText"\s*:\s*"[^"]*"[\s\S]*?\})/;
-      const match = pageHTML.match(jsonPattern);
-      
-      if (match) {
-        try {
-          // Clean up HTML entities
-          let jsonStr = match[1]
-            .replace(/&quot;/g, '"')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&#39;/g, "'")
-            .replace(/<[^>]*>/g, ''); // Remove any HTML tags
-          
-          const challengeData = JSON.parse(jsonStr);
-          console.log('[Foto Email] ✅ Extracted structured challenge from HTML:', challengeData);
-          return challengeData;
-        } catch (error) {
-          console.error('[Foto Email] JSON parse error from HTML:', error);
-        }
+      if (lines.length >= 2) {
+        const challengeText = lines.slice(0, 3).join(' ').substring(0, 150);
+        const description = lines.join('\n\n');
+        
+        console.log('[Foto Email] ✅ Extracted challenge from visible text');
+        return {
+          challengeText: challengeText || 'Photography Challenge',
+          detailedDescription: description,
+          _source: 'visible_text',
+          _confidence: matchCount
+        };
       }
     }
     
-    // Method 2: Look for HTML comment with CHALLENGE_SYNC_DATA
-    const commentPattern = /<!--\s*CHALLENGE_SYNC_DATA\s*([\s\S]*?)\s*-->/;
-    const commentMatch = pageHTML.match(commentPattern);
-    
-    if (commentMatch) {
-      console.log('[Foto Email] Found CHALLENGE_SYNC_DATA in HTML comment!');
-      const jsonText = commentMatch[1].trim();
-      
-      try {
-        const challengeData = JSON.parse(jsonText);
-        console.log('[Foto Email] ✅ Extracted challenge from HTML comment:', challengeData);
-        return challengeData;
-      } catch (error) {
-        console.error('[Foto Email] JSON parse error in comment:', error);
-      }
-    }
-    
-    // Method 3: Look for standalone JSON object with challengeText
-    const jsonPattern = /\{[\s\S]*?"challengeText"\s*:\s*"[^"]*?"[\s\S]*?\}/;
-    const match = pageText.match(jsonPattern);
-    
-    if (match) {
-      try {
-        const challengeData = JSON.parse(match[0]);
-        console.log('[Foto Email] ✅ Extracted standalone JSON:', challengeData);
-        return challengeData;
-      } catch (error) {
-        console.error('[Foto Email] JSON parse error:', error);
-      }
-    }
-    
-    // Method 4: FALLBACK - Structure-based challenge detection
-    console.log('[Foto Email] No structured data found, trying structure-based detection...');
+    // Fallback: Structure-based detection
+    console.log('[Foto Email] Trying structure-based detection...');
     
     // STRICT: Look for actual challenge structure markers
     const structureMarkers = [
