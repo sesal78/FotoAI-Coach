@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 20241231005 (Modal Input)
+ * Version: 20241231006 (DB Fetch Direct)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -279,153 +279,45 @@
     }
   }
 
-  // Send challenge via email
-  // Store for challenge from modal
-  let pendingChallengeText = null;
-  let pendingShareAction = null;
-
-  // Show modal for user to paste challenge
-  function showChallengeModal(action) {
-    pendingShareAction = action;
-    
-    // Remove existing modal
-    const existing = document.getElementById('foto-challenge-modal');
-    if (existing) existing.remove();
-    
-    const modal = document.createElement('div');
-    modal.id = 'foto-challenge-modal';
-    modal.innerHTML = `
-      <div class="foto-modal-overlay">
-        <div class="foto-modal-content">
-          <h3>📸 Share Your Challenge</h3>
-          <p>Copy your challenge from the chatbot and paste it below:</p>
-          <textarea id="foto-challenge-input" placeholder="Paste your photography challenge here..."></textarea>
-          <div class="foto-modal-buttons">
-            <button class="foto-modal-cancel">Cancel</button>
-            <button class="foto-modal-send">Send to ${action === 'email' ? 'Email' : 'Slack'}</button>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    // Add modal styles
-    const style = document.createElement('style');
-    style.textContent = `
-      .foto-modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10001;
+  // Fetch latest challenge from database
+  async function fetchLatestChallenge() {
+    try {
+      const response = await fetch('/api/challenges?latest=true');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.challenge) {
+          console.log('[Foto Share] ✅ Fetched challenge from DB:', data.challenge.challengeText?.substring(0, 50));
+          return {
+            challengeText: data.challenge.challengeText || 'Photography Challenge',
+            detailedDescription: data.challenge.challengeText || '',
+            location: data.challenge.location,
+            duration: data.challenge.duration,
+            gear: data.challenge.recommendedGear,
+            tips: data.challenge.tips,
+            weather: data.challenge.weatherConditions,
+            difficulty: data.challenge.difficulty,
+            _source: 'database'
+          };
+        }
       }
-      .foto-modal-content {
-        background: #1a1a2e;
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 500px;
-        width: 90%;
-        color: white;
-      }
-      .foto-modal-content h3 {
-        margin: 0 0 12px 0;
-        font-size: 18px;
-      }
-      .foto-modal-content p {
-        margin: 0 0 16px 0;
-        color: #aaa;
-        font-size: 14px;
-      }
-      #foto-challenge-input {
-        width: 100%;
-        height: 150px;
-        padding: 12px;
-        border: 1px solid #333;
-        border-radius: 8px;
-        background: #0d0d1a;
-        color: white;
-        font-size: 14px;
-        resize: vertical;
-        margin-bottom: 16px;
-      }
-      .foto-modal-buttons {
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-      }
-      .foto-modal-cancel {
-        padding: 10px 20px;
-        border: 1px solid #444;
-        background: transparent;
-        color: #aaa;
-        border-radius: 6px;
-        cursor: pointer;
-      }
-      .foto-modal-send {
-        padding: 10px 20px;
-        border: none;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 600;
-      }
-    `;
-    
-    document.head.appendChild(style);
-    document.body.appendChild(modal);
-    
-    // Focus textarea
-    document.getElementById('foto-challenge-input').focus();
-    
-    // Event listeners
-    modal.querySelector('.foto-modal-cancel').addEventListener('click', () => {
-      modal.remove();
-    });
-    
-    modal.querySelector('.foto-modal-send').addEventListener('click', async () => {
-      const text = document.getElementById('foto-challenge-input').value.trim();
-      if (!text) {
-        alert('Please paste your challenge first');
-        return;
-      }
-      
-      pendingChallengeText = text;
-      modal.remove();
-      
-      const challenge = {
-        challengeText: 'Photography Challenge',
-        detailedDescription: text,
-        _source: 'user_input'
-      };
-      
-      if (pendingShareAction === 'email') {
-        await sendChallengeEmail(challenge, true);
-      } else {
-        await sendChallengeSlack(challenge, true);
-      }
-    });
-    
-    // Close on overlay click
-    modal.querySelector('.foto-modal-overlay').addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) modal.remove();
-    });
+      return null;
+    } catch (err) {
+      console.error('[Foto Share] Error:', err);
+      return null;
+    }
   }
 
-  async function sendChallengeEmail(challenge, skipModal = false) {
-    if (!skipModal) {
-      showChallengeModal('email');
-      return;
-    }
-    
+  async function sendChallengeEmail(challenge) {
     const btn = shareButtonContainer.querySelector('[data-action="email"]');
     const originalText = btn.innerHTML;
     
     btn.classList.add('sending');
+    
+    // Fetch from database
+    const dbChallenge = await fetchLatestChallenge();
+    if (dbChallenge) {
+      challenge = dbChallenge;
+    }
     btn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10" opacity="0.3"/>
@@ -500,16 +392,17 @@
   }
 
   // Send challenge via Slack
-  async function sendChallengeSlack(challenge, skipModal = false) {
-    if (!skipModal) {
-      showChallengeModal('slack');
-      return;
-    }
-    
+  async function sendChallengeSlack(challenge) {
     const btn = shareButtonContainer.querySelector('[data-action="slack"]');
     const originalText = btn.innerHTML;
     
     btn.classList.add('sending');
+    
+    // Fetch from database
+    const dbChallenge = await fetchLatestChallenge();
+    if (dbChallenge) {
+      challenge = dbChallenge;
+    }
     btn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10" opacity="0.3"/>
