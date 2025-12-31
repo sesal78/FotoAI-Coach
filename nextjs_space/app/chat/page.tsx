@@ -24,7 +24,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <Script src="/email-challenge.js?v=2024123010" strategy="afterInteractive" />
+      <Script src="/email-challenge.js?v=20241231001" strategy="afterInteractive" />
       <Script src="/challenge-sync.js?v=2024122901" strategy="afterInteractive" />
       <div className="min-h-screen pt-16">
         <ChatInterface />
@@ -32,3 +32,4 @@ export default function ChatPage() {
     </>
   )
 }
+// Force rebuild Wed Dec 31 01:44:14 UTC 2025

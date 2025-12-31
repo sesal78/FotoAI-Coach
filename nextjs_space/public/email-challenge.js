@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 2024123010 (Strict Challenge Detection)
+ * Version: 20241231001 (Clean Build)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -18,7 +18,7 @@
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123010 (Strict Challenge Detection)');
+  console.log('[Foto Share] Script loaded - Version: 20241231001 (Clean Build)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -126,101 +126,7 @@
       };
     }
     
-    // Fallback: Structure-based detection
-    console.log('[Foto Email] Not enough challenge markers, trying fallback...');
-    
-    // STRICT: Look for actual challenge structure markers
-    const structureMarkers = [
-      /\bdifficulty\s*:?\s*(beginner|intermediate|advanced)/i,
-      /\b(shooting\s+)?tips?\s*:?\s*/i,
-      /\b(recommended\s+)?gear\s*(recommendations?|needed)?\s*:?\s*/i,
-      /\bduration\s*:?\s*\d+/i,
-      /\bfocal length\s*:?\s*\d+mm/i,
-      /\baperture\s*:?\s*f\//i,
-      /\bshutter speed\s*:?\s*1\//i,
-      /\bISO\s*:?\s*\d+/i,
-      /\btime of day\s*:?\s*(morning|afternoon|evening|golden hour)/i,
-      /\blocation\s*:?\s*/i,
-      /\bweather\s*:?\s*/i
-    ];
-    
-    // Patterns to EXCLUDE (welcome text, UI prompts, examples)
-    const excludePatterns = [
-      /^["'].*["']$/,  // Quoted example prompts
-      /Get personalized/i,
-      /Tell me about your/i,
-      /I have a /i,
-      /Create a .* itinerary/i,
-      /Give me a .* challenge/i,
-      /Professional AI photography/i,
-      /^(Home|About|Dashboard|Chat|Locations|Profile|Settings|Sign|Login|Logout)/i,
-      /^Foto - /i,
-      /©.*\d{4}/,
-      /Terms|Privacy|Cookie/i,
-      /Menu|Navigation/i,
-      /specializing in/i,
-      /based creative/i,
-      /designed to elevate/i
-    ];
-    
-    // Split into lines and look for challenge structure
-    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
-    
-    let challengeContent = [];
-    let structureMarkersFound = 0;
-    let excludedContent = false;
-    
-    for (const line of lines) {
-      // Skip excluded patterns (UI prompts, examples, welcome text)
-      if (excludePatterns.some(pattern => pattern.test(line))) {
-        console.log('[Foto Email] Skipping excluded line:', line.substring(0, 50));
-        excludedContent = true;
-        continue;
-      }
-      
-      // Look for structure markers
-      const hasStructure = structureMarkers.some(pattern => pattern.test(line));
-      
-      if (hasStructure) {
-        structureMarkersFound++;
-        challengeContent.push(line);
-        console.log('[Foto Email] Found structure marker in:', line.substring(0, 50));
-      }
-    }
-    
-    // STRICT: Need at least 2 structure markers to be considered a real challenge
-    if (structureMarkersFound >= 2 && challengeContent.length >= 2) {
-      console.log('[Foto Email] ✅ Found challenge with', structureMarkersFound, 'structure markers');
-      
-      // Find the challenge title/description (usually first substantial line)
-      let challengeTitle = 'Photography Challenge';
-      for (const line of lines) {
-        if (line.length > 30 && line.length < 150 && 
-            !excludePatterns.some(p => p.test(line)) &&
-            /challenge|photograph|shoot|capture/i.test(line)) {
-          challengeTitle = line;
-          break;
-        }
-      }
-      
-      const structureChallenge = {
-        challengeText: challengeTitle,
-        detailedDescription: challengeContent.join('\n\n'),
-        _source: 'structure_detection',
-        _confidence: structureMarkersFound
-      };
-      
-      return structureChallenge;
-    }
-    
-    // If we found excluded content but no valid structure, it's definitely not a challenge
-    if (excludedContent) {
-      console.log('[Foto Email] ⚠️ Found welcome/UI text but no challenge structure - skipping');
-      return null;
-    }
-    
-    console.log('[Foto Email] ⚠️ No challenge data found');
-    console.log('[Foto Email] Tip: Chatbot should output CHALLENGE_SYNC_DATA for best results');
+    console.log('[Foto Email] ⚠️ No challenge data found (not enough markers)');
     return null;
   }
 
