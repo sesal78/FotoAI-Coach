@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 20241231002 (New File)
+ * Version: 20241231003 (Always Show)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -112,21 +112,22 @@
     console.log('[Foto Email] Challenge markers found:', markerCount);
     console.log('[Foto Email] Clean lines:', challengeLines.length);
     
-    // Need at least 2 challenge markers to be a real challenge
-    if (markerCount >= 2 && challengeLines.length >= 3) {
-      const challengeText = challengeLines[0].substring(0, 150);
-      const description = challengeLines.join('\n\n');
-      
-      console.log('[Foto Email] ✅ Extracted challenge with', markerCount, 'markers');
+    // Due to CORS, we can't read iframe content - always show buttons on chat page
+    // The actual challenge text will be extracted when user clicks the button
+    // For now, show buttons if we're on the chat page
+    const isOnChatPage = window.location.pathname.includes('/chat');
+    
+    if (isOnChatPage) {
+      console.log('[Foto Email] ✅ On chat page - showing buttons (CORS prevents iframe reading)');
       return {
-        challengeText: challengeText || 'Photography Challenge',
-        detailedDescription: description,
-        _source: 'visible_text',
-        _confidence: markerCount
+        challengeText: 'Your Photography Challenge',
+        detailedDescription: 'Challenge content from chatbot (click to share)',
+        _source: 'chat_page',
+        _confidence: 1
       };
     }
     
-    console.log('[Foto Email] ⚠️ No challenge data found (not enough markers)');
+    console.log('[Foto Email] ⚠️ Not on chat page');
     return null;
   }
 
