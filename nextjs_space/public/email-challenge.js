@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 2024123007 (Flexible Structure Detection)
+ * Version: 2024123008 (Hidden Data Support)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -18,7 +18,7 @@
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123007 (Flexible Structure Detection)');
+  console.log('[Foto Share] Script loaded - Version: 2024123008 (Hidden Data Support)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -56,22 +56,32 @@
     const pageHTML = document.body.innerHTML;
     
     console.log('[Foto Email] Looking for challenge data...');
+    console.log('[Foto Email] Checking innerHTML for hidden CHALLENGE_SYNC_DATA...');
     
-    // Method 1: Look for structured CHALLENGE_SYNC_DATA in text (BEST)
-    if (pageText.includes('CHALLENGE_SYNC_DATA')) {
-      console.log('[Foto Email] Found CHALLENGE_SYNC_DATA marker!');
+    // Method 1: Look for CHALLENGE_SYNC_DATA in HTML (including hidden elements!)
+    if (pageHTML.includes('CHALLENGE_SYNC_DATA')) {
+      console.log('[Foto Email] Found CHALLENGE_SYNC_DATA in HTML!');
       
-      // Extract JSON after the label
-      const jsonPattern = /\{[\s\S]*?"challengeText"\s*:[\s\S]*?\}/;
-      const match = pageText.match(jsonPattern);
+      // Extract JSON after the label - handles hidden divs too
+      const jsonPattern = /CHALLENGE_SYNC_DATA[^{]*(\{[\s\S]*?"challengeText"\s*:\s*"[^"]*"[\s\S]*?\})/;
+      const match = pageHTML.match(jsonPattern);
       
       if (match) {
         try {
-          const challengeData = JSON.parse(match[0]);
-          console.log('[Foto Email] ✅ Extracted structured challenge data:', challengeData);
+          // Clean up HTML entities
+          let jsonStr = match[1]
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&#39;/g, "'")
+            .replace(/<[^>]*>/g, ''); // Remove any HTML tags
+          
+          const challengeData = JSON.parse(jsonStr);
+          console.log('[Foto Email] ✅ Extracted structured challenge from HTML:', challengeData);
           return challengeData;
         } catch (error) {
-          console.error('[Foto Email] JSON parse error:', error);
+          console.error('[Foto Email] JSON parse error from HTML:', error);
         }
       }
     }
