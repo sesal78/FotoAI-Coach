@@ -609,6 +609,40 @@ export default function DashboardPage() {
                 </Button>
               </div>
             )}
+            
+            {/* Challenge Type Selector - Always Visible */}
+            {currentChallenge && (
+              <div className="editorial-card p-6 lg:p-8 mt-6">
+                <span className="overline mb-2 block">Generate New</span>
+                <h2 className="text-2xl font-bold tracking-tight display-font mb-4">Challenge Types</h2>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                  {challengeTypes.map((type) => (
+                    <button
+                      key={type.value}
+                      onClick={() => setSelectedChallengeType(type.value)}
+                      className={`p-4 border-2 text-left transition-all ${
+                        selectedChallengeType === type.value
+                          ? 'border-primary bg-accent'
+                          : 'border-border hover:border-primary/50 bg-transparent'
+                      }`}
+                    >
+                      <div className="font-semibold text-foreground">{type.label}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{type.description}</div>
+                    </button>
+                  ))}
+                </div>
+                
+                <Button
+                  onClick={generateNewChallenge}
+                  disabled={generating}
+                  size="lg"
+                  className="w-full h-12 bg-foreground text-background hover:bg-primary font-semibold tracking-wide"
+                >
+                  {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* History Tab */}
