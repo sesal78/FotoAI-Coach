@@ -2,7 +2,7 @@
 /**
  * Challenge Share Buttons - Foto AI
  * Detects challenges in chat and provides one-click email/Slack delivery
- * Version: 2024123009 (Visible Text Detection)
+ * Version: 2024123010 (Strict Challenge Detection)
  * Target Email: seun_salami@outlook.com
  * Target Slack: #fotoai (C0A604Q05L3)
  * Updates: 
@@ -18,7 +18,7 @@
 (function() {
   'use strict';
 
-  console.log('[Foto Share] Script loaded - Version: 2024123009 (Visible Text Detection)');
+  console.log('[Foto Share] Script loaded - Version: 2024123010 (Strict Challenge Detection)');
   console.log('[Foto Share] Target email: seun_salami@outlook.com');
   console.log('[Foto Share] Target Slack: #fotoai');
 
@@ -56,43 +56,78 @@
     
     console.log('[Foto Email] Looking for challenge data in visible content...');
     
-    // Simple approach: Look for photography terms in visible text
-    const photographyTerms = [
-      'aperture', 'shutter', 'iso', 'f/', '1/', 'mm lens', 'focal',
-      'exposure', 'photograph', 'camera', 'shoot', 'capture',
-      'street', 'portrait', 'landscape', 'golden hour', 'composition',
-      'framing', 'focus', 'lighting', 'gear', 'tips'
+    // STRICT exclusion patterns - these are NOT challenge content
+    const excludePatterns = [
+      /^["'].*["']$/,                    // Quoted text (example prompts)
+      /^Tell me about/i,                 // Example prompt
+      /^I have a /i,                     // Example user input
+      /^Create a .* itinerary/i,         // Example prompt
+      /^Give me a /i,                    // Example prompt
+      /Get personalized/i,               // Welcome text
+      /Welcome to Foto/i,                // Welcome text
+      /Professional AI photography/i,    // About text
+      /Photographer specializing/i,      // About text
+      /designed to elevate/i,            // Marketing text
+      /Melbourne-based creative/i,       // Bio text
+      /daily challenges.*expert/i,       // Tagline
+      /tailored to your gear/i,          // Tagline
+      /Photography tips/i,               // Button text
+      /Daily challenges/i,               // Button text
+      /Itinerary help/i,                 // Button text
+      /Write something/i,                // Input placeholder
+      /^(Home|About|Dashboard|Chat|Locations|Profile|Sign|Login)/i,
+      /©.*\d{4}/,                        // Copyright
+      /AI PHOTOGRAPHY COACH/i,           // Header
+      /Itinerary Designer/i              // Header
     ];
     
-    const lowerText = pageText.toLowerCase();
-    const matchCount = photographyTerms.filter(term => lowerText.includes(term)).length;
+    // Split and filter lines
+    const allLines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 10);
     
-    console.log('[Foto Email] Photography terms found:', matchCount);
-    
-    // If we see photography content, extract it
-    if (matchCount >= 3) {
-      // Extract meaningful lines (skip short lines and UI elements)
-      const lines = pageText.split('\n')
-        .map(l => l.trim())
-        .filter(l => l.length > 20 && l.length < 500)
-        .filter(l => !/(^Home|^About|^Dashboard|^Chat|^Sign|Welcome to Foto|Get personalized|©|Menu|Navigation)/i.test(l));
-      
-      if (lines.length >= 2) {
-        const challengeText = lines.slice(0, 3).join(' ').substring(0, 150);
-        const description = lines.join('\n\n');
-        
-        console.log('[Foto Email] ✅ Extracted challenge from visible text');
-        return {
-          challengeText: challengeText || 'Photography Challenge',
-          detailedDescription: description,
-          _source: 'visible_text',
-          _confidence: matchCount
-        };
+    // Find lines that look like actual challenge content (NOT excluded)
+    const challengeLines = allLines.filter(line => {
+      // Must not match any exclude pattern
+      if (excludePatterns.some(p => p.test(line))) {
+        return false;
       }
+      // Must have some substance
+      if (line.length < 30) return false;
+      return true;
+    });
+    
+    // Look for ACTUAL challenge markers (specific to real challenges)
+    const challengeMarkers = [
+      /location\s*:/i,
+      /duration\s*:/i,
+      /gear\s*:/i,
+      /tips?\s*:/i,
+      /weather\s*:/i,
+      /aperture\s*:?\s*f\//i,
+      /shutter\s*(speed)?\s*:?\s*1\//i,
+      /ISO\s*:?\s*\d+/i,
+      /difficulty\s*:/i
+    ];
+    
+    const markerCount = challengeMarkers.filter(p => challengeLines.some(l => p.test(l))).length;
+    console.log('[Foto Email] Challenge markers found:', markerCount);
+    console.log('[Foto Email] Clean lines:', challengeLines.length);
+    
+    // Need at least 2 challenge markers to be a real challenge
+    if (markerCount >= 2 && challengeLines.length >= 3) {
+      const challengeText = challengeLines[0].substring(0, 150);
+      const description = challengeLines.join('\n\n');
+      
+      console.log('[Foto Email] ✅ Extracted challenge with', markerCount, 'markers');
+      return {
+        challengeText: challengeText || 'Photography Challenge',
+        detailedDescription: description,
+        _source: 'visible_text',
+        _confidence: markerCount
+      };
     }
     
     // Fallback: Structure-based detection
-    console.log('[Foto Email] Trying structure-based detection...');
+    console.log('[Foto Email] Not enough challenge markers, trying fallback...');
     
     // STRICT: Look for actual challenge structure markers
     const structureMarkers = [

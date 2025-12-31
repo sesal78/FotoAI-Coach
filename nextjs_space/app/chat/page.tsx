@@ -24,7 +24,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <Script src="/email-challenge.js?v=2024123009" strategy="afterInteractive" />
+      <Script src="/email-challenge.js?v=2024123010" strategy="afterInteractive" />
       <Script src="/challenge-sync.js?v=2024122901" strategy="afterInteractive" />
       <div className="min-h-screen pt-16">
         <ChatInterface />
