@@ -65,6 +65,12 @@ export default function DashboardPage() {
   const [rating, setRating] = useState<number>(0);
   const [selectedChallengeType, setSelectedChallengeType] = useState<string>('WEEKEND_DEEP_DIVE');
 
+  // Itinerary state
+  const [itineraries, setItineraries] = useState<any[]>([]);
+  const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const [itineraryLocation, setItineraryLocation] = useState('Melbourne CBD');
+  const [itineraryDuration, setItineraryDuration] = useState('2-3 hours');
+
   // Challenge type options
   const challengeTypes = [
     { value: 'WEEKEND_DEEP_DIVE', label: '🌅 Weekend Deep Dive', description: '2-4 hours of comprehensive exploration' },
@@ -151,6 +157,16 @@ export default function DashboardPage() {
       if (recentRes.ok) {
         const recentData = await recentRes.json();
         setRecentChallenges(recentData.challenges || []);
+      }
+
+      // Load itineraries
+      const itineraryRes = await fetch(`/api/itinerary?userId=${userId}`, {
+        cache: 'no-store',
+      });
+      
+      if (itineraryRes.ok) {
+        const itineraryData = await itineraryRes.json();
+        setItineraries(itineraryData.itineraries || []);
       }
 
     } catch (error) {
@@ -339,6 +355,37 @@ export default function DashboardPage() {
       toast.error('Failed to skip challenge. Check console for details.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function generateItineraryHandler() {
+    try {
+      setGeneratingItinerary(true);
+      toast.info('Generating your photo tour itinerary...');
+
+      const response = await fetch('/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: '1',
+          location: itineraryLocation,
+          duration: itineraryDuration,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Itinerary generated!');
+        setItineraries(prev => [data.itinerary, ...prev]);
+      } else {
+        toast.error(data.error || 'Failed to generate itinerary');
+      }
+    } catch (error) {
+      console.error('Itinerary generation failed:', error);
+      toast.error('Failed to generate itinerary');
+    } finally {
+      setGeneratingItinerary(false);
     }
   }
 
@@ -693,18 +740,140 @@ export default function DashboardPage() {
           </TabsContent>
 
           {/* Itinerary Tab */}
-          <TabsContent value="itinerary">
+          <TabsContent value="itinerary" className="space-y-6">
+            {/* Generate New Itinerary */}
             <div className="editorial-card p-6 lg:p-8">
               <span className="overline mb-2 block">Photo Tours</span>
-              <h2 className="text-2xl font-bold tracking-tight display-font mb-2">Photography Itineraries</h2>
-              <p className="text-muted-foreground mb-8">
-                Generate location-based photo tours tailored to your interests.
+              <h2 className="text-2xl font-bold tracking-tight display-font mb-2">Generate Itinerary</h2>
+              <p className="text-muted-foreground mb-6">
+                Create a personalized photography walking tour for any location.
               </p>
               
-              <div className="text-center py-16 border border-dashed border-border">
-                <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <p className="text-muted-foreground">Coming soon in the next update!</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-muted-foreground">Location</label>
+                  <Input
+                    value={itineraryLocation}
+                    onChange={(e) => setItineraryLocation(e.target.value)}
+                    placeholder="e.g., Melbourne CBD, Fitzroy, St Kilda"
+                    className="h-12"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-muted-foreground">Duration</label>
+                  <select
+                    value={itineraryDuration}
+                    onChange={(e) => setItineraryDuration(e.target.value)}
+                    className="w-full h-12 px-3 border border-border bg-background text-foreground rounded-md"
+                  >
+                    <option value="1-2 hours">1-2 hours</option>
+                    <option value="2-3 hours">2-3 hours</option>
+                    <option value="3-4 hours">3-4 hours</option>
+                    <option value="Half day">Half day (4-6 hours)</option>
+                    <option value="Full day">Full day</option>
+                  </select>
+                </div>
               </div>
+              
+              <Button
+                onClick={generateItineraryHandler}
+                disabled={generatingItinerary || !itineraryLocation}
+                size="lg"
+                className="w-full h-12 bg-foreground text-background hover:bg-primary font-semibold tracking-wide"
+              >
+                {generatingItinerary ? 'Generating...' : '📍 Generate Photo Tour'}
+              </Button>
+            </div>
+
+            {/* Itinerary List */}
+            <div className="editorial-card p-6 lg:p-8">
+              <span className="overline mb-2 block">Your Tours</span>
+              <h2 className="text-2xl font-bold tracking-tight display-font mb-6">Saved Itineraries</h2>
+              
+              {itineraries.length > 0 ? (
+                <div className="space-y-4">
+                  {itineraries.map((itinerary) => {
+                    let spots = [];
+                    try {
+                      spots = typeof itinerary.spots === 'string' ? JSON.parse(itinerary.spots) : itinerary.spots;
+                    } catch { spots = []; }
+                    
+                    return (
+                      <div key={itinerary.id} className="border border-border p-5 hover:border-primary/50 transition-all">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold text-lg">{itinerary.title}</h3>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {itinerary.location}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {itinerary.duration}
+                              </span>
+                              {itinerary.weatherConditions && (
+                                <span className="flex items-center gap-1">
+                                  <Cloud className="w-3 h-3" />
+                                  {itinerary.weatherConditions}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant="outline">{spots.length || 0} spots</Badge>
+                        </div>
+                        
+                        <p className="text-muted-foreground text-sm mb-4">{itinerary.description}</p>
+                        
+                        {spots.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Photo Spots</h4>
+                            <div className="grid gap-2">
+                              {spots.slice(0, 4).map((spot: any, idx: number) => (
+                                <div key={idx} className="flex items-start gap-3 bg-accent/30 p-3 text-sm">
+                                  <span className="font-bold text-primary">{idx + 1}</span>
+                                  <div>
+                                    <span className="font-medium">{spot.name || spot.location}</span>
+                                    {spot.description && (
+                                      <p className="text-muted-foreground text-xs mt-1">{spot.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {spots.length > 4 && (
+                                <p className="text-sm text-muted-foreground">+{spots.length - 4} more spots</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {itinerary.gearRecommendations?.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-border">
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Recommended Gear</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {itinerary.gearRecommendations.map((gear: string, idx: number) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  <Camera className="w-3 h-3 mr-1" />
+                                  {gear}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="text-xs text-muted-foreground mt-4">
+                          Generated {new Date(itinerary.generatedDate).toLocaleDateString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12 border border-dashed border-border">
+                  <MapPin className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
+                  <p className="text-muted-foreground">No itineraries yet. Generate your first photo tour above!</p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
