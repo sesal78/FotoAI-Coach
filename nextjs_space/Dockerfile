@@ -50,8 +50,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_OUTPUT_MODE=standalone
 
-# Build Next.js application (create empty yarn.lock so Next.js standalone doesn't throw)
-RUN echo -n > /app/yarn.lock && npm run build
+RUN npm run build
 
 # Production image
 FROM base AS runner
