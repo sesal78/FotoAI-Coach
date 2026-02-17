@@ -1,6 +1,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_DAILY_CHALLENGES,
+  COLLECTION_CHALLENGE_SUBMISSIONS,
+  COLLECTION_USER_PREFERENCES,
+  COLLECTION_USER_GEAR,
+  COLLECTION_USER_PROGRESS,
+  COLLECTION_AGENT_ACTIONS,
+} from '@/lib/appwrite-collections';
 import { generateChallenge } from '@/lib/llm';
 import { getWeather } from '@/lib/weather';
 
@@ -17,15 +27,18 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const latest = searchParams.get('latest');
 
+    const { databases } = createAdminClient();
+
     // Fetch latest challenge for share buttons (no auth required)
     if (latest === 'true') {
-      const latestChallenge = await prisma.dailyChallenge.findFirst({
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      });
-      
+      const result = await databases.listDocuments(DATABASE_ID, COLLECTION_DAILY_CHALLENGES, [
+        Query.orderDesc('$createdAt'),
+        Query.limit(1),
+      ]);
+
+      const latestChallenge = result.documents[0] ?? null;
       if (latestChallenge) {
-        return NextResponse.json({ challenge: latestChallenge });
+        return NextResponse.json({ challenge: { ...latestChallenge, id: latestChallenge.$id } });
       }
       return NextResponse.json({ challenge: null });
     }
@@ -34,19 +47,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    const whereClause: any = { userId };
+    const filters: string[] = [
+      Query.equal('userId', userId),
+      Query.orderDesc('issuedDate'),
+      Query.limit(limit),
+    ];
+
     if (status && status !== 'all') {
-      whereClause.status = status;
+      filters.push(Query.equal('status', status));
     }
 
-    const challenges = await prisma.dailyChallenge.findMany({
-      where: whereClause,
-      orderBy: { issuedDate: 'desc' },
-      take: limit,
-      include: {
-        submissions: true,
-      },
-    });
+    const challengesResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      filters
+    );
+
+    // Fetch submissions for each challenge
+    const challenges = await Promise.all(
+      challengesResult.documents.map(async (challenge) => {
+        const submissionsResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_CHALLENGE_SUBMISSIONS,
+          [Query.equal('challengeId', challenge.$id)]
+        );
+        return {
+          ...challenge,
+          id: challenge.$id,
+          submissions: submissionsResult.documents.map((s) => ({ ...s, id: s.$id })),
+        };
+      })
+    );
 
     return NextResponse.json({ challenges });
   } catch (error) {
@@ -70,22 +101,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
+    const { databases, users } = createAdminClient();
+
     // Check if user already has a pending challenge for today
     if (!forceGenerate) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const existingChallenge = await prisma.dailyChallenge.findFirst({
-        where: {
-          userId,
-          issuedDate: {
-            gte: today,
-          },
-          status: 'pending',
-        },
-      });
+      const existingResult = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTION_DAILY_CHALLENGES,
+        [
+          Query.equal('userId', userId),
+          Query.equal('status', 'pending'),
+          Query.greaterThanEqual('issuedDate', today.toISOString()),
+          Query.limit(1),
+        ]
+      );
 
-      if (existingChallenge) {
+      if (existingResult.documents.length > 0) {
+        const existingChallenge = { ...existingResult.documents[0], id: existingResult.documents[0].$id };
         return NextResponse.json({
           challenge: existingChallenge,
           message: 'Challenge already exists for today',
@@ -93,37 +128,56 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch user profile and preferences
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        preferences: true,
-        gear: true,
-      },
-    });
-
-    if (!user || !user.preferences) {
+    // Fetch user from Appwrite Auth
+    let user;
+    try {
+      user = await users.get(userId);
+    } catch {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Get user preferences
+    const prefsResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_PREFERENCES,
+      [Query.equal('userId', userId), Query.limit(1)]
+    );
+    const preferences = prefsResult.documents[0] ?? null;
+
+    if (!preferences) {
+      return NextResponse.json({ error: 'User preferences not found' }, { status: 404 });
+    }
+
+    // Get user gear
+    const gearResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_GEAR,
+      [Query.equal('userId', userId)]
+    );
+    const gear = gearResult.documents;
+
     // Get recent challenges to avoid repetition
-    const recentChallenges = await prisma.dailyChallenge.findMany({
-      where: { userId },
-      orderBy: { issuedDate: 'desc' },
-      take: 5,
-      select: { challengeText: true },
-    });
+    const recentResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      [
+        Query.equal('userId', userId),
+        Query.orderDesc('$createdAt'),
+        Query.limit(5),
+      ]
+    );
+    const recentChallenges = recentResult.documents;
 
     // Fetch weather data
-    const location = user.preferences.currentLocation || user.preferences.homeLocation || 'San Francisco, CA';
+    const location = preferences.currentLocation || preferences.homeLocation || 'San Francisco, CA';
     const weather = await getWeather(location);
 
     // Prepare user profile for challenge generation
     const userProfile = {
       name: user.name,
-      skillLevel: user.preferences.skillLevel,
-      interests: user.preferences.photographyInterests,
-      gear: user.gear.map((g: { brand: string; model: string }) => `${g.brand} ${g.model}`),
+      skillLevel: preferences.skillLevel,
+      interests: preferences.photographyInterests,
+      gear: (gear as any[]).map((g) => `${g.brand} ${g.model}`),
     };
 
     // Generate challenge using LLM
@@ -131,17 +185,22 @@ export async function POST(request: NextRequest) {
       userProfile,
       challengeType: challengeType || 'WEEKEND_DEEP_DIVE',
       location,
-      weather: weather ? {
-        condition: weather.condition,
-        temperature: weather.temperature,
-        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      } : undefined,
-      recentChallenges: recentChallenges.map((c: { challengeText: string }) => c.challengeText),
+      weather: weather
+        ? {
+            condition: weather.condition,
+            temperature: weather.temperature,
+            time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+          }
+        : undefined,
+      recentChallenges: (recentChallenges as any[]).map((c) => c.challengeText),
     });
 
-    // Save challenge to database
-    const challenge = await prisma.dailyChallenge.create({
-      data: {
+    // Save challenge to Appwrite
+    const challengeDoc = await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      ID.unique(),
+      {
         userId,
         challengeType: challengeType || 'WEEKEND_DEEP_DIVE',
         challengeText: challengeData.challengeText,
@@ -152,36 +211,61 @@ export async function POST(request: NextRequest) {
         location,
         recommendedGear: challengeData.recommendedGear,
         tips: challengeData.tips,
-        issuedDate: new Date(),
+        issuedDate: new Date().toISOString(),
         status: 'pending',
-      },
-    });
+      }
+    );
 
-    // Update user progress
-    await prisma.userProgress.upsert({
-      where: { userId },
-      create: {
-        userId,
-        totalChallengesIssued: 1,
-      },
-      update: {
-        totalChallengesIssued: { increment: 1 },
-      },
-    });
+    // Upsert user progress (check first, then create or update)
+    const progressResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_PROGRESS,
+      [Query.equal('userId', userId), Query.limit(1)]
+    );
+
+    if (progressResult.documents.length > 0) {
+      const progressDoc = progressResult.documents[0];
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTION_USER_PROGRESS,
+        progressDoc.$id,
+        {
+          totalChallengesIssued: (progressDoc.totalChallengesIssued || 0) + 1,
+        }
+      );
+    } else {
+      await databases.createDocument(
+        DATABASE_ID,
+        COLLECTION_USER_PROGRESS,
+        ID.unique(),
+        {
+          userId,
+          totalChallengesIssued: 1,
+          totalChallengesCompleted: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+        }
+      );
+    }
 
     // Log agent action
-    await prisma.agentAction.create({
-      data: {
+    await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_AGENT_ACTIONS,
+      ID.unique(),
+      {
         userId,
         actionType: 'CHALLENGE_SENT',
         details: JSON.stringify({
-          challengeId: challenge.id,
-          challengeType: challenge.challengeType,
-          category: challenge.category,
+          challengeId: challengeDoc.$id,
+          challengeType: challengeDoc.challengeType,
+          category: challengeDoc.category,
         }),
         success: true,
-      },
-    });
+      }
+    );
+
+    const challenge = { ...challengeDoc, id: challengeDoc.$id };
 
     return NextResponse.json({
       challenge,

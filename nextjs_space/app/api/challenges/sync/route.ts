@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_DAILY_CHALLENGES,
+} from '@/lib/appwrite-collections';
 
 /**
  * POST /api/challenges/sync
  * Syncs challenges from the chatbot to the dashboard database
- * 
+ *
  * Expected body:
  * {
  *   userId: string,
@@ -21,7 +26,7 @@ import { prisma } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('📥 Received challenge sync request:', body);
+    console.log('Received challenge sync request:', body);
 
     const {
       userId,
@@ -44,53 +49,65 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert recommendedGear to array if it's a string
-    const gearArray = Array.isArray(recommendedGear) 
-      ? recommendedGear 
-      : recommendedGear 
-        ? [recommendedGear] 
-        : [];
+    const gearArray = Array.isArray(recommendedGear)
+      ? recommendedGear
+      : recommendedGear
+      ? [recommendedGear]
+      : [];
 
-    // Check if user has pending challenges
-    const existingChallenge = await prisma.dailyChallenge.findFirst({
-      where: {
-        userId: userId.toString(),
-        status: 'pending',
-      },
-    });
+    const { databases } = createAdminClient();
 
-    if (existingChallenge) {
-      console.log('⚠️ User already has a pending challenge, updating it');
-      
+    // Check if user has a pending challenge (findFirst equivalent)
+    const existingResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      [
+        Query.equal('userId', userId.toString()),
+        Query.equal('status', 'pending'),
+        Query.limit(1),
+      ]
+    );
+
+    if (existingResult.documents.length > 0) {
+      const existingChallenge = existingResult.documents[0];
+      console.log('User already has a pending challenge, updating it');
+
       // Update existing challenge
-      const updatedChallenge = await prisma.dailyChallenge.update({
-        where: { id: existingChallenge.id },
-        data: {
+      const updatedDoc = await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTION_DAILY_CHALLENGES,
+        existingChallenge.$id,
+        {
           challengeText,
           category: category || existingChallenge.category,
           difficulty: difficulty || existingChallenge.difficulty,
           duration: duration || existingChallenge.duration,
           location: location || existingChallenge.location,
-          recommendedGear: gearArray.length > 0 ? gearArray : existingChallenge.recommendedGear,
+          recommendedGear:
+            gearArray.length > 0 ? gearArray : existingChallenge.recommendedGear,
           tips: tips || existingChallenge.tips,
           weatherConditions: weatherConditions || existingChallenge.weatherConditions,
-        },
-      });
+        }
+      );
 
-      console.log('✅ Challenge updated:', updatedChallenge.id);
-      
+      console.log('Challenge updated:', updatedDoc.$id);
+
       return NextResponse.json({
         success: true,
-        challenge: updatedChallenge,
+        challenge: { ...updatedDoc, id: updatedDoc.$id },
         updated: true,
       });
     }
 
     // Create new challenge with all required fields
-    const challenge = await prisma.dailyChallenge.create({
-      data: {
+    const newDoc = await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      ID.unique(),
+      {
         userId: userId.toString(),
         challengeText,
-        challengeType: 'CHATBOT_GENERATED', // New field for chatbot-generated challenges
+        challengeType: 'CHATBOT_GENERATED',
         category: category || 'General',
         difficulty: difficulty || 'Intermediate',
         duration: duration || '30 mins',
@@ -98,23 +115,25 @@ export async function POST(request: NextRequest) {
         recommendedGear: gearArray,
         tips: tips || null,
         weatherConditions: weatherConditions || null,
-        issuedDate: new Date(), // Required field
+        issuedDate: new Date().toISOString(),
         status: 'pending',
-      },
-    });
+      }
+    );
 
-    console.log('✅ New challenge created:', challenge.id);
+    console.log('New challenge created:', newDoc.$id);
 
     return NextResponse.json({
       success: true,
-      challenge,
+      challenge: { ...newDoc, id: newDoc.$id },
       created: true,
     });
-
   } catch (error) {
-    console.error('❌ Challenge sync failed:', error);
+    console.error('Challenge sync failed:', error);
     return NextResponse.json(
-      { error: 'Failed to sync challenge', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: 'Failed to sync challenge',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }
@@ -130,21 +149,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const challenge = await prisma.dailyChallenge.findFirst({
-      where: {
-        userId: userId,
-        status: 'pending',
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const { databases } = createAdminClient();
+
+    const result = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      [
+        Query.equal('userId', userId),
+        Query.equal('status', 'pending'),
+        Query.orderDesc('$createdAt'),
+        Query.limit(1),
+      ]
+    );
+
+    const challenge = result.documents[0] ?? null;
 
     return NextResponse.json({
       hasChallenge: !!challenge,
-      challenge: challenge || null,
+      challenge: challenge ? { ...challenge, id: challenge.$id } : null,
     });
-
   } catch (error) {
     console.error('Failed to check sync status:', error);
     return NextResponse.json(

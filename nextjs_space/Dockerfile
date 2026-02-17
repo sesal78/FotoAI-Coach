@@ -1,9 +1,9 @@
-# Foto AI Agent - Self-Hosted Dockerfile
+# Foto AI Agent - Self-Hosted Dockerfile (Appwrite backend)
 FROM node:18-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
@@ -11,7 +11,8 @@ COPY package.json yarn.lock* ./
 COPY .yarnrc.yml ./
 COPY .yarn ./.yarn
 
-# Install dependencies
+# Disable global cache to avoid path issues in Docker build environment
+RUN yarn config set enableGlobalCache false
 RUN yarn install --immutable
 
 # Rebuild the source code only when needed
@@ -21,34 +22,42 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set build-time environment variables
-ARG DATABASE_URL
-ARG NEXTAUTH_SECRET
+ARG NEXT_PUBLIC_APPWRITE_ENDPOINT
+ARG NEXT_PUBLIC_APPWRITE_PROJECT_ID
+ARG APPWRITE_ENDPOINT
+ARG APPWRITE_PROJECT_ID
+ARG APPWRITE_API_KEY
+ARG APPWRITE_DATABASE_ID
+ARG APPWRITE_STORAGE_BUCKET_ID
 ARG ABACUSAI_API_KEY
 ARG SENDGRID_API_KEY
 ARG OPENWEATHERMAP_API_KEY
 ARG FROM_EMAIL
+ARG FROM_NAME
 ARG USER_EMAIL
 
-# Export as ENV for build process
-ENV DATABASE_URL=$DATABASE_URL
-ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+ENV NEXT_PUBLIC_APPWRITE_ENDPOINT=$NEXT_PUBLIC_APPWRITE_ENDPOINT
+ENV NEXT_PUBLIC_APPWRITE_PROJECT_ID=$NEXT_PUBLIC_APPWRITE_PROJECT_ID
+ENV APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT
+ENV APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID
+ENV APPWRITE_API_KEY=$APPWRITE_API_KEY
+ENV APPWRITE_DATABASE_ID=$APPWRITE_DATABASE_ID
+ENV APPWRITE_STORAGE_BUCKET_ID=$APPWRITE_STORAGE_BUCKET_ID
 ENV ABACUSAI_API_KEY=$ABACUSAI_API_KEY
 ENV SENDGRID_API_KEY=$SENDGRID_API_KEY
 ENV OPENWEATHERMAP_API_KEY=$OPENWEATHERMAP_API_KEY
 ENV FROM_EMAIL=$FROM_EMAIL
+ENV FROM_NAME=$FROM_NAME
 ENV USER_EMAIL=$USER_EMAIL
 
-# Set Next.js to not require these at build time
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
-
-# Generate Prisma Client
-RUN npx prisma generate
+ENV NEXT_OUTPUT_MODE=standalone
 
 # Build Next.js application
 RUN yarn build
 
-# Production image, copy all the files and run next
+# Production image
 FROM base AS runner
 WORKDIR /app
 
@@ -58,18 +67,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create uploads directory
-RUN mkdir -p public/uploads/submissions && chown -R nextjs:nodejs public/uploads
-
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/prisma ./prisma
-
-# Copy scripts for database operations
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/package.json ./package.json
 
 RUN chown -R nextjs:nodejs /app
 

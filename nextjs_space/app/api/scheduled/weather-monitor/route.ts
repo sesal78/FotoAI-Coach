@@ -1,6 +1,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_USER_PREFERENCES,
+  COLLECTION_AGENT_ACTIONS,
+} from '@/lib/appwrite-collections';
 import { getWeather, analyzeWeatherForPhotography } from '@/lib/weather';
 import { sendWeatherAlert } from '@/lib/email';
 
@@ -12,21 +18,31 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get all active users
-    const users = await prisma.user.findMany({
-      include: { preferences: true },
-    });
+    const { databases, users } = createAdminClient();
+
+    // Get all users from Appwrite Auth
+    const allUsers = await users.list();
+    const userList = allUsers.users;
 
     const results = [];
 
-    for (const user of users) {
-      if (!user.preferences || !user.preferences.adaptToWeather) {
-        continue;
-      }
-
+    for (const user of userList) {
       try {
-        const location = user.preferences.currentLocation || user.preferences.homeLocation || 'San Francisco, CA';
-        const weather = await getWeather(location);
+        // Get user preferences
+        const prefsResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_USER_PREFERENCES,
+          [Query.equal('userId', user.$id), Query.limit(1)]
+        );
+        const preferences = prefsResult.documents[0] ?? null;
+
+        if (!preferences || !preferences.adaptToWeather) {
+          continue;
+        }
+
+        const location =
+          preferences.currentLocation || preferences.homeLocation || 'San Francisco, CA';
+        const weather = await getWeather(location as string);
 
         if (!weather) {
           continue;
@@ -46,9 +62,12 @@ export async function POST(request: NextRequest) {
           });
 
           // Log agent action
-          await prisma.agentAction.create({
-            data: {
-              userId: user.id,
+          await databases.createDocument(
+            DATABASE_ID,
+            COLLECTION_AGENT_ACTIONS,
+            ID.unique(),
+            {
+              userId: user.$id,
               actionType: 'WEATHER_ALERT',
               details: JSON.stringify({
                 location,
@@ -60,26 +79,26 @@ export async function POST(request: NextRequest) {
                 emailSent,
               }),
               success: true,
-            },
-          });
+            }
+          );
 
           results.push({
-            userId: user.id,
+            userId: user.$id,
             status: 'alert_sent',
             score: analysis.score,
             emailSent,
           });
         } else {
           results.push({
-            userId: user.id,
+            userId: user.$id,
             status: 'no_alert',
             score: analysis.score,
           });
         }
       } catch (userError) {
-        console.error(`Weather monitor failed for user ${user.id}:`, userError);
+        console.error(`Weather monitor failed for user ${user.$id}:`, userError);
         results.push({
-          userId: user.id,
+          userId: user.$id,
           status: 'error',
           error: userError instanceof Error ? userError.message : 'Unknown error',
         });

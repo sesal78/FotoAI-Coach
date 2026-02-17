@@ -1,6 +1,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_ITINERARIES,
+  COLLECTION_USER_PREFERENCES,
+  COLLECTION_USER_GEAR,
+  COLLECTION_AGENT_ACTIONS,
+} from '@/lib/appwrite-collections';
 import { generateItinerary } from '@/lib/llm';
 import { getWeather } from '@/lib/weather';
 
@@ -18,11 +26,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    const itineraries = await prisma.itinerary.findMany({
-      where: { userId },
-      orderBy: { generatedDate: 'desc' },
-      take: 10,
-    });
+    const { databases } = createAdminClient();
+
+    const result = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_ITINERARIES,
+      [
+        Query.equal('userId', userId),
+        Query.orderDesc('$createdAt'),
+        Query.limit(10),
+      ]
+    );
+
+    const itineraries = result.documents.map((doc) => ({ ...doc, id: doc.$id }));
 
     return NextResponse.json({ itineraries });
   } catch (error) {
@@ -49,18 +65,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch user profile
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        preferences: true,
-        gear: true,
-      },
-    });
+    const { databases, users } = createAdminClient();
 
-    if (!user || !user.preferences) {
+    // Fetch user from Appwrite Auth
+    let user;
+    try {
+      user = await users.get(userId);
+    } catch {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    // Get user preferences
+    const prefsResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_PREFERENCES,
+      [Query.equal('userId', userId), Query.limit(1)]
+    );
+    const preferences = prefsResult.documents[0] ?? null;
+
+    if (!preferences) {
+      return NextResponse.json({ error: 'User preferences not found' }, { status: 404 });
+    }
+
+    // Get user gear
+    const gearResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_GEAR,
+      [Query.equal('userId', userId)]
+    );
+    const gear = gearResult.documents;
 
     // Fetch weather data
     const weather = await getWeather(location);
@@ -68,9 +101,9 @@ export async function POST(request: NextRequest) {
     // Prepare user profile
     const userProfile = {
       name: user.name,
-      skillLevel: user.preferences.skillLevel,
-      interests: user.preferences.photographyInterests,
-      gear: user.gear.map(g => `${g.brand} ${g.model}`),
+      skillLevel: preferences.skillLevel,
+      interests: preferences.photographyInterests,
+      gear: (gear as any[]).map((g) => `${g.brand} ${g.model}`),
     };
 
     // Generate itinerary using LLM
@@ -81,9 +114,12 @@ export async function POST(request: NextRequest) {
       duration: duration || '3-4 hours',
     });
 
-    // Save itinerary to database
-    const itinerary = await prisma.itinerary.create({
-      data: {
+    // Save itinerary to Appwrite
+    const itineraryDoc = await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_ITINERARIES,
+      ID.unique(),
+      {
         userId,
         location,
         title: itineraryData.title,
@@ -94,27 +130,31 @@ export async function POST(request: NextRequest) {
         gearRecommendations: itineraryData.gearRecommendations,
         duration: duration || '3-4 hours',
         status: 'generated',
-        generatedDate: new Date(),
-      },
-    });
+        generatedDate: new Date().toISOString(),
+      }
+    );
 
     // Log agent action
-    await prisma.agentAction.create({
-      data: {
+    await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_AGENT_ACTIONS,
+      ID.unique(),
+      {
         userId,
         actionType: 'ITINERARY_GENERATED',
         details: JSON.stringify({
-          itineraryId: itinerary.id,
+          itineraryId: itineraryDoc.$id,
           location,
           spotsCount: itineraryData.spots.length,
         }),
         success: true,
-      },
-    });
+      }
+    );
 
     return NextResponse.json({
       itinerary: {
-        ...itinerary,
+        ...itineraryDoc,
+        id: itineraryDoc.$id,
         spots: itineraryData.spots, // Return parsed spots
       },
       message: 'Itinerary generated successfully',

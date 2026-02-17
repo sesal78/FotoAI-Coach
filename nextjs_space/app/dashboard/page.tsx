@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,7 @@ interface UserProgress {
 }
 
 export default function DashboardPage() {
+  const { user: session, status: sessionStatus } = useAppwriteAuth();
   const [loading, setLoading] = useState(true);
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
   const [progress, setProgress] = useState<UserProgress | null>(null);
@@ -80,17 +82,17 @@ export default function DashboardPage() {
   ];
 
   useEffect(() => {
-    // Load dashboard data on mount
-    loadDashboardData(true);
-  }, []);
+    if (sessionStatus === 'authenticated') {
+      loadDashboardData(true);
+    }
+  }, [sessionStatus]);
 
   async function loadDashboardData(showLoading = false) {
+    const userId = session?.id;
+    if (!userId) return;
+
     try {
       if (showLoading) setLoading(true);
-
-      // For demo purposes, use a hardcoded user ID
-      // In production, this would come from the session
-      const userId = '1';
       console.log('🔍 Loading dashboard for userId:', userId);
 
       // Load current challenge
@@ -184,9 +186,9 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: '1', // Demo user ID
+          userId: session?.id,
           challengeType: selectedChallengeType,
-          forceGenerate: true, // Force new challenge generation
+          forceGenerate: true,
         }),
         cache: 'no-store',
       });
@@ -264,7 +266,7 @@ export default function DashboardPage() {
 
       const formData = new FormData();
       formData.append('challengeId', currentChallenge.id);
-      formData.append('userId', '1'); // Demo user ID
+      formData.append('userId', session?.id || '');
       formData.append('notes', notes);
       formData.append('rating', rating.toString());
       
@@ -358,7 +360,7 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: '1',
+          userId: session?.id,
           location: itineraryLocation,
           duration: itineraryDuration,
         }),
@@ -380,7 +382,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) {
+  if (sessionStatus === 'loading' || (sessionStatus === 'authenticated' && loading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
@@ -391,6 +393,11 @@ export default function DashboardPage() {
     );
   }
 
+  if (sessionStatus === 'unauthenticated') {
+    if (typeof window !== 'undefined') window.location.href = '/';
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
@@ -398,7 +405,7 @@ export default function DashboardPage() {
         <div className="mb-10 lg:mb-14">
           <span className="overline mb-3 block">Dashboard</span>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-3 display-font">
-            Welcome back, <span className="text-primary">Seun</span>
+            Welcome back, <span className="text-primary">{session?.name?.split(' ')[0] || 'Photographer'}</span>
           </h1>
           <p className="text-muted-foreground text-lg">Your personal photography coaching dashboard</p>
         </div>

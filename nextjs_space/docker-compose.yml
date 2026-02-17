@@ -1,60 +1,49 @@
 
 version: '3.8'
 
-services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: foto-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-foto}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      POSTGRES_DB: ${POSTGRES_DB:-foto}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - foto-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foto}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+# NOTE: Appwrite runs as a SEPARATE service in Dokploy.
+# Deploy Appwrite first using its official docker-compose, then point this app at it.
+# See: https://appwrite.io/docs/advanced/self-hosting
 
+services:
   # Next.js App
   app:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        DATABASE_URL: postgresql://${POSTGRES_USER:-foto}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-foto}
-        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+        NEXT_PUBLIC_APPWRITE_ENDPOINT: ${NEXT_PUBLIC_APPWRITE_ENDPOINT}
+        NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
+        APPWRITE_ENDPOINT: ${APPWRITE_ENDPOINT}
+        APPWRITE_PROJECT_ID: ${APPWRITE_PROJECT_ID}
+        APPWRITE_API_KEY: ${APPWRITE_API_KEY}
+        APPWRITE_DATABASE_ID: ${APPWRITE_DATABASE_ID}
+        APPWRITE_STORAGE_BUCKET_ID: ${APPWRITE_STORAGE_BUCKET_ID}
         ABACUSAI_API_KEY: ${ABACUSAI_API_KEY}
         SENDGRID_API_KEY: ${SENDGRID_API_KEY}
         OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
-        FROM_EMAIL: ${FROM_EMAIL:-noreply@myfoto.topues.com}
-        USER_EMAIL: ${USER_EMAIL:-seun@example.com}
+        FROM_EMAIL: ${FROM_EMAIL}
+        FROM_NAME: ${FROM_NAME:-Foto Coach}
+        USER_EMAIL: ${USER_EMAIL}
     container_name: foto-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-foto}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-foto}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXT_PUBLIC_APPWRITE_ENDPOINT: ${NEXT_PUBLIC_APPWRITE_ENDPOINT}
+      NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
+      APPWRITE_ENDPOINT: ${APPWRITE_ENDPOINT}
+      APPWRITE_PROJECT_ID: ${APPWRITE_PROJECT_ID}
+      APPWRITE_API_KEY: ${APPWRITE_API_KEY}
+      APPWRITE_DATABASE_ID: ${APPWRITE_DATABASE_ID}
+      APPWRITE_STORAGE_BUCKET_ID: ${APPWRITE_STORAGE_BUCKET_ID}
       ABACUSAI_API_KEY: ${ABACUSAI_API_KEY}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
-      FROM_EMAIL: ${FROM_EMAIL:-noreply@myfoto.topues.com}
-      USER_EMAIL: ${USER_EMAIL:-seun@example.com}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME:-Foto Coach}
+      USER_EMAIL: ${USER_EMAIL}
       NODE_ENV: production
-    volumes:
-      - ./public/uploads:/app/public/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - foto-network
     healthcheck:
@@ -62,7 +51,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 20s
 
   # Cron Scheduler
   scheduler:
@@ -77,9 +66,6 @@ services:
       - foto-network
     depends_on:
       - app
-
-volumes:
-  postgres_data:
 
 networks:
   foto-network:

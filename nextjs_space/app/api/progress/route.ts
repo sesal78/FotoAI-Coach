@@ -1,6 +1,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_USER_PROGRESS,
+  COLLECTION_CHALLENGE_SUBMISSIONS,
+  COLLECTION_DAILY_CHALLENGES,
+} from '@/lib/appwrite-collections';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,43 +23,76 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    // Get or create progress
-    let progress = await prisma.userProgress.findUnique({
-      where: { userId },
-    });
+    const { databases } = createAdminClient();
 
-    if (!progress) {
-      progress = await prisma.userProgress.create({
-        data: {
+    // Get or create progress
+    const progressResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_PROGRESS,
+      [Query.equal('userId', userId), Query.limit(1)]
+    );
+
+    let progressDoc;
+    if (progressResult.documents.length > 0) {
+      progressDoc = progressResult.documents[0];
+    } else {
+      progressDoc = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTION_USER_PROGRESS,
+        ID.unique(),
+        {
           userId,
           totalChallengesIssued: 0,
           totalChallengesCompleted: 0,
           currentStreak: 0,
           longestStreak: 0,
-        },
-      });
+        }
+      );
     }
 
-    // Get recent submissions for analysis
-    const recentSubmissions = await prisma.challengeSubmission.findMany({
-      where: { userId },
-      orderBy: { submittedAt: 'desc' },
-      take: 10,
-      include: {
-        challenge: {
-          select: {
-            category: true,
-            difficulty: true,
-          },
-        },
-      },
-    });
+    // Get recent submissions
+    const submissionsResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_CHALLENGE_SUBMISSIONS,
+      [
+        Query.equal('userId', userId),
+        Query.orderDesc('submittedAt'),
+        Query.limit(10),
+      ]
+    );
+    const recentSubmissions = submissionsResult.documents;
+
+    // Fetch challenge data for each submission (to get category/difficulty)
+    const challengeIds = [
+      ...new Set(recentSubmissions.map((s) => s.challengeId as string)),
+    ];
+
+    const challengeMap: Record<string, { category: string; difficulty: string }> = {};
+    await Promise.all(
+      challengeIds.map(async (challengeId) => {
+        try {
+          const challengeDoc = await databases.getDocument(
+            DATABASE_ID,
+            COLLECTION_DAILY_CHALLENGES,
+            challengeId
+          );
+          challengeMap[challengeId] = {
+            category: challengeDoc.category,
+            difficulty: challengeDoc.difficulty,
+          };
+        } catch {
+          // Challenge may have been deleted; skip
+        }
+      })
+    );
 
     // Analyze favorite subjects
     const categoryCount: Record<string, number> = {};
-    recentSubmissions.forEach(sub => {
-      const category = sub.challenge.category;
-      categoryCount[category] = (categoryCount[category] || 0) + 1;
+    recentSubmissions.forEach((sub) => {
+      const category = challengeMap[sub.challengeId as string]?.category;
+      if (category) {
+        categoryCount[category] = (categoryCount[category] || 0) + 1;
+      }
     });
 
     const favoriteSubjects = Object.entries(categoryCount)
@@ -61,18 +101,27 @@ export async function GET(request: NextRequest) {
       .map(([category]) => category);
 
     // Calculate completion rate
-    const completionRate = progress.totalChallengesIssued > 0
-      ? Math.round((progress.totalChallengesCompleted / progress.totalChallengesIssued) * 100)
-      : 0;
+    const totalIssued = progressDoc.totalChallengesIssued || 0;
+    const totalCompleted = progressDoc.totalChallengesCompleted || 0;
+    const completionRate =
+      totalIssued > 0 ? Math.round((totalCompleted / totalIssued) * 100) : 0;
 
-    return NextResponse.json({
-      progress: {
-        ...progress,
-        favoriteSubjects,
-        completionRate,
-        recentSubmissions: recentSubmissions.slice(0, 5),
-      },
-    });
+    // Enrich recent submissions with challenge info and map IDs
+    const enrichedSubmissions = recentSubmissions.slice(0, 5).map((sub) => ({
+      ...sub,
+      id: sub.$id,
+      challenge: challengeMap[sub.challengeId as string] ?? null,
+    }));
+
+    const progress = {
+      ...progressDoc,
+      id: progressDoc.$id,
+      favoriteSubjects,
+      completionRate,
+      recentSubmissions: enrichedSubmissions,
+    };
+
+    return NextResponse.json({ progress });
   } catch (error) {
     console.error('Failed to fetch progress:', error);
     return NextResponse.json(

@@ -1,6 +1,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_USER_PROGRESS,
+  COLLECTION_AGENT_ACTIONS,
+} from '@/lib/appwrite-collections';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,22 +16,34 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get all users with progress
-    const users = await prisma.user.findMany({
-      include: { progress: true },
-    });
+    const { databases, users } = createAdminClient();
+
+    // Get all users from Appwrite Auth
+    const allUsers = await users.list();
+    const userList = allUsers.users;
 
     const results = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (const user of users) {
-      if (!user.progress) {
-        continue;
-      }
-
+    for (const user of userList) {
       try {
-        const lastCompletionDate = user.progress.lastCompletionDate;
+        // Get user progress document
+        const progressResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_USER_PROGRESS,
+          [Query.equal('userId', user.$id), Query.limit(1)]
+        );
+
+        if (progressResult.documents.length === 0) {
+          // No progress record — skip user
+          continue;
+        }
+
+        const progressDoc = progressResult.documents[0];
+        const lastCompletionDate = progressDoc.lastCompletionDate
+          ? new Date(progressDoc.lastCompletionDate as string)
+          : null;
 
         if (!lastCompletionDate) {
           // No completion yet, streak remains 0
@@ -39,43 +57,48 @@ export async function POST(request: NextRequest) {
 
         // If more than 1 day has passed, reset streak
         if (daysSinceCompletion > 1) {
-          await prisma.userProgress.update({
-            where: { userId: user.id },
-            data: {
+          await databases.updateDocument(
+            DATABASE_ID,
+            COLLECTION_USER_PROGRESS,
+            progressDoc.$id,
+            {
               currentStreak: 0,
-              lastStreakUpdate: new Date(),
-            },
-          });
+              lastStreakUpdate: new Date().toISOString(),
+            }
+          );
 
           // Log agent action
-          await prisma.agentAction.create({
-            data: {
-              userId: user.id,
+          await databases.createDocument(
+            DATABASE_ID,
+            COLLECTION_AGENT_ACTIONS,
+            ID.unique(),
+            {
+              userId: user.$id,
               actionType: 'STREAK_RESET',
               details: JSON.stringify({
-                previousStreak: user.progress.currentStreak,
+                previousStreak: progressDoc.currentStreak,
                 daysSinceCompletion,
               }),
               success: true,
-            },
-          });
+            }
+          );
 
           results.push({
-            userId: user.id,
+            userId: user.$id,
             status: 'streak_reset',
-            previousStreak: user.progress.currentStreak,
+            previousStreak: progressDoc.currentStreak,
           });
         } else {
           results.push({
-            userId: user.id,
+            userId: user.$id,
             status: 'streak_maintained',
-            currentStreak: user.progress.currentStreak,
+            currentStreak: progressDoc.currentStreak,
           });
         }
       } catch (userError) {
-        console.error(`Streak manager failed for user ${user.id}:`, userError);
+        console.error(`Streak manager failed for user ${user.$id}:`, userError);
         results.push({
-          userId: user.id,
+          userId: user.$id,
           status: 'error',
           error: userError instanceof Error ? userError.message : 'Unknown error',
         });

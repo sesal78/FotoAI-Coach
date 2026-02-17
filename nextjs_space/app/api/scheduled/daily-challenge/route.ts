@@ -1,6 +1,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_DAILY_CHALLENGES,
+  COLLECTION_USER_PREFERENCES,
+  COLLECTION_USER_GEAR,
+  COLLECTION_USER_PROGRESS,
+  COLLECTION_AGENT_ACTIONS,
+} from '@/lib/appwrite-collections';
 import { generateChallenge } from '@/lib/llm';
 import { getWeather } from '@/lib/weather';
 import { sendChallengeEmail } from '@/lib/email';
@@ -16,40 +25,54 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { userId, challengeType } = body;
 
-    // If userId is provided, generate for specific user
-    // Otherwise, generate for all active users
-    const users = userId
-      ? [await prisma.user.findUnique({
-          where: { id: userId },
-          include: { preferences: true, gear: true },
-        })]
-      : await prisma.user.findMany({
-          include: { preferences: true, gear: true },
-        });
+    const { databases, users } = createAdminClient();
+
+    // If userId is provided, generate for specific user; otherwise all users
+    let userList: Array<{ $id: string; email: string; name: string }>;
+
+    if (userId) {
+      const singleUser = await users.get(userId);
+      userList = [singleUser];
+    } else {
+      const allUsers = await users.list();
+      userList = allUsers.users;
+    }
 
     const results = [];
 
-    for (const user of users) {
-      if (!user || !user.preferences) {
-        continue;
-      }
-
+    for (const user of userList) {
       try {
+        // Get user preferences
+        const prefsResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_USER_PREFERENCES,
+          [Query.equal('userId', user.$id), Query.limit(1)]
+        );
+        const preferences = prefsResult.documents[0] ?? null;
+
+        if (!preferences) {
+          // No preferences configured — skip user
+          continue;
+        }
+
         // Check if user already has a pending challenge for today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const existingChallenge = await prisma.dailyChallenge.findFirst({
-          where: {
-            userId: user.id,
-            issuedDate: { gte: today },
-            status: 'pending',
-          },
-        });
+        const existingResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_DAILY_CHALLENGES,
+          [
+            Query.equal('userId', user.$id),
+            Query.greaterThanEqual('issuedDate', today.toISOString()),
+            Query.equal('status', 'pending'),
+            Query.limit(1),
+          ]
+        );
 
-        if (existingChallenge) {
+        if (existingResult.documents.length > 0) {
           results.push({
-            userId: user.id,
+            userId: user.$id,
             status: 'skipped',
             reason: 'Challenge already exists for today',
           });
@@ -57,26 +80,39 @@ export async function POST(request: NextRequest) {
         }
 
         // Determine challenge type based on day and time
-        const currentChallengeType = challengeType || determineChallengeType(user.preferences);
+        const currentChallengeType = challengeType || determineChallengeType(preferences);
 
         // Get recent challenges to avoid repetition
-        const recentChallenges = await prisma.dailyChallenge.findMany({
-          where: { userId: user.id },
-          orderBy: { issuedDate: 'desc' },
-          take: 5,
-          select: { challengeText: true },
-        });
+        const recentResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_DAILY_CHALLENGES,
+          [
+            Query.equal('userId', user.$id),
+            Query.orderDesc('$createdAt'),
+            Query.limit(5),
+          ]
+        );
+        const recentChallenges = recentResult.documents;
+
+        // Get user gear
+        const gearResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_USER_GEAR,
+          [Query.equal('userId', user.$id)]
+        );
+        const gear = gearResult.documents;
 
         // Fetch weather data
-        const location = user.preferences.currentLocation || user.preferences.homeLocation || 'San Francisco, CA';
+        const location =
+          preferences.currentLocation || preferences.homeLocation || 'San Francisco, CA';
         const weather = await getWeather(location);
 
         // Prepare user profile
         const userProfile = {
           name: user.name,
-          skillLevel: user.preferences.skillLevel,
-          interests: user.preferences.photographyInterests,
-          gear: user.gear.map(g => `${g.brand} ${g.model}`),
+          skillLevel: preferences.skillLevel,
+          interests: preferences.photographyInterests,
+          gear: (gear as any[]).map((g) => `${g.brand} ${g.model}`),
         };
 
         // Generate challenge
@@ -84,72 +120,105 @@ export async function POST(request: NextRequest) {
           userProfile,
           challengeType: currentChallengeType,
           location,
-          weather: weather ? {
-            condition: weather.condition,
-            temperature: weather.temperature,
-            time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-          } : undefined,
-          recentChallenges: recentChallenges.map(c => c.challengeText),
+          weather: weather
+            ? {
+                condition: weather.condition,
+                temperature: weather.temperature,
+                time: new Date().toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                }),
+              }
+            : undefined,
+          recentChallenges: (recentChallenges as any[]).map((c) => c.challengeText),
         });
 
-        // Save challenge to database
-        const challenge = await prisma.dailyChallenge.create({
-          data: {
-            userId: user.id,
+        // Save challenge to Appwrite
+        const challengeDoc = await databases.createDocument(
+          DATABASE_ID,
+          COLLECTION_DAILY_CHALLENGES,
+          ID.unique(),
+          {
+            userId: user.$id,
             challengeType: currentChallengeType,
             challengeText: challengeData.challengeText,
             difficulty: challengeData.difficulty,
             category: challengeData.category,
             duration: challengeData.duration,
-            weatherConditions: weather ? `${weather.condition}, ${weather.temperature}°F` : null,
+            weatherConditions: weather
+              ? `${weather.condition}, ${weather.temperature}°F`
+              : null,
             location,
             recommendedGear: challengeData.recommendedGear,
             tips: challengeData.tips,
-            issuedDate: new Date(),
+            issuedDate: new Date().toISOString(),
             status: 'pending',
-          },
-        });
+          }
+        );
 
-        // Update progress
-        await prisma.userProgress.upsert({
-          where: { userId: user.id },
-          create: {
-            userId: user.id,
-            totalChallengesIssued: 1,
-          },
-          update: {
-            totalChallengesIssued: { increment: 1 },
-          },
-        });
+        // Upsert progress
+        const progressResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_USER_PROGRESS,
+          [Query.equal('userId', user.$id), Query.limit(1)]
+        );
+
+        if (progressResult.documents.length > 0) {
+          const progressDoc = progressResult.documents[0];
+          await databases.updateDocument(
+            DATABASE_ID,
+            COLLECTION_USER_PROGRESS,
+            progressDoc.$id,
+            {
+              totalChallengesIssued: (progressDoc.totalChallengesIssued || 0) + 1,
+            }
+          );
+        } else {
+          await databases.createDocument(
+            DATABASE_ID,
+            COLLECTION_USER_PROGRESS,
+            ID.unique(),
+            {
+              userId: user.$id,
+              totalChallengesIssued: 1,
+              totalChallengesCompleted: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+            }
+          );
+        }
 
         // Send email notification
         const emailSent = await sendChallengeEmail(user.email, user.name, challengeData);
 
         // Log agent action
-        await prisma.agentAction.create({
-          data: {
-            userId: user.id,
+        await databases.createDocument(
+          DATABASE_ID,
+          COLLECTION_AGENT_ACTIONS,
+          ID.unique(),
+          {
+            userId: user.$id,
             actionType: 'CHALLENGE_SENT',
             details: JSON.stringify({
-              challengeId: challenge.id,
+              challengeId: challengeDoc.$id,
               challengeType: currentChallengeType,
-              category: challenge.category,
+              category: challengeDoc.category,
               emailSent,
             }),
             success: true,
-          },
-        });
+          }
+        );
 
         results.push({
-          userId: user.id,
+          userId: user.$id,
           status: 'success',
-          challengeId: challenge.id,
+          challengeId: challengeDoc.$id,
           emailSent,
         });
       } catch (userError) {
-        console.error(`Failed to generate challenge for user ${user.id}:`, userError);
+        console.error(`Failed to generate challenge for user ${user.$id}:`, userError);
         results.push({
-          userId: user.id,
+          userId: user.$id,
           status: 'error',
           error: userError instanceof Error ? userError.message : 'Unknown error',
         });
@@ -180,7 +249,7 @@ export async function GET(request: NextRequest) {
 /**
  * Determine which type of challenge to generate based on day/time
  */
-function determineChallengeType(preferences: any): string {
+function determineChallengeType(preferences: Record<string, unknown>): string {
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
   const hour = now.getHours();
@@ -191,7 +260,11 @@ function determineChallengeType(preferences: any): string {
   }
 
   // Sunday - Secondary weekend day
-  if (dayOfWeek === 0 && preferences.secondaryPhotoDays.includes('Sunday')) {
+  if (
+    dayOfWeek === 0 &&
+    Array.isArray(preferences.secondaryPhotoDays) &&
+    (preferences.secondaryPhotoDays as string[]).includes('Sunday')
+  ) {
     return 'WEEKEND_DEEP_DIVE';
   }
 

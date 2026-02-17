@@ -1,6 +1,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_DAILY_CHALLENGES,
+  COLLECTION_CHALLENGE_SUBMISSIONS,
+  COLLECTION_USER_PROGRESS,
+  COLLECTION_AGENT_ACTIONS,
+} from '@/lib/appwrite-collections';
 import { sendWeeklyReport } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
@@ -11,47 +19,77 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get all active users
-    const users = await prisma.user.findMany({
-      include: { progress: true },
-    });
+    const { databases, users } = createAdminClient();
+
+    // Get all users from Appwrite Auth
+    const allUsers = await users.list();
+    const userList = allUsers.users;
 
     const results = [];
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    for (const user of users) {
+    for (const user of userList) {
       try {
-        // Get challenges from the past week
-        const weekChallenges = await prisma.dailyChallenge.findMany({
-          where: {
-            userId: user.id,
-            issuedDate: { gte: oneWeekAgo },
-          },
-        });
+        // Get progress for streak info
+        const progressResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_USER_PROGRESS,
+          [Query.equal('userId', user.$id), Query.limit(1)]
+        );
+        const progressDoc = progressResult.documents[0] ?? null;
 
-        const completedChallenges = weekChallenges.filter(c => c.status === 'completed');
+        // Get challenges from the past week
+        const weekChallengesResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_DAILY_CHALLENGES,
+          [
+            Query.equal('userId', user.$id),
+            Query.greaterThanEqual('issuedDate', oneWeekAgo.toISOString()),
+          ]
+        );
+        const weekChallenges = weekChallengesResult.documents;
+        const completedChallenges = weekChallenges.filter((c) => c.status === 'completed');
 
         // Get submissions from the past week
-        const weekSubmissions = await prisma.challengeSubmission.findMany({
-          where: {
-            userId: user.id,
-            submittedAt: { gte: oneWeekAgo },
-          },
-          include: {
-            challenge: {
-              select: {
-                category: true,
-              },
-            },
-          },
-        });
+        const weekSubmissionsResult = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_CHALLENGE_SUBMISSIONS,
+          [
+            Query.equal('userId', user.$id),
+            Query.greaterThanEqual('submittedAt', oneWeekAgo.toISOString()),
+          ]
+        );
+        const weekSubmissions = weekSubmissionsResult.documents;
+
+        // Fetch challenge category for each submission
+        const challengeIdSet = [
+          ...new Set(weekSubmissions.map((s) => s.challengeId as string)),
+        ];
+
+        const challengeCategoryMap: Record<string, string> = {};
+        await Promise.all(
+          challengeIdSet.map(async (challengeId) => {
+            try {
+              const challengeDoc = await databases.getDocument(
+                DATABASE_ID,
+                COLLECTION_DAILY_CHALLENGES,
+                challengeId
+              );
+              challengeCategoryMap[challengeId] = challengeDoc.category as string;
+            } catch {
+              // Challenge may have been deleted; skip
+            }
+          })
+        );
 
         // Analyze favorite subjects
         const categoryCount: Record<string, number> = {};
-        weekSubmissions.forEach(sub => {
-          const category = sub.challenge.category;
-          categoryCount[category] = (categoryCount[category] || 0) + 1;
+        weekSubmissions.forEach((sub) => {
+          const category = challengeCategoryMap[sub.challengeId as string];
+          if (category) {
+            categoryCount[category] = (categoryCount[category] || 0) + 1;
+          }
         });
 
         const favoriteSubjects = Object.entries(categoryCount)
@@ -61,25 +99,28 @@ export async function POST(request: NextRequest) {
 
         // Get week highlight (highest rated submission)
         const bestSubmission = weekSubmissions
-          .filter(s => s.rating)
-          .sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+          .filter((s) => s.rating)
+          .sort((a, b) => ((b.rating as number) || 0) - ((a.rating as number) || 0))[0];
 
         const weekHighlight = bestSubmission
-          ? `Your ${bestSubmission.challenge.category} challenge received ${bestSubmission.rating} stars!`
+          ? `Your ${challengeCategoryMap[bestSubmission.challengeId as string] || 'photography'} challenge received ${bestSubmission.rating} stars!`
           : undefined;
 
         // Send weekly report email
         const emailSent = await sendWeeklyReport(user.email, user.name, {
           challengesCompleted: completedChallenges.length,
-          currentStreak: user.progress?.currentStreak || 0,
+          currentStreak: (progressDoc?.currentStreak as number) || 0,
           favoriteSubjects,
           weekHighlight,
         });
 
         // Log agent action
-        await prisma.agentAction.create({
-          data: {
-            userId: user.id,
+        await databases.createDocument(
+          DATABASE_ID,
+          COLLECTION_AGENT_ACTIONS,
+          ID.unique(),
+          {
+            userId: user.$id,
             actionType: 'WEEKLY_REPORT',
             details: JSON.stringify({
               challengesCompleted: completedChallenges.length,
@@ -88,19 +129,19 @@ export async function POST(request: NextRequest) {
               emailSent,
             }),
             success: true,
-          },
-        });
+          }
+        );
 
         results.push({
-          userId: user.id,
+          userId: user.$id,
           status: 'success',
           challengesCompleted: completedChallenges.length,
           emailSent,
         });
       } catch (userError) {
-        console.error(`Weekly report failed for user ${user.id}:`, userError);
+        console.error(`Weekly report failed for user ${user.$id}:`, userError);
         results.push({
-          userId: user.id,
+          userId: user.$id,
           status: 'error',
           error: userError instanceof Error ? userError.message : 'Unknown error',
         });

@@ -1,10 +1,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Query, ID } from 'node-appwrite';
+import { InputFile } from 'node-appwrite/file';
+import { createAdminClient } from '@/lib/appwrite-server';
+import {
+  DATABASE_ID,
+  COLLECTION_CHALLENGE_SUBMISSIONS,
+  COLLECTION_DAILY_CHALLENGES,
+  COLLECTION_USER_PREFERENCES,
+  COLLECTION_USER_PROGRESS,
+  COLLECTION_AGENT_ACTIONS,
+  STORAGE_BUCKET_SUBMISSIONS,
+} from '@/lib/appwrite-collections';
 import { generateFeedback } from '@/lib/llm';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,18 +29,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    const whereClause: any = { userId };
+    const { databases } = createAdminClient();
+
+    const filters: string[] = [
+      Query.equal('userId', userId),
+      Query.orderDesc('submittedAt'),
+    ];
     if (challengeId) {
-      whereClause.challengeId = challengeId;
+      filters.push(Query.equal('challengeId', challengeId));
     }
 
-    const submissions = await prisma.challengeSubmission.findMany({
-      where: whereClause,
-      orderBy: { submittedAt: 'desc' },
-      include: {
-        challenge: true,
-      },
-    });
+    const submissionsResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_CHALLENGE_SUBMISSIONS,
+      filters
+    );
+
+    // Fetch challenge data for each submission
+    const submissions = await Promise.all(
+      submissionsResult.documents.map(async (sub) => {
+        let challenge = null;
+        try {
+          const challengeDoc = await databases.getDocument(
+            DATABASE_ID,
+            COLLECTION_DAILY_CHALLENGES,
+            sub.challengeId as string
+          );
+          challenge = { ...challengeDoc, id: challengeDoc.$id };
+        } catch {
+          // Challenge may have been deleted; skip
+        }
+        return { ...sub, id: sub.$id, challenge };
+      })
+    );
 
     return NextResponse.json({ submissions });
   } catch (error) {
@@ -63,46 +92,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify challenge exists
-    const challenge = await prisma.dailyChallenge.findUnique({
-      where: { id: challengeId },
-    });
+    const { databases, storage, users } = createAdminClient();
 
-    if (!challenge) {
+    // Verify challenge exists
+    let challenge;
+    try {
+      challenge = await databases.getDocument(
+        DATABASE_ID,
+        COLLECTION_DAILY_CHALLENGES,
+        challengeId
+      );
+    } catch {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
     }
 
-    // Get user preferences
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { preferences: true },
-    });
-
-    if (!user) {
+    // Get user from Appwrite Auth
+    let user;
+    try {
+      user = await users.get(userId);
+    } catch {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    let photoUrl = null;
+    // Get user preferences for skill level
+    const prefsResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_PREFERENCES,
+      [Query.equal('userId', userId), Query.limit(1)]
+    );
+    const preferences = prefsResult.documents[0] ?? null;
 
-    // Handle photo upload (local file storage)
+    let photoUrl: string | null = null;
+
+    // Handle photo upload via Appwrite Storage
     if (photo) {
       try {
-        const uploadDir = join(process.cwd(), 'public', 'uploads', 'submissions');
-        
-        // Create directory if it doesn't exist
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-
-        const timestamp = Date.now();
-        const filename = `${userId}-${timestamp}-${photo.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const filepath = join(uploadDir, filename);
-
-        const bytes = await photo.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filepath, buffer);
-
-        photoUrl = `/uploads/submissions/${filename}`;
+        const fileBuffer = Buffer.from(await photo.arrayBuffer());
+        const uploaded = await storage.createFile(
+          STORAGE_BUCKET_SUBMISSIONS,
+          ID.unique(),
+          InputFile.fromBuffer(fileBuffer, photo.name)
+        );
+        photoUrl = `${process.env.APPWRITE_ENDPOINT}/storage/buckets/${STORAGE_BUCKET_SUBMISSIONS}/files/${uploaded.$id}/view?project=${process.env.APPWRITE_PROJECT_ID}`;
       } catch (uploadError) {
         console.error('Photo upload failed:', uploadError);
         // Continue without photo
@@ -113,102 +144,128 @@ export async function POST(request: NextRequest) {
     let feedback = 'Great work completing this challenge!';
     try {
       feedback = await generateFeedback({
-        challengeText: challenge.challengeText,
+        challengeText: challenge.challengeText as string,
         userNotes: notes || undefined,
-        skillLevel: user.preferences?.skillLevel || 'intermediate',
+        skillLevel: preferences?.skillLevel || 'intermediate',
       });
     } catch (feedbackError) {
       console.error('Feedback generation failed:', feedbackError);
       // Use default feedback
     }
 
-    // Create submission
-    const submission = await prisma.challengeSubmission.create({
-      data: {
+    // Create submission document
+    const submissionDoc = await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_CHALLENGE_SUBMISSIONS,
+      ID.unique(),
+      {
         challengeId,
         userId,
         photoUrl,
         notes,
         feedback,
         rating: rating ? parseInt(rating) : null,
-      },
-    });
+        submittedAt: new Date().toISOString(),
+      }
+    );
 
     // Update challenge status to completed
-    await prisma.dailyChallenge.update({
-      where: { id: challengeId },
-      data: {
+    await databases.updateDocument(
+      DATABASE_ID,
+      COLLECTION_DAILY_CHALLENGES,
+      challengeId,
+      {
         status: 'completed',
-        completedDate: new Date(),
-      },
-    });
+        completedDate: new Date().toISOString(),
+      }
+    );
 
     // Update user progress
-    const progress = await prisma.userProgress.findUnique({
-      where: { userId },
-    });
+    const progressResult = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_USER_PROGRESS,
+      [Query.equal('userId', userId), Query.limit(1)]
+    );
 
-    if (progress) {
-      // Update streak logic
-      const lastCompletionDate = progress.lastCompletionDate;
+    if (progressResult.documents.length > 0) {
+      const progressDoc = progressResult.documents[0];
+
+      // Calculate streak
+      const lastCompletionDate = progressDoc.lastCompletionDate
+        ? new Date(progressDoc.lastCompletionDate as string)
+        : null;
+
       let newStreak = 1;
-
       if (lastCompletionDate) {
         const daysDiff = Math.floor(
           (new Date().getTime() - lastCompletionDate.getTime()) / (1000 * 60 * 60 * 24)
         );
-
         if (daysDiff === 1) {
-          newStreak = progress.currentStreak + 1;
+          newStreak = (progressDoc.currentStreak || 0) + 1;
         } else if (daysDiff === 0) {
-          newStreak = progress.currentStreak;
+          newStreak = progressDoc.currentStreak || 1;
         } else {
           newStreak = 1;
         }
       }
 
-      // Determine challenge type increment
-      const typeField = getProgressFieldForChallengeType(challenge.challengeType);
+      // Determine challenge type field increment
+      const typeField = getProgressFieldForChallengeType(challenge.challengeType as string);
+      const typeFieldUpdate: Record<string, number> = {};
+      if (typeField) {
+        typeFieldUpdate[typeField] = (progressDoc[typeField] || 0) + 1;
+      }
 
-      await prisma.userProgress.update({
-        where: { userId },
-        data: {
-          totalChallengesCompleted: { increment: 1 },
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTION_USER_PROGRESS,
+        progressDoc.$id,
+        {
+          totalChallengesCompleted: (progressDoc.totalChallengesCompleted || 0) + 1,
           currentStreak: newStreak,
-          longestStreak: Math.max(progress.longestStreak, newStreak),
-          lastCompletionDate: new Date(),
-          lastStreakUpdate: new Date(),
-          ...(typeField ? { [typeField]: { increment: 1 } } : {}),
-        },
-      });
+          longestStreak: Math.max(progressDoc.longestStreak || 0, newStreak),
+          lastCompletionDate: new Date().toISOString(),
+          lastStreakUpdate: new Date().toISOString(),
+          ...typeFieldUpdate,
+        }
+      );
     } else {
       // Create initial progress
-      await prisma.userProgress.create({
-        data: {
+      await databases.createDocument(
+        DATABASE_ID,
+        COLLECTION_USER_PROGRESS,
+        ID.unique(),
+        {
           userId,
+          totalChallengesIssued: 0,
           totalChallengesCompleted: 1,
           currentStreak: 1,
           longestStreak: 1,
-          lastCompletionDate: new Date(),
-          lastStreakUpdate: new Date(),
-        },
-      });
+          lastCompletionDate: new Date().toISOString(),
+          lastStreakUpdate: new Date().toISOString(),
+        }
+      );
     }
 
     // Log agent action
-    await prisma.agentAction.create({
-      data: {
+    await databases.createDocument(
+      DATABASE_ID,
+      COLLECTION_AGENT_ACTIONS,
+      ID.unique(),
+      {
         userId,
         actionType: 'CHALLENGE_COMPLETED',
         details: JSON.stringify({
           challengeId,
-          submissionId: submission.id,
+          submissionId: submissionDoc.$id,
           hasPhoto: !!photoUrl,
           rating: rating ? parseInt(rating) : null,
         }),
         success: true,
-      },
-    });
+      }
+    );
+
+    const submission = { ...submissionDoc, id: submissionDoc.$id };
 
     return NextResponse.json({
       submission,
@@ -225,10 +282,10 @@ export async function POST(request: NextRequest) {
 
 function getProgressFieldForChallengeType(challengeType: string): string | null {
   const typeMap: Record<string, string> = {
-    'WEEKEND_DEEP_DIVE': 'saturdayChallengesCompleted',
-    'LUNCH_MICRO': 'lunchBreakCompleted',
-    'AFTER_WORK': 'afterWorkCompleted',
-    'WORK_FROM_HOME': 'wfhCompleted',
+    WEEKEND_DEEP_DIVE: 'saturdayChallengesCompleted',
+    LUNCH_MICRO: 'lunchBreakCompleted',
+    AFTER_WORK: 'afterWorkCompleted',
+    WORK_FROM_HOME: 'wfhCompleted',
   };
   return typeMap[challengeType] || null;
 }

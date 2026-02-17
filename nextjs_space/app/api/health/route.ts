@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { createAdminClient } from '@/lib/appwrite-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +9,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check database connection
-    await prisma.$queryRaw`SELECT 1`;
+    // Check Appwrite connection via health API
+    const { health } = createAdminClient();
+    await health.get();
 
     return NextResponse.json({
       status: 'healthy',
