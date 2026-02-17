@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight } from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
+import { Menu, X, ArrowUpRight, LogOut, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
 
 const navItems = [
   { href: '/', label: 'Home' },
@@ -18,6 +19,8 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, status, signOut } = useAppwriteAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,10 +33,17 @@ export default function Navbar() {
     }
   }, [])
 
-  // Close mobile menu on route change
   useEffect(() => {
     setIsOpen(false)
   }, [pathname])
+
+  async function handleSignOut() {
+    await signOut()
+    router.push('/')
+  }
+
+  const isAuthenticated = status === 'authenticated'
+  const firstName = user?.name?.split(' ')[0] ?? ''
 
   return (
     <>
@@ -77,15 +87,42 @@ export default function Navbar() {
                   )}
                 </Link>
               )) ?? []}
-              
-              {/* CTA Button */}
-              <Link
-                href="/chat"
-                className="ml-4 group flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-sm font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
-              >
-                <span>Start Coaching</span>
-                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </Link>
+
+              {/* Auth controls */}
+              {status === 'loading' ? (
+                <div className="ml-4 h-9 w-24 bg-muted animate-pulse" />
+              ) : isAuthenticated ? (
+                <div className="ml-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                    <User className="h-3.5 w-3.5" />
+                    <span className="font-medium text-foreground">{firstName}</span>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="group flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+                    aria-label="Sign out"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Sign out</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="ml-4 flex items-center gap-2">
+                  <Link
+                    href="/login"
+                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="group flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-sm font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
+                  >
+                    <span>Get started</span>
+                    <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -118,7 +155,7 @@ export default function Navbar() {
               className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
               onClick={() => setIsOpen(false)}
             />
-            
+
             {/* Menu Panel */}
             <motion.div
               initial={{ x: '100%' }}
@@ -139,7 +176,7 @@ export default function Navbar() {
                     <X className="h-6 w-6" />
                   </button>
                 </div>
-                
+
                 {/* Navigation Links */}
                 <div className="flex-1 overflow-y-auto py-6">
                   {navItems?.map((item, index) => (
@@ -166,17 +203,42 @@ export default function Navbar() {
                     </motion.div>
                   )) ?? []}
                 </div>
-                
-                {/* CTA */}
-                <div className="p-6 border-t border-border">
-                  <Link
-                    href="/chat"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center justify-center gap-2 w-full py-4 bg-foreground text-background text-base font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
-                  >
-                    <span>Start Coaching</span>
-                    <ArrowUpRight className="h-5 w-5" />
-                  </Link>
+
+                {/* Auth CTA */}
+                <div className="p-6 border-t border-border space-y-3">
+                  {isAuthenticated ? (
+                    <>
+                      <div className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        <span>Signed in as <strong className="text-foreground">{firstName}</strong></span>
+                      </div>
+                      <button
+                        onClick={() => { setIsOpen(false); handleSignOut(); }}
+                        className="flex items-center justify-center gap-2 w-full py-4 border border-border text-foreground text-base font-semibold tracking-wide transition-all duration-300 hover:bg-muted"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Sign out</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-center w-full py-3.5 border border-border text-foreground text-base font-medium tracking-wide transition-all duration-300 hover:bg-muted"
+                      >
+                        Sign in
+                      </Link>
+                      <Link
+                        href="/signup"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-center gap-2 w-full py-4 bg-foreground text-background text-base font-semibold tracking-wide transition-all duration-300 hover:bg-primary"
+                      >
+                        <span>Get started</span>
+                        <ArrowUpRight className="h-5 w-5" />
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>
