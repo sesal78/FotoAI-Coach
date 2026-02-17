@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/appwrite-server';
 import { ID, Client, Account } from 'node-appwrite';
-import { cookies } from 'next/headers';
 import {
   DATABASE_ID,
   COLLECTION_USER_PREFERENCES,
   COLLECTION_USER_PROGRESS,
 } from '@/lib/appwrite-collections';
+import { SESSION_COOKIE } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,15 +63,6 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    const cookieStore = await cookies();
-    cookieStore.set(`a_session_${process.env.APPWRITE_PROJECT_ID}`, session.secret, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      expires: new Date(session.expire),
-    });
-
     // Send email verification — use a session-scoped client with the new session secret
     try {
       const verifyClient = new Client()
@@ -88,7 +79,15 @@ export async function POST(request: NextRequest) {
       console.warn('[register] Failed to send verification email:', verifyErr);
     }
 
-    return NextResponse.json({ success: true, userId: user.$id });
+    const response = NextResponse.json({ success: true, userId: user.$id });
+    response.cookies.set(SESSION_COOKIE, session.secret, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    return response;
   } catch (error: any) {
     const message = error?.message || 'Registration failed';
     return NextResponse.json({ error: message }, { status: 400 });

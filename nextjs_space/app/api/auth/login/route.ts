@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/appwrite-server';
-import { cookies } from 'next/headers';
+import { SESSION_COOKIE } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,16 +13,16 @@ export async function POST(request: NextRequest) {
     const { account } = createAdminClient();
     const session = await account.createEmailPasswordSession(email, password);
 
-    const cookieStore = await cookies();
-    cookieStore.set(`a_session_${process.env.APPWRITE_PROJECT_ID}`, session.secret, {
+    const response = NextResponse.json({ success: true, userId: session.userId });
+    response.cookies.set(SESSION_COOKIE, session.secret, {
       path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      expires: new Date(session.expire),
+      maxAge: 60 * 60 * 24 * 365, // 1 year
     });
 
-    return NextResponse.json({ success: true, userId: session.userId });
+    return response;
   } catch (error: any) {
     const message = error?.message || 'Invalid credentials';
     return NextResponse.json({ error: message }, { status: 401 });

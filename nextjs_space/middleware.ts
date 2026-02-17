@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SESSION_COOKIE } from '@/lib/session';
 
 const PROTECTED_ROUTES = ['/dashboard', '/chat'];
 
@@ -8,8 +9,7 @@ export function middleware(request: NextRequest) {
   const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
   if (!isProtected) return NextResponse.next();
 
-  const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
-  const sessionCookie = request.cookies.get(`a_session_${projectId}`);
+  const sessionCookie = request.cookies.get(SESSION_COOKIE);
 
   if (!sessionCookie?.value) {
     const loginUrl = new URL('/login', request.url);

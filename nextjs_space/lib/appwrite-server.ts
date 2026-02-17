@@ -1,6 +1,7 @@
 // Server-side Appwrite SDK (API routes only — never import in client components)
 import { Client, Account, Databases, Storage, Users, Health } from 'node-appwrite';
 import { cookies } from 'next/headers';
+import { SESSION_COOKIE } from '@/lib/session';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT!;
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID!;
@@ -25,7 +26,7 @@ export function createAdminClient() {
 // Session client — scoped to the current user's session, use in authenticated API routes
 export async function createSessionClient(request: Request) {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(`a_session_${PROJECT_ID}`);
+  const sessionCookie = cookieStore.get(SESSION_COOKIE);
 
   if (!sessionCookie?.value) {
     throw new Error('No active session');
