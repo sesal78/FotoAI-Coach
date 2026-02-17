@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff, Camera, Check } from 'lucide-react';
@@ -25,9 +25,11 @@ function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Prevent the "already authenticated" redirect from firing after registration
+  const justRegistered = useRef(false);
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && !justRegistered.current) {
       router.replace(from);
     }
   }, [status, router, from]);
@@ -43,8 +45,9 @@ function SignupForm() {
 
     setLoading(true);
     try {
+      justRegistered.current = true;
       await register(email, password, name);
-      router.replace(from);
+      router.replace(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
     } finally {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/appwrite-server';
-import { ID } from 'node-appwrite';
+import { ID, Client, Account } from 'node-appwrite';
 import { cookies } from 'next/headers';
 import {
   DATABASE_ID,
@@ -71,6 +71,22 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax',
       expires: new Date(session.expire),
     });
+
+    // Send email verification — use a session-scoped client with the new session secret
+    try {
+      const verifyClient = new Client()
+        .setEndpoint(process.env.APPWRITE_ENDPOINT!)
+        .setProject(process.env.APPWRITE_PROJECT_ID!)
+        .setSession(session.secret);
+      const verifyAccount = new Account(verifyClient);
+      const proto = request.headers.get('x-forwarded-proto') || 'https';
+      const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
+      await verifyAccount.createVerification(`${appUrl}/verify-email/confirm`);
+    } catch (verifyErr) {
+      // Non-fatal — registration succeeded even if email fails
+      console.warn('[register] Failed to send verification email:', verifyErr);
+    }
 
     return NextResponse.json({ success: true, userId: user.$id });
   } catch (error: any) {
