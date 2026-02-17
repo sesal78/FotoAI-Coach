@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { account } from '@/lib/appwrite';
 
 export interface AppwriteUser {
   id: string;
@@ -15,10 +14,15 @@ export function useAppwriteAuth() {
   const [user, setUser] = useState<AppwriteUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
 
+  // Use our own /api/auth/me endpoint — it reads the httpOnly session cookie
+  // server-side. Calling account.get() from the browser SDK doesn't work because
+  // the cookie lives on our domain, not on Appwrite's domain.
   const fetchUser = useCallback(async () => {
     try {
-      const appwriteUser = await account.get();
-      setUser({ id: appwriteUser.$id, email: appwriteUser.email, name: appwriteUser.name });
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) throw new Error('Not authenticated');
+      const data = await res.json();
+      setUser({ id: data.id, email: data.email, name: data.name });
       setStatus('authenticated');
     } catch {
       setUser(null);
