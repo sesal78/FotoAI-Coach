@@ -7,13 +7,9 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
-COPY package.json yarn.lock* ./
-COPY .yarnrc.yml ./
-COPY .yarn ./.yarn
+COPY package.json package-lock.json* ./
 
-# Disable global cache to avoid path issues in Docker build environment
-RUN yarn config set enableGlobalCache false
-RUN yarn install --immutable
+RUN npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -55,7 +51,7 @@ ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_OUTPUT_MODE=standalone
 
 # Build Next.js application
-RUN yarn build
+RUN npm run build
 
 # Production image
 FROM base AS runner
