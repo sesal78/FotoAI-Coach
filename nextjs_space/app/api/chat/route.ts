@@ -71,8 +71,13 @@ export async function POST(request: NextRequest) {
 
     if (!llmRes.ok) {
       const err = await llmRes.text();
-      console.error('[chat] LLM error:', err);
-      return NextResponse.json({ error: 'AI service unavailable' }, { status: 502 });
+      console.error('[chat] LLM error:', llmRes.status, err);
+      const friendly =
+        llmRes.status === 401 ? 'OpenAI API key is missing or invalid. Please check your OPENAI_API_KEY environment variable.' :
+        llmRes.status === 404 ? 'OpenAI model not found. Check the model name in the API route.' :
+        llmRes.status === 429 ? 'OpenAI rate limit reached. Please wait a moment and try again.' :
+        `AI service error (${llmRes.status}). Check server logs for details.`;
+      return NextResponse.json({ error: friendly }, { status: 502 });
     }
 
     const llmData = await llmRes.json();

@@ -105,10 +105,8 @@ export default function ChatPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setMessages([
-          ...newMessages,
-          { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
-        ])
+        const errMsg = data?.error || 'Sorry, something went wrong. Please try again.'
+        setMessages([...newMessages, { role: 'assistant', content: errMsg }])
         return
       }
 
