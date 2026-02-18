@@ -83,8 +83,25 @@
   
   async function syncChallenge(challenge) {
     try {
+      // Resolve the real user ID — prefer injected global, fall back to /api/auth/me
+      let resolvedUserId = window.FOTO_USER_ID || null;
+      if (!resolvedUserId) {
+        try {
+          const meRes = await fetch('/api/auth/me');
+          if (meRes.ok) {
+            const me = await meRes.json();
+            resolvedUserId = me.id;
+            window.FOTO_USER_ID = resolvedUserId; // cache for subsequent calls
+          }
+        } catch {}
+      }
+      if (!resolvedUserId) {
+        console.warn('[Foto Sync] No user ID available — skipping sync');
+        return;
+      }
+
       const payload = {
-        userId: '1',
+        userId: resolvedUserId,
         challengeText: challenge.challengeText || challenge.challenge_text || 'Photography Challenge',
         category: challenge.category || 'STREET',
         difficulty: challenge.difficulty || 'INTERMEDIATE',
