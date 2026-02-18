@@ -3,9 +3,18 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight, LogOut, User } from 'lucide-react'
+import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 const navItems = [
   { href: '/', label: 'Home' },
@@ -90,21 +99,69 @@ export default function Navbar() {
 
               {/* Auth controls */}
               {status === 'loading' ? (
-                <div className="ml-4 h-9 w-24 bg-muted animate-pulse" />
+                <div className="ml-4 h-9 w-9 rounded-full bg-muted animate-pulse" />
               ) : isAuthenticated ? (
-                <div className="ml-4 flex items-center gap-2">
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-                    <User className="h-3.5 w-3.5" />
-                    <span className="font-medium text-foreground">{firstName}</span>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="group flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
-                    aria-label="Sign out"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign out</span>
-                  </button>
+                <div className="ml-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                        <Avatar className="h-9 w-9 border border-border">
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                            {user?.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="hidden xl:block text-sm font-medium text-foreground">{firstName}</span>
+                        <ChevronDown className="hidden xl:block h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-semibold text-foreground">{user?.name}</span>
+                          <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/chat" className="flex items-center gap-2 cursor-pointer">
+                          <MessageSquare className="h-4 w-4" />
+                          Coach
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/locations" className="flex items-center gap-2 cursor-pointer">
+                          <MapPin className="h-4 w-4" />
+                          Locations
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard#progress" className="flex items-center gap-2 cursor-pointer">
+                          <TrendingUp className="h-4 w-4" />
+                          My Progress
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard#settings" className="flex items-center gap-2 cursor-pointer">
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleSignOut}
+                        className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ) : (
                 <div className="ml-4 flex items-center gap-2">
@@ -208,13 +265,37 @@ export default function Navbar() {
                 <div className="p-6 border-t border-border space-y-3">
                   {isAuthenticated ? (
                     <>
-                      <div className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
-                        <User className="h-4 w-4" />
-                        <span>Signed in as <strong className="text-foreground">{firstName}</strong></span>
+                      {/* User info */}
+                      <div className="flex items-center gap-3 px-2 py-2 mb-1">
+                        <Avatar className="h-10 w-10 border border-border shrink-0">
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                            {user?.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                        </div>
                       </div>
+                      {/* Quick links */}
+                      {[
+                        { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+                        { href: '/dashboard#progress', icon: TrendingUp, label: 'My Progress' },
+                        { href: '/dashboard#settings', icon: Settings, label: 'Settings' },
+                      ].map(({ href, icon: Icon, label }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-sm"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label}
+                        </Link>
+                      ))}
                       <button
                         onClick={() => { setIsOpen(false); handleSignOut(); }}
-                        className="flex items-center justify-center gap-2 w-full py-4 border border-border text-foreground text-base font-semibold tracking-wide transition-all duration-300 hover:bg-muted"
+                        className="flex items-center justify-center gap-2 w-full py-3.5 border border-border text-destructive text-base font-medium tracking-wide transition-all duration-300 hover:bg-destructive/5 mt-2"
                       >
                         <LogOut className="h-4 w-4" />
                         <span>Sign out</span>
