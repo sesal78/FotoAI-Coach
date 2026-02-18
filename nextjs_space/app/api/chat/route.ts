@@ -46,7 +46,10 @@ export async function POST(request: NextRequest) {
       const { account } = await createSessionClient(request);
       const user = await account.get();
       userId = user.$id;
-    } catch { /* unauthenticated — challenge won't be saved */ }
+      console.log('[chat] Authenticated userId:', userId);
+    } catch (e) {
+      console.warn('[chat] No session — challenges will not be saved:', e);
+    }
 
     // Call OpenAI
     const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: 'gpt-4.1-mini',
         temperature: 0.75,
-        max_tokens: 1200,
+        max_tokens: 2000,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           ...messages,
@@ -79,9 +82,14 @@ export async function POST(request: NextRequest) {
     const challengeMatch = rawContent.match(/<CHALLENGE_DATA>\s*([\s\S]*?)\s*<\/CHALLENGE_DATA>/i);
     let savedChallenge = null;
 
+    console.log('[chat] CHALLENGE_DATA found:', !!challengeMatch, '| userId:', userId);
+
     if (challengeMatch && userId) {
       try {
-        const challengeData = JSON.parse(challengeMatch[1]);
+        // Strip markdown code fences OpenAI sometimes adds (```json ... ```)
+        const rawJson = challengeMatch[1].replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        const challengeData = JSON.parse(rawJson);
+        console.log('[chat] Parsed challenge:', challengeData.category, challengeData.difficulty);
         const { databases } = createAdminClient();
 
         // Upsert: update existing pending challenge or create new one
@@ -151,8 +159,11 @@ export async function POST(request: NextRequest) {
           } catch { /* non-fatal */ }
         }
       } catch (parseErr) {
-        console.warn('[chat] Failed to parse/save challenge:', parseErr);
+        console.error('[chat] Failed to parse/save challenge:', parseErr);
+        console.error('[chat] Raw CHALLENGE_DATA content:', challengeMatch[1]);
       }
+    } else if (challengeMatch && !userId) {
+      console.warn('[chat] CHALLENGE_DATA found but no userId — not saving');
     }
 
     // Strip the machine-readable block from the visible message
