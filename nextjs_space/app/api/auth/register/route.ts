@@ -21,8 +21,13 @@ export async function POST(request: NextRequest) {
     // Create Appwrite user
     const user = await account.create(ID.unique(), email, password, name);
 
-    // Create a session immediately so the user is logged in after registration
-    const session = await account.createEmailPasswordSession(email, password);
+    // Create a session using a plain project-scoped client (no API key) so the returned
+    // session.secret is a valid user session token compatible with setSession().
+    const sessionClient = new Client()
+      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
+      .setProject(process.env.APPWRITE_PROJECT_ID!);
+    const sessionAccount = new Account(sessionClient);
+    const session = await sessionAccount.createEmailPasswordSession(email, password);
 
     // Initialise default preferences and progress documents
     await Promise.all([

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/appwrite-server';
+import { Client, Account } from 'node-appwrite';
 import { SESSION_COOKIE } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
@@ -10,7 +10,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const { account } = createAdminClient();
+    // Use a plain project-scoped client (no API key) so the returned session.secret
+    // is a valid user session token compatible with setSession() in createSessionClient.
+    const client = new Client()
+      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
+      .setProject(process.env.APPWRITE_PROJECT_ID!);
+    const account = new Account(client);
     const session = await account.createEmailPasswordSession(email, password);
 
     const response = NextResponse.json({ success: true, userId: session.userId });
