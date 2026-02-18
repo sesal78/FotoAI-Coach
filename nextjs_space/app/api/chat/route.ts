@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
       userId = user.$id;
     } catch { /* unauthenticated — challenge won't be saved */ }
 
-    // Call Abacus.AI
-    const llmRes = await fetch('https://apps.abacus.ai/v1/chat/completions', {
+    // Call OpenAI
+    const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.ABACUSAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         model: 'gpt-4.1-mini',
