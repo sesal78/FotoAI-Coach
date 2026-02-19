@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4o-mini',
         temperature: 0.75,
         max_tokens: 2000,
         messages: [

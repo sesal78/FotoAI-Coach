@@ -29,7 +29,7 @@ export async function callLLM(
   } = {}
 ): Promise<LLMResponse> {
   const {
-    model = 'gpt-4.1-mini',
+    model = 'gpt-4o-mini',
     temperature = 0.7,
     max_tokens = 2000,
     json_mode = false,
@@ -176,7 +176,7 @@ Respond with raw JSON only. Do not include code blocks, markdown, or any other f
         { role: 'user', content: `Generate a ${challengeType} photography challenge for today.` },
       ],
       {
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4o-mini',
         temperature: 0.8,
         max_tokens: 1000,
         json_mode: true,
@@ -227,7 +227,7 @@ Please provide constructive feedback.`;
         { role: 'user', content: userMessage },
       ],
       {
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4o-mini',
         temperature: 0.7,
         max_tokens: 300,
       }
@@ -313,7 +313,7 @@ Respond with raw JSON only. Do not include code blocks, markdown, or any other f
         { role: 'user', content: `Create a photography itinerary for ${location}.` },
       ],
       {
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4o-mini',
         temperature: 0.7,
         max_tokens: 1500,
         json_mode: true,
