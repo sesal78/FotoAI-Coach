@@ -3,21 +3,21 @@
 # Format: minute hour day month weekday command
 
 # Daily challenge generation (Saturday 7 AM PST = 3 PM UTC)
-0 15 * * 6 wget -qO- http://app:3000/api/scheduled/daily-challenge || echo "Saturday challenge failed"
+0 15 * * 6 wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/scheduled/daily-challenge || echo "Saturday challenge failed"
 
 # Lunch challenges (Weekdays 11 AM PST = 7 PM UTC)
-0 19 * * 1-5 wget -qO- http://app:3000/api/scheduled/daily-challenge || echo "Lunch challenge failed"
+0 19 * * 1-5 wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/scheduled/daily-challenge || echo "Lunch challenge failed"
 
 # Weather monitoring (Every 3 hours)
-0 */3 * * * wget -qO- http://app:3000/api/scheduled/weather-monitor || echo "Weather monitor failed"
+0 */3 * * * wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/scheduled/weather-monitor || echo "Weather monitor failed"
 
 # Weekly report (Sunday 8 PM PST = 4 AM UTC Monday)
-0 4 * * 1 wget -qO- http://app:3000/api/scheduled/weekly-report || echo "Weekly report failed"
+0 4 * * 1 wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/scheduled/weekly-report || echo "Weekly report failed"
 
 # Streak manager (Daily 11 PM PST = 7 AM UTC next day)
-0 7 * * * wget -qO- http://app:3000/api/scheduled/streak-manager || echo "Streak manager failed"
+0 7 * * * wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/scheduled/streak-manager || echo "Streak manager failed"
 
-# Health check (Every 5 minutes)
+# Health check (Every 5 minutes) — no auth needed
 */5 * * * * wget -qO- http://app:3000/api/health > /dev/null 2>&1 || echo "Health check failed"
 
 # Log rotation (Daily at midnight)
