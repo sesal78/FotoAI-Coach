@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__read_text_file",
+      "Bash(cd:*)",
+      "mcp__filesystem__list_allowed_directories",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__directory_tree",
+      "mcp__filesystem__search_files",
+      "mcp__filesystem__read_multiple_files",
+      "Bash(yarn:*)",
+      "Bash(node --version:*)",
+      "Bash(npm:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh auth:*)",
+      "mcp__github-server__create_repository",
+      "Bash(echo:*)",
+      "Bash(git config:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)",
+      "Bash(git rm:*)",
+      "Bash(printf:*)",
+      "Bash(\"d:/ClaudeCode/AI/projects/Foto Coach/foto-photography-coach/nextjs_space/app/api/auth/verify-email/route.ts\":*)",
+      "Bash(\"d:/ClaudeCode/AI/projects/Foto Coach/foto-photography-coach/nextjs_space/app/api/auth/resend-verification/route.ts\":*)",
+      "Bash(\"d:/ClaudeCode/AI/projects/Foto Coach/foto-photography-coach/nextjs_space/lib/session.ts\":*)",
+      "Bash(claude mcp list:*)",
+      "Bash(bun:*)",
+      "Bash(bunx supergateway --help:*)",
+      "Bash(curl:*)",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://mcp.apify.com/?tools=actors,docs,apify/rag-web-browser'' -Headers @{''Authorization''=''Bearer apify_api_oB1Fs5IJi2EOTnhRPeJsd7fxS6tkQ11aIOMV''} -TimeoutSec 10 | Select-Object -ExpandProperty StatusCode\")",
+      "Bash(npx next lint:*)",
+      "Bash(node_modules/.bin/next lint)",
+      "Bash(node_modules/.bin/tsc:*)"
+    ]
+  }
+}

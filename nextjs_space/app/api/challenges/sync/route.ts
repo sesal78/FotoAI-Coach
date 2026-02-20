@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Query, ID } from 'node-appwrite';
-import { createAdminClient } from '@/lib/appwrite-server';
+import { createAdminClient, createSessionClient } from '@/lib/appwrite-server';
 import {
   DATABASE_ID,
   COLLECTION_DAILY_CHALLENGES,
@@ -24,9 +24,18 @@ import {
  * }
  */
 export async function POST(request: NextRequest) {
+  // Require a valid user session
+  let sessionUserId: string;
+  try {
+    const { account } = await createSessionClient(request);
+    const user = await account.get();
+    sessionUserId = user.$id;
+  } catch {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    console.log('Received challenge sync request:', body);
 
     const {
       userId,
@@ -40,13 +49,12 @@ export async function POST(request: NextRequest) {
       weatherConditions,
     } = body;
 
-    // Validate required fields
-    if (!userId || !challengeText) {
-      return NextResponse.json(
-        { error: 'Missing required fields: userId, challengeText' },
-        { status: 400 }
-      );
+    if (!challengeText) {
+      return NextResponse.json({ error: 'Missing required field: challengeText' }, { status: 400 });
     }
+
+    // Always use the authenticated user — ignore any client-submitted userId
+    const resolvedUserId = sessionUserId;
 
     // Convert recommendedGear to array if it's a string
     const gearArray = Array.isArray(recommendedGear)
@@ -62,7 +70,7 @@ export async function POST(request: NextRequest) {
       DATABASE_ID,
       COLLECTION_DAILY_CHALLENGES,
       [
-        Query.equal('userId', userId.toString()),
+        Query.equal('userId', resolvedUserId),
         Query.equal('status', 'pending'),
         Query.limit(1),
       ]
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest) {
       COLLECTION_DAILY_CHALLENGES,
       ID.unique(),
       {
-        userId: userId.toString(),
+        userId: resolvedUserId,
         challengeText,
         challengeType: 'CHATBOT_GENERATED',
         category: category || 'General',
@@ -141,11 +149,13 @@ export async function POST(request: NextRequest) {
 
 // GET endpoint to check sync status
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+  let sessionUserId: string;
+  try {
+    const { account } = await createSessionClient(request);
+    const user = await account.get();
+    sessionUserId = user.$id;
+  } catch {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
   }
 
   try {
@@ -155,7 +165,7 @@ export async function GET(request: NextRequest) {
       DATABASE_ID,
       COLLECTION_DAILY_CHALLENGES,
       [
-        Query.equal('userId', userId),
+        Query.equal('userId', sessionUserId),
         Query.equal('status', 'pending'),
         Query.orderDesc('$createdAt'),
         Query.limit(1),

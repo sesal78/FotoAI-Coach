@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Query, ID } from 'node-appwrite';
 import { createAdminClient } from '@/lib/appwrite-server';
+import { verifyCronRequest } from '@/lib/cron-auth';
 import {
   DATABASE_ID,
   COLLECTION_USER_PROGRESS,
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic';
  * This endpoint is called by cron jobs daily at 11 PM
  */
 export async function POST(request: NextRequest) {
+  const authError = verifyCronRequest(request);
+  if (authError) return authError;
+
   try {
     const { databases, users } = createAdminClient();
 
