@@ -3,11 +3,11 @@
 ## Current Position
 
 Phase: 1 of 6 (Auth State & Navbar)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-20 — Milestone v1.1 Improvements created
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-20 — Completed 01-01-PLAN.md
 
-Progress: ░░░░░░░░░░ 0%
+Progress: █░░░░░░░░░ 6%
 
 ---
 
@@ -28,9 +28,17 @@ Progress: ░░░░░░░░░░ 0%
 - Email: SendGrid via `lib/email.ts`.
 - Weather: OpenWeatherMap via `lib/weather.ts`.
 
+### Architecture Decisions (v1.1)
+
+| Phase | Decision | Rationale |
+|-------|----------|-----------|
+| 01-01 | AuthProvider inside ThemeProvider | Both providers available to all children |
+| 01-01 | useAppwriteAuth kept as proxy | Zero breaking changes for 5 existing consumers |
+
 ### Key File Locations
 - App root: `nextjs_space/`
-- Auth hook: `hooks/useAppwriteAuth.ts`
+- Auth context: `contexts/auth-context.tsx`
+- Auth hook (proxy): `hooks/useAppwriteAuth.ts`
 - Appwrite server client: `lib/appwrite-server.ts`
 - Appwrite client (browser): `lib/appwrite.ts`
 - Collection IDs: `lib/appwrite-collections.ts`
@@ -65,5 +73,5 @@ None at milestone start.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Milestone v1.1 initialization
+Stopped at: Completed 01-01-PLAN.md (Auth State Centralization)
 Resume file: None

@@ -21,7 +21,7 @@ None configured.
 
 ---
 
-### Phase 1: Auth State & Navbar
+### Phase 1: Auth State & Navbar — In progress
 
 **Goal**: Replace per-component `/api/auth/me` calls with a shared React `AuthContext`. Fix navbar auth flicker caused by duplicate auth checks.
 
@@ -29,7 +29,7 @@ None configured.
 **Research**: Unlikely (established React context pattern, no new libraries)
 
 Plans:
-- [ ] 01-01: Create `AuthContext` + `AuthProvider` wrapping the app
+- [x] 01-01: Create `AuthContext` + `AuthProvider` wrapping the app
 - [ ] 01-02: Migrate `useAppwriteAuth` hook to consume context instead of fetching
 - [ ] 01-03: Update navbar to use shared auth state (remove separate fetch)
 
@@ -110,7 +110,7 @@ Plans:
 
 | Phase | Milestone | Plans | Status | Completed |
 |---|---|---|---|---|
-| 1. Auth State & Navbar | v1.1 | 0/3 | Not started | - |
+| 1. Auth State & Navbar | v1.1 | 1/3 | In progress | - |
 | 2. Dashboard Performance | v1.1 | 0/3 | Not started | - |
 | 3. Photo Upload & Async Feedback | v1.1 | 0/3 | Not started | - |
 | 4. Caching & Deduplication | v1.1 | 0/3 | Not started | - |
