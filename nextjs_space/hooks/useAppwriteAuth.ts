@@ -1,70 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/auth-context';
 
-export interface AppwriteUser {
-  id: string;
-  email: string;
-  name: string;
-}
+export type { AppwriteUser, AuthStatus } from '@/contexts/auth-context';
 
-export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
-
+/**
+ * Thin proxy that delegates to the shared AuthContext.
+ *
+ * All stateful logic now lives in AuthProvider (contexts/auth-context.tsx).
+ * Keeping this hook preserves backward-compatible imports for every consumer
+ * (Navbar, Dashboard, Login, Signup, Chat) with zero code changes.
+ */
 export function useAppwriteAuth() {
-  const [user, setUser] = useState<AppwriteUser | null>(null);
-  const [status, setStatus] = useState<AuthStatus>('loading');
-
-  // Use our own /api/auth/me endpoint — it reads the httpOnly session cookie
-  // server-side. Calling account.get() from the browser SDK doesn't work because
-  // the cookie lives on our domain, not on Appwrite's domain.
-  const fetchUser = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) throw new Error('Not authenticated');
-      const data = await res.json();
-      setUser({ id: data.id, email: data.email, name: data.name });
-      setStatus('authenticated');
-    } catch {
-      setUser(null);
-      setStatus('unauthenticated');
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Login failed');
-    }
-    await fetchUser();
-  }, [fetchUser]);
-
-  const signOut = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    setStatus('unauthenticated');
-  }, []);
-
-  const register = useCallback(async (email: string, password: string, name: string) => {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Registration failed');
-    }
-    await fetchUser();
-  }, [fetchUser]);
-
-  return { user, status, signIn, signOut, register };
+  return useAuth();
 }

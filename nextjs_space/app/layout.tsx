@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from 'sonner'
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
@@ -25,27 +26,29 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {/* Subtle grain texture overlay */}
-          <div className="grain-overlay" aria-hidden="true" />
-          
-          <div className="min-h-screen flex flex-col">
-            <Navbar />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </div>
-          <Toaster 
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                fontFamily: 'DM Sans, sans-serif',
-                background: 'hsl(30 10% 12%)',
-                color: 'hsl(45 20% 95%)',
-                border: 'none',
-              }
-            }}
-          />
+          <AuthProvider>
+            {/* Subtle grain texture overlay */}
+            <div className="grain-overlay" aria-hidden="true" />
+
+            <div className="min-h-screen flex flex-col">
+              <Navbar />
+              <main className="flex-1">
+                {children}
+              </main>
+              <Footer />
+            </div>
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  fontFamily: 'DM Sans, sans-serif',
+                  background: 'hsl(30 10% 12%)',
+                  color: 'hsl(45 20% 95%)',
+                  border: 'none',
+                }
+              }}
+            />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
