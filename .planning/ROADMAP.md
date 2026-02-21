@@ -35,7 +35,7 @@ Plans:
 
 ---
 
-### Phase 2: Dashboard Performance
+### Phase 2: Dashboard Performance — Complete
 
 **Goal**: Eliminate sequential data fetching on the dashboard. Parallelise challenge, progress, and gear API calls. Add React Query for caching and background refetch.
 
@@ -45,7 +45,7 @@ Plans:
 
 Plans:
 - [x] 02-01: React Query provider + parallelise dashboard fetches with Promise.allSettled
-- [ ] 02-02: Wrap dashboard queries in React Query hooks for caching + background refetch
+- [x] 02-02: Wrap dashboard queries in React Query hooks for caching + background refetch
 
 ---
 
@@ -110,7 +110,7 @@ Plans:
 | Phase | Milestone | Plans | Status | Completed |
 |---|---|---|---|---|
 | 1. Auth State & Navbar | v1.1 | 3/3 | Complete | 2026-02-20 |
-| 2. Dashboard Performance | v1.1 | 1/2 | In progress | - |
+| 2. Dashboard Performance | v1.1 | 2/2 | Complete | 2026-02-21 |
 | 3. Photo Upload & Async Feedback | v1.1 | 0/3 | Not started | - |
 | 4. Caching & Deduplication | v1.1 | 0/3 | Not started | - |
 | 5. Email Preferences | v1.1 | 0/3 | Not started | - |

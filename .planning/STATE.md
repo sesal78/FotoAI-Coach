@@ -2,12 +2,12 @@
 
 ## Current Position
 
-Phase: 2 of 6 (Dashboard Performance)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-21 — Completed 02-01-PLAN.md
+Phase: 2 of 6 (Dashboard Performance) — Complete
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-21 — Completed 02-02-PLAN.md
 
-Progress: ██░░░░░░░░ 25%
+Progress: ███░░░░░░░ 33%
 
 ---
 
@@ -37,14 +37,20 @@ Progress: ██░░░░░░░░ 25%
 | 02-01 | QueryProvider inside AuthProvider | Hooks can access auth context |
 | 02-01 | Promise.allSettled over Promise.all | One failing endpoint must not block others |
 | 02-01 | useState QueryClient (not module-level) | Prevents shared cache between SSR requests |
+| 02-02 | Shared interfaces in lib/types.ts | Challenge & UserProgress reusable across hooks and components |
+| 02-02 | placeholderData from localStorage | Instant render before network response in usePendingChallenge |
+| 02-02 | useInvalidateDashboard() pattern | Single callback invalidates all dashboard query keys after mutations |
+| 02-02 | Mutations kept as imperative fetch | useMutation conversion deferred; keeps scope minimal |
 
 ### Key File Locations
 - App root: `nextjs_space/`
 - Auth context: `contexts/auth-context.tsx`
 - Auth hook (proxy): `hooks/useAppwriteAuth.ts`
+- Dashboard hooks: `hooks/use-dashboard-data.ts`
 - Appwrite server client: `lib/appwrite-server.ts`
 - Appwrite client (browser): `lib/appwrite.ts`
 - Collection IDs: `lib/appwrite-collections.ts`
+- Shared types: `lib/types.ts`
 - LLM functions: `lib/llm.ts`
 - Chat route: `app/api/chat/route.ts`
 - Scheduled routes: `app/api/scheduled/*/route.ts`
@@ -63,7 +69,7 @@ Progress: ██░░░░░░░░ 25%
 
 ## Blockers / Concerns
 
-None at milestone start.
+None.
 
 ---
 
@@ -77,5 +83,5 @@ None at milestone start.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 02-01-PLAN.md, ready for 02-02
+Stopped at: Completed Phase 2 (Dashboard Performance), ready for Phase 3
 Resume file: None
