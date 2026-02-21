@@ -159,20 +159,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate AI feedback
-    let feedback = 'Great work completing this challenge!';
-    try {
-      feedback = await generateFeedback({
-        challengeText: challenge.challengeText as string,
-        userNotes: notes || undefined,
-        skillLevel: preferences?.skillLevel || 'intermediate',
-      });
-    } catch (feedbackError) {
-      console.error('Feedback generation failed:', feedbackError);
-      // Use default feedback
-    }
-
-    // Create submission document
+    // Create submission document (feedback generated asynchronously)
     const submissionDoc = await databases.createDocument(
       DATABASE_ID,
       COLLECTION_CHALLENGE_SUBMISSIONS,
@@ -182,7 +169,8 @@ export async function POST(request: NextRequest) {
         userId,
         photoUrl,
         notes,
-        feedback,
+        feedback: null,
+        feedbackStatus: 'pending',
         rating: rating ? parseInt(rating) : null,
         submittedAt: new Date().toISOString(),
       }
@@ -284,11 +272,18 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const submission = { ...submissionDoc, id: submissionDoc.$id };
+    // Fire-and-forget: generate feedback asynchronously
+    generateFeedbackAsync(databases, submissionDoc.$id, {
+      challengeText: challenge.challengeText as string,
+      userNotes: notes || undefined,
+      skillLevel: preferences?.skillLevel || 'intermediate',
+    }).catch((err) => {
+      console.error('Async feedback generation failed:', err);
+    });
 
     return NextResponse.json({
-      submission,
-      message: 'Challenge submitted successfully!',
+      submission: { ...submissionDoc, id: submissionDoc.$id },
+      message: 'Challenge submitted successfully! Feedback is being generated...',
     });
   } catch (error) {
     console.error('Failed to submit challenge:', error);
@@ -296,6 +291,41 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to submit challenge' },
       { status: 500 }
     );
+  }
+}
+
+async function generateFeedbackAsync(
+  databases: any,
+  submissionId: string,
+  context: { challengeText: string; userNotes?: string; skillLevel: string }
+) {
+  try {
+    const feedback = await generateFeedback(context);
+    await databases.updateDocument(
+      DATABASE_ID,
+      COLLECTION_CHALLENGE_SUBMISSIONS,
+      submissionId,
+      {
+        feedback,
+        feedbackStatus: 'ready',
+      }
+    );
+    console.log('Async feedback generated for submission:', submissionId);
+  } catch (error) {
+    console.error('Async feedback failed for submission:', submissionId, error);
+    try {
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTION_CHALLENGE_SUBMISSIONS,
+        submissionId,
+        {
+          feedback: 'Great work completing this challenge! Keep practicing and exploring your creative vision.',
+          feedbackStatus: 'ready',
+        }
+      );
+    } catch (updateError) {
+      console.error('Failed to update fallback feedback:', updateError);
+    }
   }
 }
 

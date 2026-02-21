@@ -117,6 +117,7 @@ async function setup() {
   await addAttr('challenge_submissions', 'string', 'feedback', { size: 2000 });
   await addAttr('challenge_submissions', 'integer', 'rating', { min: 1, max: 5 });
   await addAttr('challenge_submissions', 'string', 'submittedAt');
+  await addAttr('challenge_submissions', 'string', 'feedbackStatus', { default: 'pending' });
   console.log('✅ challenge_submissions attributes done\n');
 
   // ---- itineraries ----
