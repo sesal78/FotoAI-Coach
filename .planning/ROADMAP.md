@@ -44,9 +44,8 @@ Plans:
 **Research topics**: React Query with App Router server/client boundary; invalidation patterns with Appwrite mutations
 
 Plans:
-- [ ] 02-01: Install and configure `@tanstack/react-query` with App Router provider
-- [ ] 02-02: Replace sequential `await` dashboard fetches with `Promise.all` (immediate win)
-- [ ] 02-03: Wrap dashboard queries in React Query hooks for caching + background refetch
+- [x] 02-01: React Query provider + parallelise dashboard fetches with Promise.allSettled
+- [ ] 02-02: Wrap dashboard queries in React Query hooks for caching + background refetch
 
 ---
 
@@ -111,7 +110,7 @@ Plans:
 | Phase | Milestone | Plans | Status | Completed |
 |---|---|---|---|---|
 | 1. Auth State & Navbar | v1.1 | 3/3 | Complete | 2026-02-20 |
-| 2. Dashboard Performance | v1.1 | 0/3 | Not started | - |
+| 2. Dashboard Performance | v1.1 | 1/2 | In progress | - |
 | 3. Photo Upload & Async Feedback | v1.1 | 0/3 | Not started | - |
 | 4. Caching & Deduplication | v1.1 | 0/3 | Not started | - |
 | 5. Email Preferences | v1.1 | 0/3 | Not started | - |
