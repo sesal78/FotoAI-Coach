@@ -95,77 +95,98 @@ export default function DashboardPage() {
       if (showLoading) setLoading(true);
       console.log('🔍 Loading dashboard for userId:', userId);
 
-      // Load current challenge
-      const challengesRes = await fetch(`/api/challenges?userId=${userId}&status=pending&limit=1`, {
-        cache: 'no-store', // Prevent caching
-      });
-      
-      console.log('📡 Challenges API response status:', challengesRes.status);
-      
-      if (!challengesRes.ok) {
-        console.error('❌ Failed to fetch challenges:', challengesRes.status, challengesRes.statusText);
-        toast.error(`Failed to load challenges (${challengesRes.status})`);
-      }
-      
-      const challengesData = await challengesRes.json();
-      console.log('📋 Loaded challenges data:', challengesData);
-      console.log('📊 Number of challenges:', challengesData?.challenges?.length || 0);
-      
-      if (challengesData.challenges && challengesData.challenges.length > 0) {
-        const challenge = challengesData.challenges[0];
-        setCurrentChallenge(challenge);
-        
-        // Store in localStorage as backup
-        localStorage.setItem('currentChallenge', JSON.stringify(challenge));
-        console.log('✅ Challenge loaded and cached:', challenge.category);
+      // Fire all 4 fetches in parallel
+      const [challengesResult, progressResult, recentResult, itineraryResult] = await Promise.allSettled([
+        fetch(`/api/challenges?userId=${userId}&status=pending&limit=1`, { cache: 'no-store' }),
+        fetch(`/api/progress?userId=${userId}`, { cache: 'no-store' }),
+        fetch(`/api/challenges?userId=${userId}&status=all&limit=5`, { cache: 'no-store' }),
+        fetch(`/api/itinerary?userId=${userId}`, { cache: 'no-store' }),
+      ]);
+
+      // Process current challenge
+      if (challengesResult.status === 'fulfilled') {
+        const challengesRes = challengesResult.value;
+        console.log('📡 Challenges API response status:', challengesRes.status);
+
+        if (!challengesRes.ok) {
+          console.error('❌ Failed to fetch challenges:', challengesRes.status, challengesRes.statusText);
+          toast.error(`Failed to load challenges (${challengesRes.status})`);
+        }
+
+        const challengesData = await challengesRes.json();
+        console.log('📋 Loaded challenges data:', challengesData);
+        console.log('📊 Number of challenges:', challengesData?.challenges?.length || 0);
+
+        if (challengesData.challenges && challengesData.challenges.length > 0) {
+          const challenge = challengesData.challenges[0];
+          setCurrentChallenge(challenge);
+
+          // Store in localStorage as backup
+          localStorage.setItem('currentChallenge', JSON.stringify(challenge));
+          console.log('✅ Challenge loaded and cached:', challenge.category);
+        } else {
+          console.log('ℹ️ No pending challenges found');
+
+          // Try to load from localStorage as fallback
+          const cachedChallenge = localStorage.getItem('currentChallenge');
+          if (cachedChallenge) {
+            console.log('💾 Loaded challenge from localStorage backup');
+            setCurrentChallenge(JSON.parse(cachedChallenge));
+            toast.info('Loaded cached challenge');
+          } else {
+            setCurrentChallenge(null);
+          }
+        }
       } else {
-        console.log('ℹ️ No pending challenges found');
-        
-        // Try to load from localStorage as fallback
+        console.error('❌ Challenges fetch rejected:', challengesResult.reason);
+        toast.error('Failed to load challenges');
+
+        // Try localStorage fallback on error
         const cachedChallenge = localStorage.getItem('currentChallenge');
         if (cachedChallenge) {
           console.log('💾 Loaded challenge from localStorage backup');
           setCurrentChallenge(JSON.parse(cachedChallenge));
-          toast.info('Loaded cached challenge');
-        } else {
-          setCurrentChallenge(null);
+          toast.info('Loaded cached challenge (offline mode)');
         }
       }
 
-      // Load progress
-      const progressRes = await fetch(`/api/progress?userId=${userId}`, {
-        cache: 'no-store',
-      });
-      
-      if (progressRes.ok) {
-        const progressData = await progressRes.json();
-        setProgress(progressData.progress);
+      // Process progress
+      if (progressResult.status === 'fulfilled') {
+        const progressRes = progressResult.value;
+        if (progressRes.ok) {
+          const progressData = await progressRes.json();
+          setProgress(progressData.progress);
+        }
+      } else {
+        console.error('❌ Progress fetch rejected:', progressResult.reason);
       }
 
-      // Load recent challenges
-      const recentRes = await fetch(`/api/challenges?userId=${userId}&status=all&limit=5`, {
-        cache: 'no-store',
-      });
-      
-      if (recentRes.ok) {
-        const recentData = await recentRes.json();
-        setRecentChallenges(recentData.challenges || []);
+      // Process recent challenges
+      if (recentResult.status === 'fulfilled') {
+        const recentRes = recentResult.value;
+        if (recentRes.ok) {
+          const recentData = await recentRes.json();
+          setRecentChallenges(recentData.challenges || []);
+        }
+      } else {
+        console.error('❌ Recent challenges fetch rejected:', recentResult.reason);
       }
 
-      // Load itineraries
-      const itineraryRes = await fetch(`/api/itinerary?userId=${userId}`, {
-        cache: 'no-store',
-      });
-      
-      if (itineraryRes.ok) {
-        const itineraryData = await itineraryRes.json();
-        setItineraries(itineraryData.itineraries || []);
+      // Process itineraries
+      if (itineraryResult.status === 'fulfilled') {
+        const itineraryRes = itineraryResult.value;
+        if (itineraryRes.ok) {
+          const itineraryData = await itineraryRes.json();
+          setItineraries(itineraryData.itineraries || []);
+        }
+      } else {
+        console.error('❌ Itineraries fetch rejected:', itineraryResult.reason);
       }
 
     } catch (error) {
       console.error('Failed to load dashboard:', error);
       toast.error('Failed to load dashboard data. Check console for details.');
-      
+
       // Try localStorage fallback on error
       const cachedChallenge = localStorage.getItem('currentChallenge');
       if (cachedChallenge) {
