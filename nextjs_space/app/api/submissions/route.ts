@@ -14,6 +14,9 @@ import {
 } from '@/lib/appwrite-collections';
 import { generateFeedback } from '@/lib/llm';
 
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -121,6 +124,22 @@ export async function POST(request: NextRequest) {
       [Query.equal('userId', userId), Query.limit(1)]
     );
     const preferences = prefsResult.documents[0] ?? null;
+
+    // Validate photo file before upload
+    if (photo) {
+      if (!ALLOWED_MIME_TYPES.includes(photo.type)) {
+        return NextResponse.json(
+          { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, HEIC' },
+          { status: 400 }
+        );
+      }
+      if (photo.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: 'File too large. Maximum size: 10 MB' },
+          { status: 400 }
+        );
+      }
+    }
 
     let photoUrl: string | null = null;
 
