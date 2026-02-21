@@ -1,25 +1,26 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  usePendingChallenge,
+  useUserProgress,
+  useRecentChallenges,
+  useItineraries,
+  useInvalidateDashboard,
+} from '@/hooks/use-dashboard-data';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Camera, 
-  TrendingUp, 
-  MapPin, 
-  Calendar, 
-  Award,
+import {
+  Camera,
+  MapPin,
   Cloud,
   AlertCircle,
   CheckCircle2,
   Clock,
-  Upload,
   Send,
   Mail
 } from 'lucide-react';
@@ -27,36 +28,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
-interface Challenge {
-  id: string;
-  challengeText: string;
-  category: string;
-  difficulty: string;
-  duration: string;
-  tips: string;
-  recommendedGear: string[];
-  weatherConditions?: string;
-  location?: string;
-  status: string;
-  issuedDate: string;
-  submissions?: any[];
-}
-
-interface UserProgress {
-  totalChallengesCompleted: number;
-  totalChallengesIssued: number;
-  currentStreak: number;
-  longestStreak: number;
-  completionRate: number;
-  favoriteSubjects: string[];
-}
-
 export default function DashboardPage() {
   const { user: session, status: sessionStatus } = useAppwriteAuth();
-  const [loading, setLoading] = useState(true);
-  const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
-  const [progress, setProgress] = useState<UserProgress | null>(null);
-  const [recentChallenges, setRecentChallenges] = useState<Challenge[]>([]);
+
+  // React Query hooks — auto-fetch when userId is available
+  const { data: currentChallenge, isLoading: challengeLoading } = usePendingChallenge(session?.id);
+  const { data: progress } = useUserProgress(session?.id);
+  const { data: recentChallenges = [] } = useRecentChallenges(session?.id);
+  const { data: itineraries = [], isLoading: itinerariesLoading } = useItineraries(session?.id);
+  const invalidateDashboard = useInvalidateDashboard();
+
+  // UI / form state (not server data)
   const [submitting, setSubmitting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [emailing, setEmailing] = useState(false);
@@ -68,7 +50,6 @@ export default function DashboardPage() {
   const [selectedChallengeType, setSelectedChallengeType] = useState<string>('WEEKEND_DEEP_DIVE');
 
   // Itinerary state
-  const [itineraries, setItineraries] = useState<any[]>([]);
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
   const [itineraryLocation, setItineraryLocation] = useState('Melbourne CBD');
   const [itineraryDuration, setItineraryDuration] = useState('2-3 hours');
@@ -80,123 +61,6 @@ export default function DashboardPage() {
     { value: 'AFTER_WORK', label: '🌆 After Work', description: '1-2 hours golden hour session' },
     { value: 'WFH_MICRO', label: '🏠 WFH Micro', description: '15-20 min creative break at home' },
   ];
-
-  useEffect(() => {
-    if (sessionStatus === 'authenticated') {
-      loadDashboardData(true);
-    }
-  }, [sessionStatus]);
-
-  async function loadDashboardData(showLoading = false) {
-    const userId = session?.id;
-    if (!userId) return;
-
-    try {
-      if (showLoading) setLoading(true);
-      console.log('🔍 Loading dashboard for userId:', userId);
-
-      // Fire all 4 fetches in parallel
-      const [challengesResult, progressResult, recentResult, itineraryResult] = await Promise.allSettled([
-        fetch(`/api/challenges?userId=${userId}&status=pending&limit=1`, { cache: 'no-store' }),
-        fetch(`/api/progress?userId=${userId}`, { cache: 'no-store' }),
-        fetch(`/api/challenges?userId=${userId}&status=all&limit=5`, { cache: 'no-store' }),
-        fetch(`/api/itinerary?userId=${userId}`, { cache: 'no-store' }),
-      ]);
-
-      // Process current challenge
-      if (challengesResult.status === 'fulfilled') {
-        const challengesRes = challengesResult.value;
-        console.log('📡 Challenges API response status:', challengesRes.status);
-
-        if (!challengesRes.ok) {
-          console.error('❌ Failed to fetch challenges:', challengesRes.status, challengesRes.statusText);
-          toast.error(`Failed to load challenges (${challengesRes.status})`);
-        }
-
-        const challengesData = await challengesRes.json();
-        console.log('📋 Loaded challenges data:', challengesData);
-        console.log('📊 Number of challenges:', challengesData?.challenges?.length || 0);
-
-        if (challengesData.challenges && challengesData.challenges.length > 0) {
-          const challenge = challengesData.challenges[0];
-          setCurrentChallenge(challenge);
-
-          // Store in localStorage as backup
-          localStorage.setItem('currentChallenge', JSON.stringify(challenge));
-          console.log('✅ Challenge loaded and cached:', challenge.category);
-        } else {
-          console.log('ℹ️ No pending challenges found');
-
-          // Try to load from localStorage as fallback
-          const cachedChallenge = localStorage.getItem('currentChallenge');
-          if (cachedChallenge) {
-            console.log('💾 Loaded challenge from localStorage backup');
-            setCurrentChallenge(JSON.parse(cachedChallenge));
-            toast.info('Loaded cached challenge');
-          } else {
-            setCurrentChallenge(null);
-          }
-        }
-      } else {
-        console.error('❌ Challenges fetch rejected:', challengesResult.reason);
-        toast.error('Failed to load challenges');
-
-        // Try localStorage fallback on error
-        const cachedChallenge = localStorage.getItem('currentChallenge');
-        if (cachedChallenge) {
-          console.log('💾 Loaded challenge from localStorage backup');
-          setCurrentChallenge(JSON.parse(cachedChallenge));
-          toast.info('Loaded cached challenge (offline mode)');
-        }
-      }
-
-      // Process progress
-      if (progressResult.status === 'fulfilled') {
-        const progressRes = progressResult.value;
-        if (progressRes.ok) {
-          const progressData = await progressRes.json();
-          setProgress(progressData.progress);
-        }
-      } else {
-        console.error('❌ Progress fetch rejected:', progressResult.reason);
-      }
-
-      // Process recent challenges
-      if (recentResult.status === 'fulfilled') {
-        const recentRes = recentResult.value;
-        if (recentRes.ok) {
-          const recentData = await recentRes.json();
-          setRecentChallenges(recentData.challenges || []);
-        }
-      } else {
-        console.error('❌ Recent challenges fetch rejected:', recentResult.reason);
-      }
-
-      // Process itineraries
-      if (itineraryResult.status === 'fulfilled') {
-        const itineraryRes = itineraryResult.value;
-        if (itineraryRes.ok) {
-          const itineraryData = await itineraryRes.json();
-          setItineraries(itineraryData.itineraries || []);
-        }
-      } else {
-        console.error('❌ Itineraries fetch rejected:', itineraryResult.reason);
-      }
-
-    } catch (error) {
-      console.error('Failed to load dashboard:', error);
-      toast.error('Failed to load dashboard data. Check console for details.');
-
-      // Try localStorage fallback on error
-      const cachedChallenge = localStorage.getItem('currentChallenge');
-      if (cachedChallenge) {
-        setCurrentChallenge(JSON.parse(cachedChallenge));
-        toast.info('Loaded cached challenge (offline mode)');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function generateNewChallenge() {
     try {
@@ -219,16 +83,15 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const challenge = data.challenge;
-        setCurrentChallenge(challenge);
-        
-        // Store in localStorage
+
+        // Immediate localStorage cache (before React Query refetches)
         localStorage.setItem('currentChallenge', JSON.stringify(challenge));
         console.log('✅ New challenge generated and cached');
-        
+
         toast.success('New challenge generated!');
-        
-        // Reload dashboard to update statistics (no loading spinner)
-        await loadDashboardData(false);
+
+        // Invalidate all dashboard queries so React Query refetches
+        invalidateDashboard();
       } else {
         console.error('Challenge generation failed:', data);
         toast.error(data.error || 'Failed to generate challenge');
@@ -305,19 +168,18 @@ export default function DashboardPage() {
       if (response.ok) {
         toast.success('Challenge submitted! 🎉');
         toast.success(data.submission.feedback || 'Great work!');
-        
+
         // Clear localStorage cache
         localStorage.removeItem('currentChallenge');
         console.log('✅ Challenge completed and cache cleared');
-        
+
         // Reset form
         setPhoto(null);
         setNotes('');
         setRating(0);
-        setCurrentChallenge(null);
-        
-        // Reload dashboard (no loading spinner)
-        await loadDashboardData(false);
+
+        // Invalidate all dashboard queries so React Query refetches
+        invalidateDashboard();
       } else {
         toast.error(data.error || 'Failed to submit challenge');
       }
@@ -348,19 +210,18 @@ export default function DashboardPage() {
 
       if (response.ok) {
         toast.success('Challenge skipped. Ready for a new one!');
-        
+
         // Clear localStorage cache
         localStorage.removeItem('currentChallenge');
         console.log('✅ Challenge skipped and cache cleared');
-        
+
         // Reset form
         setPhoto(null);
         setNotes('');
         setRating(0);
-        setCurrentChallenge(null);
-        
-        // Reload dashboard (no loading spinner)
-        await loadDashboardData(false);
+
+        // Invalidate all dashboard queries so React Query refetches
+        invalidateDashboard();
       } else {
         toast.error(data.error || 'Failed to skip challenge');
       }
@@ -391,7 +252,7 @@ export default function DashboardPage() {
 
       if (response.ok) {
         toast.success('Itinerary generated!');
-        setItineraries(prev => [data.itinerary, ...prev]);
+        invalidateDashboard();
       } else {
         toast.error(data.error || 'Failed to generate itinerary');
       }
@@ -403,7 +264,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (sessionStatus === 'loading' || (sessionStatus === 'authenticated' && loading)) {
+  if (sessionStatus === 'loading' || (sessionStatus === 'authenticated' && challengeLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
