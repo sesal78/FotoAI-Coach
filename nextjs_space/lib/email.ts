@@ -1,21 +1,32 @@
 
-// Email notification utilities using SMTP (nodemailer)
+// Email notification utilities — SMTP primary, Resend fallback
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// Create reusable SMTP transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// ── SMTP (primary) ──────────────────────────────────────────────────────────
 
-// Validate config on startup
-if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-  console.error('SMTP configuration incomplete — check SMTP_HOST, SMTP_USER, SMTP_PASS env vars');
+const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+
+const transporter = smtpConfigured
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    })
+  : null;
+
+// ── Resend (fallback) ───────────────────────────────────────────────────────
+
+const resendConfigured = !!process.env.RESEND_API_KEY;
+const resend = resendConfigured ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// Startup warnings
+if (!smtpConfigured && !resendConfigured) {
+  console.error('No email provider configured — set SMTP_* or RESEND_API_KEY env vars');
 }
 
 export interface EmailOptions {
@@ -40,45 +51,89 @@ function sanitizeText(text: string): string {
 }
 
 /**
- * Send an email via SMTP
+ * Build common email fields from options
+ */
+function buildEmailFields(options: EmailOptions) {
+  const fromEmail = options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com';
+  const fromName = options.fromName || process.env.FROM_NAME || 'Foto AI Coach';
+  const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
+  const subject = sanitizeText(options.subject);
+  const html = options.html ? sanitizeText(options.html) : undefined;
+  const text = options.text ? sanitizeText(options.text) : undefined;
+  return { fromEmail, fromName, replyTo, subject, html, text };
+}
+
+/**
+ * Try sending via SMTP
+ */
+async function sendViaSmtp(options: EmailOptions): Promise<boolean> {
+  if (!transporter) return false;
+
+  const { fromEmail, fromName, replyTo, subject, html, text } = buildEmailFields(options);
+
+  const mailOptions: nodemailer.SendMailOptions = {
+    from: `${fromName} <${fromEmail}>`,
+    to: options.to,
+    subject,
+    replyTo: replyTo !== fromEmail ? replyTo : undefined,
+    html: html || undefined,
+    text: text || subject,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  console.log(`[SMTP] Email sent to ${options.to} — messageId: ${info.messageId}`);
+  return true;
+}
+
+/**
+ * Try sending via Resend
+ */
+async function sendViaResend(options: EmailOptions): Promise<boolean> {
+  if (!resend) return false;
+
+  const { fromEmail, fromName, replyTo, subject, html, text } = buildEmailFields(options);
+
+  const { error } = await resend.emails.send({
+    from: `${fromName} <${fromEmail}>`,
+    to: [options.to],
+    subject,
+    replyTo: replyTo !== fromEmail ? replyTo : undefined,
+    html: html || undefined,
+    text: text || subject,
+  });
+
+  if (error) throw new Error(error.message);
+  console.log(`[Resend] Email sent to ${options.to}`);
+  return true;
+}
+
+/**
+ * Send an email — tries SMTP first, falls back to Resend
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  try {
-    if (!process.env.SMTP_HOST) {
-      console.error('Cannot send email: SMTP is not configured');
+  // Try SMTP first
+  if (smtpConfigured) {
+    try {
+      return await sendViaSmtp(options);
+    } catch (error: any) {
+      console.error(`[SMTP] Failed: ${error.message}`);
+      if (!resendConfigured) return false;
+      console.log('[SMTP] Falling back to Resend...');
+    }
+  }
+
+  // Fallback to Resend
+  if (resendConfigured) {
+    try {
+      return await sendViaResend(options);
+    } catch (error: any) {
+      console.error(`[Resend] Failed: ${error.message}`);
       return false;
     }
-
-    const fromEmail = options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com';
-    const fromName = options.fromName || process.env.FROM_NAME || 'Foto AI Coach';
-    const replyToEmail = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
-
-    const sanitizedSubject = sanitizeText(options.subject);
-
-    const mailOptions: nodemailer.SendMailOptions = {
-      from: `${fromName} <${fromEmail}>`,
-      to: options.to,
-      subject: sanitizedSubject,
-      replyTo: replyToEmail !== fromEmail ? replyToEmail : undefined,
-    };
-
-    if (options.html) {
-      mailOptions.html = sanitizeText(options.html);
-    }
-    if (options.text) {
-      mailOptions.text = sanitizeText(options.text);
-    }
-    if (!mailOptions.html && !mailOptions.text) {
-      mailOptions.text = sanitizedSubject;
-    }
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${options.to} — messageId: ${info.messageId}`);
-    return true;
-  } catch (error: any) {
-    console.error('Email sending failed:', error.message);
-    return false;
   }
+
+  console.error('No email provider available');
+  return false;
 }
 
 /**
