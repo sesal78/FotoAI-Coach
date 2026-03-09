@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport } from '@/lib/types';
+import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport, EditingRecipeAnalysis } from '@/lib/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +131,22 @@ export function useReverseAnalyses(userId: string | undefined) {
       if (!res.ok) throw new Error(`Failed to fetch analyses (${res.status})`);
       const data = await res.json();
       return data.analyses ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Fetches editing recipe analyses for the current user.
+ */
+export function useEditingRecipes(userId: string | undefined) {
+  return useQuery<EditingRecipeAnalysis[]>({
+    queryKey: ['editing-recipes', userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/editing-recipe?userId=${userId}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to fetch recipes (${res.status})`);
+      const data = await res.json();
+      return data.recipes ?? [];
     },
     enabled: !!userId,
   });

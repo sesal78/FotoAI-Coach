@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb } from 'lucide-react'
+import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb, SlidersHorizontal } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/', label: 'Home' },
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/critique', label: 'Critique' },
+  { href: '/editing', label: 'Editing Lab' },
   { href: '/recreate', label: 'Recreate' },
   { href: '/chat', label: 'Coach' },
   { href: '/locations', label: 'Locations' },
@@ -163,6 +164,12 @@ export default function Navbar() {
                         <Link href="/critique" className="flex items-center gap-2 cursor-pointer">
                           <Eye className="h-4 w-4" />
                           Photo Critique
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/editing" className="flex items-center gap-2 cursor-pointer">
+                          <SlidersHorizontal className="h-4 w-4" />
+                          Editing Lab
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -322,6 +329,7 @@ export default function Navbar() {
                       {[
                         { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                         { href: '/critique', icon: Eye, label: 'Photo Critique' },
+                        { href: '/editing', icon: SlidersHorizontal, label: 'Editing Lab' },
                         { href: '/recreate', icon: Lightbulb, label: 'Recreate This' },
                         { href: '/progress', icon: TrendingUp, label: 'My Progress' },
                         { href: '/settings', icon: Settings, label: 'Settings' },

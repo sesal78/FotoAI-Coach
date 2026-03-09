@@ -479,6 +479,93 @@ Respond with raw JSON only.`;
 }
 
 /**
+ * Compare an original and edited photo to generate a slider-by-slider editing recipe.
+ * Two-image vision call that identifies adjustments, over-editing, and suggests improvements.
+ */
+export async function generateEditingRecipe(context: {
+  originalImageDataUri: string;
+  editedImageDataUri: string;
+  skillLevel: string;
+  gear?: string[];
+}): Promise<import('@/lib/types').EditingRecipe> {
+  const { originalImageDataUri, editedImageDataUri, skillLevel, gear } = context;
+
+  const toneGuide =
+    skillLevel === 'beginner'
+      ? 'Use simple, beginner-friendly language. Explain editing concepts as if teaching someone who just opened Lightroom for the first time. Be encouraging.'
+      : skillLevel === 'professional'
+        ? 'Be precise and technical. Use professional editing terminology. Assume familiarity with advanced color grading and local adjustments.'
+        : 'Be clear and specific. Explain slider values and editing concepts briefly where helpful.';
+
+  const systemPrompt = `You are Foto AI, an expert photo editing coach who analyses before/after photo edits to help photographers learn post-processing.
+
+Photographer skill level: ${skillLevel}
+${gear?.length ? `Gear: ${gear.join(', ')}` : ''}
+
+Tone: ${toneGuide}
+
+You will receive TWO images:
+1. The ORIGINAL (unedited or less-edited version)
+2. The EDITED version (the photographer's post-processing result)
+
+Compare both images carefully and identify:
+
+1. ADJUSTMENTS DETECTED — List each editing slider/adjustment you can identify. For each:
+   - Name the slider (Exposure, Contrast, Highlights, Shadows, Whites, Blacks, Clarity, Vibrance, Saturation, Temperature, Tint, Dehaze, Sharpening, Noise Reduction, Vignette, etc.)
+   - Direction (increased/decreased)
+   - Estimated amount (e.g., "+0.5 EV", "+30", "-20")
+   - Assessment: "appropriate", "overdone", or "underdone"
+
+2. OVER-EDITING WARNINGS — Any adjustments pushed too far that hurt the image. Be specific about what looks wrong and how to fix it.
+
+3. SUGGESTED IMPROVEMENTS — Additional adjustments the photographer could make. Include the slider, suggested value, and educational explanation of why.
+
+4. EDITING APPROACH — One-line description of the overall editing style/look being attempted.
+
+5. OVERALL ASSESSMENT — 2-3 sentences: what works, what doesn't, and the key improvement to make.
+
+6. DIFFICULTY LEVEL — How complex is this editing approach (beginner-friendly / intermediate / advanced).
+
+Respond in JSON:
+{
+  "adjustmentsDetected": [
+    { "slider": "name", "direction": "increased|decreased", "estimatedAmount": "value", "assessment": "appropriate|overdone|underdone" }
+  ],
+  "overEditingWarnings": ["warning string"],
+  "suggestedImprovements": [
+    { "slider": "name", "value": "suggested value", "reason": "educational explanation" }
+  ],
+  "editingApproach": "one-line description",
+  "overallAssessment": "2-3 sentences",
+  "difficultyLevel": "beginner-friendly|intermediate|advanced"
+}
+
+Respond with raw JSON only.`;
+
+  const response = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Here are my original and edited photos. Please analyse my edits and give me an editing recipe.' },
+          { type: 'image_url', image_url: { url: originalImageDataUri, detail: 'high' } },
+          { type: 'image_url', image_url: { url: editedImageDataUri, detail: 'high' } },
+        ],
+      },
+    ],
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0.6,
+      max_tokens: 1500,
+      json_mode: true,
+    },
+  );
+
+  return JSON.parse(response.content);
+}
+
+/**
  * Generate personalized weekly insights from aggregated user stats.
  * Returns a narrative summary, highlights, skill breakdown, and recommendation.
  */

@@ -209,6 +209,15 @@ async function setup() {
   await addAttr('reverse_analyses', 'string', 'analysisDate');
   console.log('✅ reverse_analyses attributes done\n');
 
+  // ---- editing_recipes ----
+  await createCollectionSafe('editing_recipes', 'Editing Recipes');
+  await addAttr('editing_recipes', 'string', 'userId', { required: true });
+  await addAttr('editing_recipes', 'string', 'originalPhotoUrl', { size: 1000 });
+  await addAttr('editing_recipes', 'string', 'editedPhotoUrl', { size: 1000 });
+  await addAttr('editing_recipes', 'string', 'recipeJson', { size: 10000 });
+  await addAttr('editing_recipes', 'string', 'analysisDate');
+  console.log('✅ editing_recipes attributes done\n');
+
   // ---- weekly_reports ----
   await createCollectionSafe('weekly_reports', 'Weekly Reports');
   await addAttr('weekly_reports', 'string', 'userId', { required: true });

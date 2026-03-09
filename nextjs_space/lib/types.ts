@@ -108,6 +108,37 @@ export interface ReverseAnalysis {
   analysisDate: string;
 }
 
+export interface EditingAdjustment {
+  slider: string;
+  direction: string;
+  estimatedAmount: string;
+  assessment: 'appropriate' | 'overdone' | 'underdone';
+}
+
+export interface EditingSuggestion {
+  slider: string;
+  value: string;
+  reason: string;
+}
+
+export interface EditingRecipe {
+  adjustmentsDetected: EditingAdjustment[];
+  overEditingWarnings: string[];
+  suggestedImprovements: EditingSuggestion[];
+  editingApproach: string;
+  overallAssessment: string;
+  difficultyLevel: string;
+}
+
+export interface EditingRecipeAnalysis {
+  id: string;
+  userId: string;
+  originalPhotoUrl: string;
+  editedPhotoUrl: string;
+  recipe: EditingRecipe;
+  analysisDate: string;
+}
+
 export interface WeeklyInsightsData {
   weekStart: string;
   weekEnd: string;
