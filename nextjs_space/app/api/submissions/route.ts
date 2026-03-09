@@ -8,11 +8,13 @@ import {
   COLLECTION_CHALLENGE_SUBMISSIONS,
   COLLECTION_DAILY_CHALLENGES,
   COLLECTION_USER_PREFERENCES,
+  COLLECTION_USER_GEAR,
   COLLECTION_USER_PROGRESS,
   COLLECTION_AGENT_ACTIONS,
+  COLLECTION_PHOTO_CRITIQUES,
   STORAGE_BUCKET_SUBMISSIONS,
 } from '@/lib/appwrite-collections';
-import { generateFeedback } from '@/lib/llm';
+import { generateFeedback, critiquePhoto } from '@/lib/llm';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -278,7 +280,7 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Fire-and-forget: generate feedback asynchronously
+    // Fire-and-forget: generate feedback + photo critique asynchronously
     generateFeedbackAsync(databases, submissionDoc.$id, {
       challengeText: challenge.challengeText as string,
       userNotes: notes || undefined,
@@ -287,9 +289,23 @@ export async function POST(request: NextRequest) {
       console.error('Async feedback generation failed:', err);
     });
 
+    if (photoUrl) {
+      generateCritiqueAsync(databases, storage, {
+        userId,
+        submissionId: submissionDoc.$id,
+        photoUrl,
+        challengeText: challenge.challengeText as string,
+        skillLevel: preferences?.skillLevel || 'intermediate',
+      }).catch((err) => {
+        console.error('Async photo critique failed:', err);
+      });
+    }
+
     return NextResponse.json({
       submission: { ...submissionDoc, id: submissionDoc.$id },
-      message: 'Challenge submitted successfully! Feedback is being generated...',
+      message: photoUrl
+        ? 'Challenge submitted! Feedback and photo critique are being generated...'
+        : 'Challenge submitted successfully! Feedback is being generated...',
     });
   } catch (error) {
     console.error('Failed to submit challenge:', error);
@@ -329,6 +345,66 @@ async function generateFeedbackAsync(
     } catch (updateError) {
       console.error('Failed to update fallback feedback status:', updateError);
     }
+  }
+}
+
+async function generateCritiqueAsync(
+  databases: any,
+  storage: any,
+  context: {
+    userId: string;
+    submissionId: string;
+    photoUrl: string;
+    challengeText: string;
+    skillLevel: string;
+  },
+) {
+  try {
+    // Fetch gear for context
+    const gearResult = await databases.listDocuments(
+      DATABASE_ID, COLLECTION_USER_GEAR,
+      [Query.equal('userId', context.userId), Query.limit(20)],
+    );
+    const gear = gearResult.documents.map((d: any) => `${d.brand} ${d.model}`);
+
+    // Download photo from Appwrite storage and convert to base64
+    const fileIdMatch = context.photoUrl.match(/files\/([^/]+)\//);
+    if (!fileIdMatch) {
+      console.error('Could not extract file ID from photoUrl:', context.photoUrl);
+      return;
+    }
+
+    const fileBytes = await storage.getFileView(STORAGE_BUCKET_SUBMISSIONS, fileIdMatch[1]);
+    const buffer = Buffer.from(fileBytes);
+    const imageDataUri = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+
+    const result = await critiquePhoto({
+      imageDataUri,
+      skillLevel: context.skillLevel,
+      challengeText: context.challengeText,
+      gear,
+    });
+
+    await databases.createDocument(DATABASE_ID, COLLECTION_PHOTO_CRITIQUES, ID.unique(), {
+      userId: context.userId,
+      submissionId: context.submissionId,
+      photoUrl: context.photoUrl,
+      technicalScore: result.technicalScore,
+      compositionScore: result.compositionScore,
+      creativeScore: result.creativeScore,
+      overallScore: result.overallScore,
+      technicalFeedback: result.technicalFeedback,
+      compositionFeedback: result.compositionFeedback,
+      creativeFeedback: result.creativeFeedback,
+      strengths: result.strengths,
+      improvements: result.improvements,
+      suggestedSettings: result.suggestedSettings || '',
+      critiqueDate: new Date().toISOString(),
+    });
+
+    console.log('Auto-critique generated for submission:', context.submissionId);
+  } catch (error) {
+    console.error('Auto-critique failed for submission:', context.submissionId, error);
   }
 }
 
