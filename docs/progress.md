@@ -116,7 +116,7 @@
   - Commit: becd415
 
 ### Phase 8 — Visual Skill Tree & XP System
-- Status: READY_FOR_REVIEW
+- Status: APPROVED
 - Scope: Gamified skill progression — 35 skill nodes, 3 categories, prerequisite graph, XP engine, visual skill tree page, navbar level indicator
 - Implementation summary:
   - `lib/skills.ts`: 35 skill nodes (15 technical, 12 composition, 8 post-processing), 3 tiers, prerequisite graph, XP calculation, level formula
@@ -187,4 +187,4 @@
 - 2025-07-14: Phase 5 completed and committed (8c8a036) — approved by user
 - 2026-03-09: Phase 6 completed and committed (74c87f4) — approved by user
 - 2026-03-09: Phase 7 completed and committed (becd415) — approved by user
-- 2026-03-09: Phase 8 implementation complete, pending commit — approved by user
+- 2026-03-09: Phase 8 completed and committed (d321940) — approved by user
