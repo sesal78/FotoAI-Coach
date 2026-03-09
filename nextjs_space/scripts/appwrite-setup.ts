@@ -228,6 +228,25 @@ async function setup() {
   await addAttr('weekly_reports', 'string', 'reportDate');
   console.log('✅ weekly_reports attributes done\n');
 
+  // ---- user_skills ----
+  await createCollectionSafe('user_skills', 'User Skills');
+  await addAttr('user_skills', 'string', 'userId', { required: true });
+  await addAttr('user_skills', 'string', 'skillId', { required: true });
+  await addAttr('user_skills', 'integer', 'currentXP', { default: 0 });
+  await addAttr('user_skills', 'string', 'status', { default: 'available' });
+  await addAttr('user_skills', 'string', 'lastXPDate');
+  console.log('✅ user_skills attributes done\n');
+
+  // ---- xp_events ----
+  await createCollectionSafe('xp_events', 'XP Events');
+  await addAttr('xp_events', 'string', 'userId', { required: true });
+  await addAttr('xp_events', 'string', 'skillId', { required: true });
+  await addAttr('xp_events', 'integer', 'xpAmount', { required: true });
+  await addAttr('xp_events', 'string', 'source', { required: true });
+  await addAttr('xp_events', 'string', 'sourceId');
+  await addAttr('xp_events', 'string', 'awardedAt');
+  console.log('✅ xp_events attributes done\n');
+
   // ---- Storage bucket ----
   try {
     const bucket = await storage.createBucket(

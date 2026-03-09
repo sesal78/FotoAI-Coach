@@ -10,6 +10,7 @@ import {
   STORAGE_BUCKET_SUBMISSIONS,
 } from '@/lib/appwrite-collections';
 import { critiquePhoto } from '@/lib/llm';
+import { awardCritiqueXP } from '@/lib/xp';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,6 +149,13 @@ export async function POST(request: NextRequest) {
     const doc = await databases.createDocument(
       DATABASE_ID, COLLECTION_PHOTO_CRITIQUES, ID.unique(), critiqueData,
     );
+
+    // Fire-and-forget: award XP for high critique scores
+    awardCritiqueXP(databases, userId, {
+      technical: result.technicalScore,
+      composition: result.compositionScore,
+      creative: result.creativeScore,
+    }, doc.$id).catch((err) => console.error('XP award (critique) failed:', err));
 
     return NextResponse.json({
       critique: { ...doc, id: doc.$id },

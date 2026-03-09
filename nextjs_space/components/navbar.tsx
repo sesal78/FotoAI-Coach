@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb, SlidersHorizontal } from 'lucide-react'
+import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb, SlidersHorizontal, Award } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
+import { useSkillTree } from '@/hooks/use-dashboard-data'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/critique', label: 'Critique' },
   { href: '/editing', label: 'Editing Lab' },
   { href: '/recreate', label: 'Recreate' },
+  { href: '/skills', label: 'Skills' },
   { href: '/chat', label: 'Coach' },
   { href: '/locations', label: 'Locations' },
   { href: '/about', label: 'About' },
@@ -34,6 +36,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, status, signOut } = useAppwriteAuth()
+  const { data: skillTree } = useSkillTree(status === 'authenticated' ? user?.id : undefined)
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -121,7 +124,17 @@ export default function Navbar() {
               {status === 'loading' ? (
                 <div className="ml-4 h-9 w-9 rounded-full bg-muted animate-pulse" />
               ) : isAuthenticated ? (
-                <div className="ml-4">
+                <div className="ml-4 flex items-center gap-2">
+                  {skillTree && (
+                    <Link
+                      href="/skills"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                      title={`Level ${skillTree.level} — ${skillTree.totalXP.toLocaleString()} XP`}
+                    >
+                      <Award className="h-3.5 w-3.5" />
+                      <span>Lv.{skillTree.level}</span>
+                    </Link>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
@@ -176,6 +189,12 @@ export default function Navbar() {
                         <Link href="/recreate" className="flex items-center gap-2 cursor-pointer">
                           <Lightbulb className="h-4 w-4" />
                           Recreate This
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/skills" className="flex items-center gap-2 cursor-pointer">
+                          <Award className="h-4 w-4" />
+                          Skill Tree
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -331,6 +350,7 @@ export default function Navbar() {
                         { href: '/critique', icon: Eye, label: 'Photo Critique' },
                         { href: '/editing', icon: SlidersHorizontal, label: 'Editing Lab' },
                         { href: '/recreate', icon: Lightbulb, label: 'Recreate This' },
+                        { href: '/skills', icon: Award, label: 'Skill Tree' },
                         { href: '/progress', icon: TrendingUp, label: 'My Progress' },
                         { href: '/settings', icon: Settings, label: 'Settings' },
                       ].map(({ href, icon: Icon, label }) => (

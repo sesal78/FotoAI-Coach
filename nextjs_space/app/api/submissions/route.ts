@@ -15,6 +15,7 @@ import {
   STORAGE_BUCKET_SUBMISSIONS,
 } from '@/lib/appwrite-collections';
 import { generateFeedback, critiquePhoto } from '@/lib/llm';
+import { awardChallengeXP, awardSubmissionXP } from '@/lib/xp';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -280,6 +281,18 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // Fire-and-forget: award XP for challenge completion + submission
+    awardChallengeXP(
+      databases, userId,
+      challenge.challengeType as string,
+      challenge.difficulty as string || 'medium',
+      challenge.category as string || 'street',
+      challengeId,
+    ).catch((err) => console.error('XP award (challenge) failed:', err));
+
+    awardSubmissionXP(databases, userId, submissionDoc.$id)
+      .catch((err) => console.error('XP award (submission) failed:', err));
+
     // Fire-and-forget: generate feedback + photo critique asynchronously
     generateFeedbackAsync(databases, submissionDoc.$id, {
       challengeText: challenge.challengeText as string,
@@ -385,7 +398,7 @@ async function generateCritiqueAsync(
       gear,
     });
 
-    await databases.createDocument(DATABASE_ID, COLLECTION_PHOTO_CRITIQUES, ID.unique(), {
+    const critiqueDoc = await databases.createDocument(DATABASE_ID, COLLECTION_PHOTO_CRITIQUES, ID.unique(), {
       userId: context.userId,
       submissionId: context.submissionId,
       photoUrl: context.photoUrl,
@@ -403,6 +416,14 @@ async function generateCritiqueAsync(
     });
 
     console.log('Auto-critique generated for submission:', context.submissionId);
+
+    // Award XP for high critique scores
+    const { awardCritiqueXP } = await import('@/lib/xp');
+    await awardCritiqueXP(databases, context.userId, {
+      technical: result.technicalScore,
+      composition: result.compositionScore,
+      creative: result.creativeScore,
+    }, critiqueDoc.$id).catch((err: unknown) => console.error('XP award (auto-critique) failed:', err));
   } catch (error) {
     console.error('Auto-critique failed for submission:', context.submissionId, error);
   }

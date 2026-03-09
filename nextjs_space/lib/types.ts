@@ -108,6 +108,46 @@ export interface ReverseAnalysis {
   analysisDate: string;
 }
 
+export interface UserSkillDoc {
+  id: string;
+  userId: string;
+  skillId: string;
+  currentXP: number;
+  status: 'locked' | 'available' | 'learned' | 'practiced' | 'mastered';
+  lastXPDate: string;
+}
+
+export interface XPEventDoc {
+  id: string;
+  userId: string;
+  skillId: string;
+  xpAmount: number;
+  source: string;
+  sourceId?: string;
+  awardedAt: string;
+}
+
+export interface SkillTreeResponse {
+  skills: Array<{
+    id: string;
+    name: string;
+    category: string;
+    description: string;
+    prerequisites: string[];
+    tier: number;
+    icon: string;
+    xpToLearn: number;
+    xpToPractice: number;
+    xpToMaster: number;
+    currentXP: number;
+    status: string;
+  }>;
+  totalXP: number;
+  level: number;
+  levelProgress: number;
+  xpForNextLevel: number;
+}
+
 export interface EditingAdjustment {
   slider: string;
   direction: string;

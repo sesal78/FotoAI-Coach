@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport, EditingRecipeAnalysis } from '@/lib/types';
+import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport, EditingRecipeAnalysis, SkillTreeResponse } from '@/lib/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,6 +163,21 @@ export function useWeeklyInsights(userId: string | undefined, limit: number = 10
       if (!res.ok) throw new Error(`Failed to fetch insights (${res.status})`);
       const data = await res.json();
       return data.reports ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Fetches the full skill tree state for the current user.
+ */
+export function useSkillTree(userId: string | undefined) {
+  return useQuery<SkillTreeResponse>({
+    queryKey: ['skill-tree', userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/skills?userId=${userId}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to fetch skill tree (${res.status})`);
+      return res.json();
     },
     enabled: !!userId,
   });

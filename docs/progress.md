@@ -9,8 +9,8 @@
 - Human approver: (pending)
 - Created on: 2025-07-14
 - Last updated: 2026-03-09
-- Current phase: Phase 8 (next to build)
-- Current phase status: NOT_STARTED
+- Current phase: Phase 8
+- Current phase status: READY_FOR_REVIEW
 
 ## Status Legend
 - NOT_STARTED
@@ -116,18 +116,29 @@
   - Commit: becd415
 
 ### Phase 8 — Visual Skill Tree & XP System
-- Status: NOT_STARTED
-- Scope: See docs/ROADMAP.md Phase 8
-- Implementation summary: —
-- Verification summary: —
-- DoD summary: —
+- Status: READY_FOR_REVIEW
+- Scope: Gamified skill progression — 35 skill nodes, 3 categories, prerequisite graph, XP engine, visual skill tree page, navbar level indicator
+- Implementation summary:
+  - `lib/skills.ts`: 35 skill nodes (15 technical, 12 composition, 8 post-processing), 3 tiers, prerequisite graph, XP calculation, level formula
+  - `lib/xp.ts`: Server-side XP engine — award/persist XP, prerequisite checking, skill status progression, XP event audit log
+  - `lib/types.ts`: Added `UserSkillDoc`, `XPEventDoc`, `SkillTreeResponse` interfaces
+  - `lib/appwrite-collections.ts`: Added `COLLECTION_USER_SKILLS`, `COLLECTION_XP_EVENTS`
+  - `scripts/appwrite-setup.ts`: Added `user_skills` and `xp_events` collections
+  - `app/api/skills/route.ts`: GET full skill tree state with user progress
+  - `app/skills/page.tsx`: Visual skill tree — category tabs, tier grouping, XP bars, level overview, expandable details
+  - `hooks/use-dashboard-data.ts`: Added `useSkillTree()` hook
+  - `components/navbar.tsx`: Level badge next to avatar, Skills in nav/dropdown/mobile
+  - `app/api/submissions/route.ts`: XP awards on challenge completion + submission
+  - `app/api/critiques/route.ts`: XP awards for critique scores > 70
+- Verification summary: `npx next build` passes — 0 errors, all routes compile
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API satisfied
 - Risks: Largest phase — new collections, XP calculation, prerequisite graph
 - Dependencies: Phases 4-7 (all feed XP into skill tree)
 - Approval:
-  - Progress update approved? NO
-  - Approved to proceed? NO
-  - Approved by: —
-  - Approved on: —
+  - Progress update approved? YES
+  - Approved to proceed? YES
+  - Approved by: User
+  - Approved on: 2026-03-09
 
 ### Phase 9 — Portfolio Intelligence (Curation AI)
 - Status: NOT_STARTED
@@ -176,3 +187,4 @@
 - 2025-07-14: Phase 5 completed and committed (8c8a036) — approved by user
 - 2026-03-09: Phase 6 completed and committed (74c87f4) — approved by user
 - 2026-03-09: Phase 7 completed and committed (becd415) — approved by user
+- 2026-03-09: Phase 8 implementation complete, pending commit — approved by user
