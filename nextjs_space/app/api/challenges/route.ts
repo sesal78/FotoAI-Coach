@@ -213,6 +213,15 @@ export async function POST(request: NextRequest) {
         tips: challengeData.tips,
         issuedDate: new Date().toISOString(),
         status: 'pending',
+        // Story-Driven fields
+        ...(challengeData.shotList && { shotList: challengeData.shotList }),
+        ...(challengeData.narrativeContext && { narrativeContext: challengeData.narrativeContext }),
+        ...(challengeData.editingDirection && { editingDirection: challengeData.editingDirection }),
+        // Technical Mastery fields
+        ...(challengeData.masteryArea && { masteryArea: challengeData.masteryArea }),
+        ...(challengeData.technicalLevel && { technicalLevel: challengeData.technicalLevel }),
+        ...(challengeData.successCriteria && { successCriteria: challengeData.successCriteria }),
+        ...(challengeData.whatToLookFor && { whatToLookFor: challengeData.whatToLookFor }),
       }
     );
 

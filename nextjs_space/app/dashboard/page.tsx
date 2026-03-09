@@ -63,6 +63,8 @@ export default function DashboardPage() {
     { value: 'LUNCH_BREAK', label: '🥪 Lunch Break', description: '30-45 min quick creative burst' },
     { value: 'AFTER_WORK', label: '🌆 After Work', description: '1-2 hours golden hour session' },
     { value: 'WFH_MICRO', label: '🏠 WFH Micro', description: '15-20 min creative break at home' },
+    { value: 'STORY_DRIVEN', label: '📖 Story-Driven', description: 'Narrative photo essay with shot list & editorial direction' },
+    { value: 'TECHNICAL_MASTERY', label: '🎯 Technical Mastery', description: 'Progressive skill drills with success criteria' },
   ];
 
   async function generateNewChallenge() {
@@ -381,6 +383,54 @@ export default function DashboardPage() {
                       <div>
                         <span className="font-semibold text-accent-foreground">Pro Tips:</span>
                         <p className="text-foreground mt-1">{currentChallenge.tips}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Story-Driven: Shot List & Narrative */}
+                  {currentChallenge.shotList && currentChallenge.shotList.length > 0 && (
+                    <div className="bg-accent/50 border border-accent p-4">
+                      <h3 className="font-semibold text-sm uppercase tracking-wide text-accent-foreground mb-3">Shot List</h3>
+                      <ol className="space-y-2">
+                        {currentChallenge.shotList.map((shot, i) => (
+                          <li key={i} className="flex gap-3 text-sm">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                            <span className="text-foreground pt-0.5">{shot}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      {currentChallenge.narrativeContext && (
+                        <div className="mt-4 pt-3 border-t border-accent">
+                          <span className="font-semibold text-sm text-accent-foreground">Narrative Angle: </span>
+                          <span className="text-sm text-foreground">{currentChallenge.narrativeContext}</span>
+                        </div>
+                      )}
+                      {currentChallenge.editingDirection && (
+                        <div className="mt-2">
+                          <span className="font-semibold text-sm text-accent-foreground">Editing Direction: </span>
+                          <span className="text-sm text-foreground">{currentChallenge.editingDirection}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Technical Mastery: Skill Area & Criteria */}
+                  {currentChallenge.masteryArea && (
+                    <div className="bg-accent/50 border border-accent p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-sm uppercase tracking-wide text-accent-foreground">Technical Mastery</h3>
+                        {currentChallenge.technicalLevel && (
+                          <Badge variant="outline">Level {currentChallenge.technicalLevel}/5</Badge>
+                        )}
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-semibold text-accent-foreground">Skill: </span><span className="text-foreground">{currentChallenge.masteryArea}</span></div>
+                        {currentChallenge.successCriteria && (
+                          <div><span className="font-semibold text-accent-foreground">Success Criteria: </span><span className="text-foreground">{currentChallenge.successCriteria}</span></div>
+                        )}
+                        {currentChallenge.whatToLookFor && (
+                          <div><span className="font-semibold text-accent-foreground">What to Look For: </span><span className="text-foreground">{currentChallenge.whatToLookFor}</span></div>
+                        )}
                       </div>
                     </div>
                   )}

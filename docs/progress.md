@@ -51,7 +51,7 @@
   - Approved on: —
 
 ### Phase 5 — Enhanced Challenge System (Story-Driven + Technical Mastery)
-- Status: NOT_STARTED
+- Status: IN_PROGRESS
 - Scope: See docs/ROADMAP.md Phase 5
 - Implementation summary: —
 - Verification summary: —

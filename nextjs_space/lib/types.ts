@@ -40,6 +40,15 @@ export interface Challenge {
   status: string;
   issuedDate: string;
   submissions?: any[];
+  // Story-Driven fields
+  shotList?: string[];
+  narrativeContext?: string;
+  editingDirection?: string;
+  // Technical Mastery fields
+  masteryArea?: string;
+  technicalLevel?: number;
+  successCriteria?: string;
+  whatToLookFor?: string;
 }
 
 export interface UserProgress {

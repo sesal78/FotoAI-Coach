@@ -111,6 +111,15 @@ async function setup() {
   await addAttr('daily_challenges', 'string', 'issuedDate');
   await addAttr('daily_challenges', 'string', 'status', { default: 'pending' });
   await addAttr('daily_challenges', 'string', 'completedDate');
+  // Story-Driven challenge fields
+  await addAttr('daily_challenges', 'stringArray', 'shotList');
+  await addAttr('daily_challenges', 'string', 'narrativeContext', { size: 3000 });
+  await addAttr('daily_challenges', 'string', 'editingDirection', { size: 1000 });
+  // Technical Mastery challenge fields
+  await addAttr('daily_challenges', 'string', 'masteryArea');
+  await addAttr('daily_challenges', 'integer', 'technicalLevel', { min: 1, max: 5 });
+  await addAttr('daily_challenges', 'string', 'successCriteria', { size: 1000 });
+  await addAttr('daily_challenges', 'string', 'whatToLookFor', { size: 1000 });
   console.log('✅ daily_challenges attributes done\n');
 
   // ---- challenge_submissions ----

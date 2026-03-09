@@ -88,7 +88,7 @@ export async function generateChallenge(context: {
     interests: string[];
     gear: string[];
   };
-  challengeType: 'WEEKEND_DEEP_DIVE' | 'LUNCH_BREAK' | 'AFTER_WORK' | 'WFH_MICRO';
+  challengeType: 'WEEKEND_DEEP_DIVE' | 'LUNCH_BREAK' | 'AFTER_WORK' | 'WFH_MICRO' | 'STORY_DRIVEN' | 'TECHNICAL_MASTERY';
   location?: string;
   weather?: {
     condition: string;
@@ -103,10 +103,19 @@ export async function generateChallenge(context: {
   duration: string;
   tips: string;
   recommendedGear: string[];
+  // Story-Driven
+  shotList?: string[];
+  narrativeContext?: string;
+  editingDirection?: string;
+  // Technical Mastery
+  masteryArea?: string;
+  technicalLevel?: number;
+  successCriteria?: string;
+  whatToLookFor?: string;
 }> {
   const { userProfile, challengeType, location, weather, recentChallenges } = context;
 
-  const challengeTypeDescriptions: Record<string, { complexity: string; duration: string; focus: string }> = {
+  const challengeTypeDescriptions: Record<string, { complexity: string; duration: string; focus: string; extra?: string }> = {
     WEEKEND_DEEP_DIVE: {
       complexity: 'high - A substantial, immersive creative project',
       duration: '2-4 hours',
@@ -126,6 +135,41 @@ export async function generateChallenge(context: {
       complexity: 'micro - Creative break from home office',
       duration: '15-20 mins',
       focus: 'Indoor/balcony shots, still life, window light, immediate surroundings'
+    },
+    STORY_DRIVEN: {
+      complexity: 'high - Narrative photo essay with editorial direction',
+      duration: '2-6 hours (can span a full day)',
+      focus: 'Photojournalism, storytelling, essay construction, documentary approach',
+      extra: `This is a STORY-DRIVEN challenge. You MUST include:
+- A narrative premise (who/what the story is about)
+- A shot list of 6-10 specific shots needed to tell the story
+- Narrative context explaining the editorial angle
+- Editing direction for post-processing the series
+- The story should feel like a real editorial assignment
+
+Output these additional fields in JSON:
+  "shotList": ["shot 1 description", "shot 2 description", ...],
+  "narrativeContext": "editorial angle and story direction",
+  "editingDirection": "post-processing approach for the series"`
+    },
+    TECHNICAL_MASTERY: {
+      complexity: 'progressive - Locked to the photographer\'s current skill level',
+      duration: '30 mins - 2 hours depending on level',
+      focus: 'Specific technical skill with measurable success criteria',
+      extra: `This is a TECHNICAL MASTERY challenge. You MUST:
+- Pick ONE specific technical skill area (e.g., exposure control, depth of field, white balance, focus techniques, motion blur, flash, composition rules, etc.)
+- Set a mastery level from 1-5 based on the user's skill level:
+  - Beginner → levels 1-2
+  - Intermediate → levels 2-4
+  - Professional → levels 3-5
+- Provide clear success criteria the photographer can self-evaluate
+- Explain what to look for in the results
+
+Output these additional fields in JSON:
+  "masteryArea": "the specific technical skill being practiced",
+  "technicalLevel": <number 1-5>,
+  "successCriteria": "how to judge if you succeeded",
+  "whatToLookFor": "what to examine in your resulting photos"`
     },
   };
 
@@ -160,6 +204,7 @@ Your task is to generate a specific, actionable photography challenge that:
 4. Recommends specific gear from their collection
 5. Provides practical tips for execution
 6. Is DIFFERENT from any recent challenges
+${typeInfo.extra ? `\n${typeInfo.extra}` : ''}
 
 Respond in JSON format with the following structure:
 {
@@ -168,7 +213,14 @@ Respond in JSON format with the following structure:
   "category": "street|portrait|architecture|abstract|nature|etc",
   "duration": "${typeInfo.duration}",
   "tips": "Practical execution tips and creative suggestions",
-  "recommendedGear": ["specific gear items from user's collection"]
+  "recommendedGear": ["specific gear items from user's collection"]${challengeType === 'STORY_DRIVEN' ? `,
+  "shotList": ["shot 1", "shot 2", "..."],
+  "narrativeContext": "editorial angle",
+  "editingDirection": "post-processing approach"` : ''}${challengeType === 'TECHNICAL_MASTERY' ? `,
+  "masteryArea": "specific skill",
+  "technicalLevel": 1-5,
+  "successCriteria": "how to judge success",
+  "whatToLookFor": "what to examine"` : ''}
 }
 
 Respond with raw JSON only. Do not include code blocks, markdown, or any other formatting.`;
