@@ -228,6 +228,14 @@ async function setup() {
   await addAttr('weekly_reports', 'string', 'reportDate');
   console.log('✅ weekly_reports attributes done\n');
 
+  // ---- portfolio_analyses ----
+  await createCollectionSafe('portfolio_analyses', 'Portfolio Analyses');
+  await addAttr('portfolio_analyses', 'string', 'userId', { required: true });
+  await addAttr('portfolio_analyses', 'integer', 'photoCount', { required: true });
+  await addAttr('portfolio_analyses', 'string', 'analysisJson', { size: 30000 });
+  await addAttr('portfolio_analyses', 'string', 'analysisDate');
+  console.log('✅ portfolio_analyses attributes done\n');
+
   // ---- user_skills ----
   await createCollectionSafe('user_skills', 'User Skills');
   await addAttr('user_skills', 'string', 'userId', { required: true });

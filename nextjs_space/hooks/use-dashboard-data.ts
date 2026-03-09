@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport, EditingRecipeAnalysis, SkillTreeResponse } from '@/lib/types';
+import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport, EditingRecipeAnalysis, SkillTreeResponse, PortfolioAnalysisDoc } from '@/lib/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,6 +163,22 @@ export function useWeeklyInsights(userId: string | undefined, limit: number = 10
       if (!res.ok) throw new Error(`Failed to fetch insights (${res.status})`);
       const data = await res.json();
       return data.reports ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Fetches portfolio analysis history for the current user.
+ */
+export function usePortfolioAnalyses(userId: string | undefined, limit: number = 10) {
+  return useQuery<any[]>({
+    queryKey: ['portfolio-analyses', userId, limit],
+    queryFn: async () => {
+      const res = await fetch(`/api/portfolio?userId=${userId}&limit=${limit}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to fetch portfolio analyses (${res.status})`);
+      const data = await res.json();
+      return data.analyses ?? [];
     },
     enabled: !!userId,
   });

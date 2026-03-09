@@ -179,6 +179,50 @@ export interface EditingRecipeAnalysis {
   analysisDate: string;
 }
 
+export interface PortfolioPhotoAssessment {
+  index: number;
+  score: number;
+  styleTags: string[];
+  strength: string;
+  weakness: string;
+}
+
+export interface PortfolioAnalysis {
+  photoAssessments: PortfolioPhotoAssessment[];
+  bestSelection: Array<{
+    index: number;
+    reason: string;
+  }>;
+  excludedPhotos: Array<{
+    index: number;
+    reason: string;
+  }>;
+  consistencyAudit: {
+    consistencyScore: number;
+    variations: string[];
+    recommendation: string;
+  };
+  gapAnalysis: {
+    strengths: string[];
+    gaps: string[];
+    suggestions: string[];
+  };
+  sequencing: Array<{
+    index: number;
+    role: string;
+  }>;
+  styleSummary: string;
+  overallFeedback: string;
+}
+
+export interface PortfolioAnalysisDoc {
+  id: string;
+  userId: string;
+  photoCount: number;
+  analysisJson: string;
+  analysisDate: string;
+}
+
 export interface WeeklyInsightsData {
   weekStart: string;
   weekEnd: string;

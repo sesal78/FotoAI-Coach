@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb, SlidersHorizontal, Award } from 'lucide-react'
+import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb, SlidersHorizontal, Award, Images } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
@@ -25,6 +25,7 @@ const navItems = [
   { href: '/editing', label: 'Editing Lab' },
   { href: '/recreate', label: 'Recreate' },
   { href: '/skills', label: 'Skills' },
+  { href: '/portfolio', label: 'Portfolio' },
   { href: '/chat', label: 'Coach' },
   { href: '/locations', label: 'Locations' },
   { href: '/about', label: 'About' },
@@ -192,6 +193,12 @@ export default function Navbar() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link href="/portfolio" className="flex items-center gap-2 cursor-pointer">
+                          <Images className="h-4 w-4" />
+                          Portfolio
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link href="/skills" className="flex items-center gap-2 cursor-pointer">
                           <Award className="h-4 w-4" />
                           Skill Tree
@@ -350,6 +357,7 @@ export default function Navbar() {
                         { href: '/critique', icon: Eye, label: 'Photo Critique' },
                         { href: '/editing', icon: SlidersHorizontal, label: 'Editing Lab' },
                         { href: '/recreate', icon: Lightbulb, label: 'Recreate This' },
+                        { href: '/portfolio', icon: Images, label: 'Portfolio' },
                         { href: '/skills', icon: Award, label: 'Skill Tree' },
                         { href: '/progress', icon: TrendingUp, label: 'My Progress' },
                         { href: '/settings', icon: Settings, label: 'Settings' },

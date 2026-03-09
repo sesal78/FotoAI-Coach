@@ -9,8 +9,8 @@
 - Human approver: (pending)
 - Created on: 2025-07-14
 - Last updated: 2026-03-09
-- Current phase: Phase 8
-- Current phase status: READY_FOR_REVIEW
+- Current phase: Phase 9
+- Current phase status: APPROVED
 
 ## Status Legend
 - NOT_STARTED
@@ -141,18 +141,27 @@
   - Approved on: 2026-03-09
 
 ### Phase 9 — Portfolio Intelligence (Curation AI)
-- Status: NOT_STARTED
-- Scope: See docs/ROADMAP.md Phase 9
-- Implementation summary: —
-- Verification summary: —
-- DoD summary: —
-- Risks: Batch vision API cost — needs rate limiting and size caps
+- Status: APPROVED
+- Scope: Upload 3-20 photos for AI portfolio curation — best selection, consistency audit, gap analysis, sequencing, style summary
+- Implementation summary:
+  - `lib/llm.ts`: Added `assessPortfolioPhoto()` (per-image vision) + `analyzePortfolioMeta()` (text meta-analysis)
+  - `lib/types.ts`: Added `PortfolioPhotoAssessment`, `PortfolioAnalysis`, `PortfolioAnalysisDoc` interfaces
+  - `lib/appwrite-collections.ts`: Added `COLLECTION_PORTFOLIO_ANALYSES`
+  - `scripts/appwrite-setup.ts`: Added `portfolio_analyses` collection
+  - `app/api/portfolio/route.ts`: GET (history) + POST (multi-upload, parallel vision, meta-analysis, persist)
+  - `app/portfolio/page.tsx`: Drag-drop bulk upload, progress indicator, analysis display (style, selection, sequencing, consistency, gaps), expandable history
+  - `hooks/use-dashboard-data.ts`: Added `usePortfolioAnalyses()` hook
+  - `components/navbar.tsx`: Portfolio in nav/dropdown/mobile
+  - Rate limiting: max 20 photos, max 3 analyses/day, max 5 concurrent vision calls
+- Verification summary: `npx next build` passes — 0 errors
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API satisfied
+- Risks: Batch vision API cost (mitigated by rate limiting + gpt-4o-mini pricing)
 - Dependencies: Phase 4 (vision analysis patterns)
 - Approval:
-  - Progress update approved? NO
-  - Approved to proceed? NO
-  - Approved by: —
-  - Approved on: —
+  - Progress update approved? YES
+  - Approved to proceed? YES
+  - Approved by: User
+  - Approved on: 2026-03-09
 
 ---
 
@@ -188,3 +197,4 @@
 - 2026-03-09: Phase 6 completed and committed (74c87f4) — approved by user
 - 2026-03-09: Phase 7 completed and committed (becd415) — approved by user
 - 2026-03-09: Phase 8 completed and committed (d321940) — approved by user
+- 2026-03-09: Phase 9 completed — approved by user

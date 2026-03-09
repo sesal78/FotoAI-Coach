@@ -14,6 +14,7 @@ export const COLLECTION_PHOTO_CRITIQUES = 'photo_critiques';
 export const COLLECTION_REVERSE_ANALYSES = 'reverse_analyses';
 export const COLLECTION_WEEKLY_REPORTS = 'weekly_reports';
 export const COLLECTION_EDITING_RECIPES = 'editing_recipes';
+export const COLLECTION_PORTFOLIO_ANALYSES = 'portfolio_analyses';
 export const COLLECTION_USER_SKILLS = 'user_skills';
 export const COLLECTION_XP_EVENTS = 'xp_events';
 

@@ -649,6 +649,126 @@ Respond with raw JSON only.`;
 }
 
 /**
+ * Quick vision assessment of a single portfolio photo.
+ * Returns a score + style tags for the meta-analysis pass.
+ */
+export async function assessPortfolioPhoto(context: {
+  imageDataUri: string;
+  index: number;
+  skillLevel: string;
+}): Promise<import('@/lib/types').PortfolioPhotoAssessment> {
+  const { imageDataUri, index, skillLevel } = context;
+
+  const systemPrompt = `You are Foto AI, an expert portfolio curator doing a quick assessment of a single photo.
+
+Photographer skill level: ${skillLevel}
+
+Provide a rapid assessment of this image for portfolio curation purposes.
+
+Respond in JSON:
+{
+  "index": ${index},
+  "score": <number 0-100 — overall portfolio-worthiness>,
+  "styleTags": ["3-5 short tags describing style, mood, genre, color palette"],
+  "strength": "one sentence — the strongest quality of this image",
+  "weakness": "one sentence — the primary weakness or limitation"
+}
+
+Respond with raw JSON only.`;
+
+  const response = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Assess this photo for portfolio curation.' },
+          { type: 'image_url', image_url: { url: imageDataUri, detail: 'low' } },
+        ],
+      },
+    ],
+    { model: 'gpt-4o-mini', temperature: 0.5, max_tokens: 300, json_mode: true },
+  );
+
+  return JSON.parse(response.content);
+}
+
+/**
+ * Meta-analysis pass: takes all per-image assessments and produces the full portfolio analysis.
+ * This is a text-only LLM call (no vision) operating on structured assessment data.
+ */
+export async function analyzePortfolioMeta(context: {
+  assessments: import('@/lib/types').PortfolioPhotoAssessment[];
+  skillLevel: string;
+  photoCount: number;
+}): Promise<Omit<import('@/lib/types').PortfolioAnalysis, 'photoAssessments'>> {
+  const { assessments, skillLevel, photoCount } = context;
+
+  const systemPrompt = `You are Foto AI, an expert portfolio curator and photography coach.
+
+Photographer skill level: ${skillLevel}
+Total photos submitted: ${photoCount}
+
+You have individual assessments for each photo. Now perform a comprehensive portfolio analysis:
+
+1. BEST SELECTION — Pick the strongest 60-70% of photos for a portfolio. For each included photo, explain why. For each excluded photo, explain why.
+
+2. CONSISTENCY AUDIT — Analyze style consistency across all photos:
+   - Score from 0-100 (100 = perfectly consistent style)
+   - List specific style variations (color temperature shifts, exposure differences, genre mixing)
+   - One sentence recommendation to improve consistency
+
+3. GAP ANALYSIS — Identify:
+   - Strengths: what genres/styles are well-represented
+   - Gaps: what's missing that would strengthen the portfolio
+   - Suggestions: specific shot types to add
+
+4. SEQUENCING — Order the selected photos for maximum impact:
+   - Hook (strongest opener)
+   - Variety (alternating styles/subjects)
+   - Strong closer
+
+5. STYLE SUMMARY — One paragraph describing the photographer's emerging style.
+
+6. OVERALL FEEDBACK — 2-3 sentences of actionable portfolio advice.
+
+Respond in JSON:
+{
+  "bestSelection": [{ "index": <number>, "reason": "why included" }],
+  "excludedPhotos": [{ "index": <number>, "reason": "why excluded" }],
+  "consistencyAudit": {
+    "consistencyScore": <number 0-100>,
+    "variations": ["specific variation 1", "..."],
+    "recommendation": "one sentence"
+  },
+  "gapAnalysis": {
+    "strengths": ["strength 1", "..."],
+    "gaps": ["gap 1", "..."],
+    "suggestions": ["suggestion 1", "..."]
+  },
+  "sequencing": [{ "index": <number>, "role": "hook|variety|closer|transition" }],
+  "styleSummary": "one paragraph",
+  "overallFeedback": "2-3 sentences"
+}
+
+Respond with raw JSON only.`;
+
+  const assessmentSummary = assessments.map((a) =>
+    `Photo ${a.index}: score=${a.score}, tags=[${a.styleTags.join(', ')}], strength="${a.strength}", weakness="${a.weakness}"`
+  ).join('\n');
+
+  const response = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Here are the individual photo assessments:\n\n${assessmentSummary}\n\nPlease produce the full portfolio analysis.` },
+    ],
+    { model: 'gpt-4o-mini', temperature: 0.6, max_tokens: 2000, json_mode: true },
+  );
+
+  return JSON.parse(response.content);
+}
+
+/**
  * Generate a location-based photography itinerary
  */
 export async function generateItinerary(context: {
