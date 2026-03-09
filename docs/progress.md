@@ -9,7 +9,7 @@
 - Human approver: (pending)
 - Created on: 2025-07-14
 - Last updated: 2026-03-09
-- Current phase: Phase 7 (next to build)
+- Current phase: Phase 8 (next to build)
 - Current phase status: NOT_STARTED
 
 ## Status Legend
@@ -93,18 +93,27 @@
   - Commit: 74c87f4
 
 ### Phase 7 — Editing Recipe Generator
-- Status: NOT_STARTED
-- Scope: See docs/ROADMAP.md Phase 7
-- Implementation summary: —
-- Verification summary: —
-- DoD summary: —
-- Risks: Two-image vision comparison (raw + edited) — API cost per call
-- Dependencies: Phase 4 (shares UI patterns on critique page)
+- Status: APPROVED
+- Scope: Two-image vision comparison — upload original + edited, get slider-by-slider editing recipe with over-editing warnings and improvement suggestions
+- Implementation summary:
+  - `lib/llm.ts`: Added `generateEditingRecipe()` — two-image vision call
+  - `lib/types.ts`: Added `EditingAdjustment`, `EditingSuggestion`, `EditingRecipe`, `EditingRecipeAnalysis` interfaces
+  - `lib/appwrite-collections.ts`: Added `COLLECTION_EDITING_RECIPES`
+  - `scripts/appwrite-setup.ts`: Added `editing_recipes` collection
+  - `app/api/editing-recipe/route.ts`: GET (history) + POST (dual upload, LLM analysis, persist)
+  - `app/editing/page.tsx`: Full Editing Lab page — dual upload, side-by-side comparison, adjustments with assessment badges, warnings, suggestions, expandable history
+  - `hooks/use-dashboard-data.ts`: Added `useEditingRecipes()` hook
+  - `components/navbar.tsx`: Added "Editing Lab" to nav, dropdown, mobile
+- Verification summary: `npx next build` passes — 0 errors
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API satisfied
+- Risks: Two-image vision API cost per call (mitigated by gpt-4o-mini pricing)
+- Dependencies: Phase 4 (shares UI patterns)
 - Approval:
-  - Progress update approved? NO
-  - Approved to proceed? NO
-  - Approved by: —
-  - Approved on: —
+  - Progress update approved? YES
+  - Approved to proceed? YES (user said "approve" to commit)
+  - Approved by: User
+  - Approved on: 2026-03-09
+  - Commit: becd415
 
 ### Phase 8 — Visual Skill Tree & XP System
 - Status: NOT_STARTED
@@ -166,3 +175,4 @@
 - 2025-07-14: Phase 4 completed and committed (0810b9f) — approved by user
 - 2025-07-14: Phase 5 completed and committed (8c8a036) — approved by user
 - 2026-03-09: Phase 6 completed and committed (74c87f4) — approved by user
+- 2026-03-09: Phase 7 completed and committed (becd415) — approved by user
