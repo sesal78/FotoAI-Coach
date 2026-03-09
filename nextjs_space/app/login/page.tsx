@@ -31,10 +31,12 @@ function LoginForm() {
     setLoading(true);
     try {
       await signIn(email, password);
-      router.replace(from);
+      // Hard navigation so the browser sends the fresh session cookie
+      // through middleware. router.replace() uses cached route state and
+      // often stalls after a cookie change.
+      window.location.href = from;
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
-    } finally {
       setLoading(false);
     }
   }
