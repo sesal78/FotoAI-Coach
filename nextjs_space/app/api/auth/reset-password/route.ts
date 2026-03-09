@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client, Account } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,11 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = new Client()
-      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-      .setProject(process.env.APPWRITE_PROJECT_ID!);
-
-    const account = new Account(client);
+    const { account } = createAdminClient();
     await account.updateRecovery(userId, secret, password);
 
     return NextResponse.json({

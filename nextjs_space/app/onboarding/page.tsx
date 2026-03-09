@@ -113,14 +113,16 @@ export default function OnboardingPage() {
         }),
       });
 
-      // Save gear items
-      for (const gear of selectedGear) {
-        await fetch('/api/settings/gear', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, ...gear }),
-        });
-      }
+      // Save gear items in parallel
+      await Promise.all(
+        selectedGear.map((gear) =>
+          fetch('/api/settings/gear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, ...gear }),
+          }),
+        ),
+      );
 
       toast.success('Profile set up! Let\'s start shooting.');
       router.replace('/dashboard');

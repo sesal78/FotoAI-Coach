@@ -27,16 +27,14 @@ import {
   Cell,
 } from 'recharts';
 
-const CHART_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--chart-2, 220 70% 50%))',
-  'hsl(var(--chart-3, 280 65% 60%))',
-  'hsl(var(--chart-4, 160 60% 45%))',
-  'hsl(var(--chart-5, 30 80% 55%))',
-];
-
-// Fallback hex colors for recharts which doesn't handle CSS vars in all cases
 const HEX_COLORS = ['#e65100', '#1565c0', '#7b1fa2', '#2e7d32', '#ef6c00'];
+
+const TOOLTIP_STYLE = {
+  background: 'hsl(var(--background))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '0',
+  fontSize: '12px',
+} as const;
 
 export default function ProgressPage() {
   const { user, status } = useAppwriteAuth();
@@ -215,12 +213,7 @@ export default function ProgressPage() {
                     allowDecimals={false}
                   />
                   <Tooltip
-                    contentStyle={{
-                      background: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '0',
-                      fontSize: '12px',
-                    }}
+                    contentStyle={TOOLTIP_STYLE}
                   />
                   <Bar dataKey="issued" fill={HEX_COLORS[1]} name="Issued" radius={[2, 2, 0, 0]} />
                   <Bar dataKey="completed" fill={HEX_COLORS[0]} name="Completed" radius={[2, 2, 0, 0]} />

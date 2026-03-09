@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client, Account } from 'node-appwrite';
+import { createAdminClient } from '@/lib/appwrite-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,11 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const client = new Client()
-      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-      .setProject(process.env.APPWRITE_PROJECT_ID!);
-
-    const account = new Account(client);
+    const { account } = createAdminClient();
 
     const proto = request.headers.get('x-forwarded-proto') || 'https';
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
