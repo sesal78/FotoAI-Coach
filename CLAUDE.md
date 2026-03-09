@@ -50,7 +50,7 @@ docker-compose down
 - **Appwrite** (self-hosted) — database, auth, and file storage
 - **Abacus.AI** for LLM calls (gpt-4.1-mini model, OpenAI-compatible API)
 - **OpenWeatherMap** for weather-aware challenge generation
-- **SendGrid** for email notifications
+- **Nodemailer** (SMTP) for email notifications
 - **shadcn/ui** + **Tailwind CSS** for UI
 
 ### Directory Layout
@@ -80,7 +80,7 @@ nextjs_space/
 │   ├── appwrite-server.ts    # Server-side Appwrite SDK (API routes only)
 │   ├── appwrite-collections.ts # Collection ID constants + DB ID
 │   ├── llm.ts                # All Abacus.AI LLM functions
-│   ├── email.ts              # SendGrid helpers
+│   ├── email.ts              # SMTP email helpers (nodemailer)
 │   ├── weather.ts            # OpenWeatherMap wrapper
 │   └── types.ts              # Shared TypeScript types
 ├── public/
@@ -167,7 +167,7 @@ APPWRITE_STORAGE_BUCKET_ID
 
 # External APIs
 ABACUSAI_API_KEY
-SENDGRID_API_KEY
+SMTP_HOST / SMTP_PORT / SMTP_SECURE / SMTP_USER / SMTP_PASS
 FROM_EMAIL / FROM_NAME / REPLY_TO_EMAIL
 OPENWEATHERMAP_API_KEY
 USER_EMAIL

@@ -1,19 +1,21 @@
 
-// Email notification utilities using SendGrid
-import * as sgMail from '@sendgrid/mail';
+// Email notification utilities using SMTP (nodemailer)
+import nodemailer from 'nodemailer';
 
-// Initialize SendGrid with API key
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+// Create reusable SMTP transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
-if (!SENDGRID_API_KEY) {
-  console.error('❌ SENDGRID_API_KEY is not set in environment variables');
-} else {
-  try {
-    sgMail.setApiKey(SENDGRID_API_KEY);
-    console.log('✅ SendGrid API key configured');
-  } catch (error: any) {
-    console.error('❌ Failed to configure SendGrid:', error.message);
-  }
+// Validate config on startup
+if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  console.error('SMTP configuration incomplete — check SMTP_HOST, SMTP_USER, SMTP_PASS env vars');
 }
 
 export interface EmailOptions {
@@ -27,25 +29,23 @@ export interface EmailOptions {
 }
 
 /**
- * Sanitize text to remove invalid unicode characters that SendGrid rejects
+ * Sanitize text to remove invalid unicode characters
  */
 function sanitizeText(text: string): string {
-  // Remove surrogate pairs and other invalid unicode characters
   return text
-    .replace(/[\uD800-\uDFFF]/g, '') // Remove surrogate pairs
-    .replace(/[\uFFFE\uFFFF]/g, '') // Remove non-characters
-    .replace(/\uFFFD/g, '') // Remove replacement character
+    .replace(/[\uD800-\uDFFF]/g, '')
+    .replace(/[\uFFFE\uFFFF]/g, '')
+    .replace(/\uFFFD/g, '')
     .trim();
 }
 
 /**
- * Send an email via SendGrid with Reply-To support
+ * Send an email via SMTP
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    // Validate API key is set
-    if (!SENDGRID_API_KEY) {
-      console.error('❌ Cannot send email: SENDGRID_API_KEY is not configured');
+    if (!process.env.SMTP_HOST) {
+      console.error('Cannot send email: SMTP is not configured');
       return false;
     }
 
@@ -53,61 +53,30 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     const fromName = options.fromName || process.env.FROM_NAME || 'Foto AI Coach';
     const replyToEmail = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
 
-    console.log('📧 Preparing to send email:');
-    console.log('  - To:', options.to);
-    console.log('  - From:', `${fromName} <${fromEmail}>`);
-    console.log('  - Subject:', options.subject);
-    console.log('  - API Key present:', !!SENDGRID_API_KEY);
-
-    // Sanitize subject to remove invalid unicode characters
     const sanitizedSubject = sanitizeText(options.subject);
-    
-    const msg: any = {
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: `${fromName} <${fromEmail}>`,
       to: options.to,
-      from: {
-        email: fromEmail,
-        name: fromName
-      },
       subject: sanitizedSubject,
+      replyTo: replyToEmail !== fromEmail ? replyToEmail : undefined,
     };
 
-    // Add reply-to if different from from email
-    if (replyToEmail !== fromEmail) {
-      msg.replyTo = replyToEmail;
-    }
-
-    // Add text or html content (sanitized)
     if (options.html) {
-      msg.html = sanitizeText(options.html);
+      mailOptions.html = sanitizeText(options.html);
     }
     if (options.text) {
-      msg.text = sanitizeText(options.text);
+      mailOptions.text = sanitizeText(options.text);
     }
-    // Fallback to text if no html
-    if (!msg.html && !msg.text) {
-      msg.text = sanitizedSubject;
+    if (!mailOptions.html && !mailOptions.text) {
+      mailOptions.text = sanitizedSubject;
     }
 
-    console.log('📤 Sending email via SendGrid...');
-    console.log('   Message object:', JSON.stringify({
-      to: msg.to,
-      from: msg.from,
-      subject: msg.subject,
-      hasHtml: !!msg.html,
-      hasText: !!msg.text
-    }, null, 2));
-
-    const response = await sgMail.send(msg);
-    console.log(`✅ Email sent successfully to ${options.to}`);
-    console.log(`   Status: ${response[0].statusCode}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Email sent to ${options.to} — messageId: ${info.messageId}`);
     return true;
   } catch (error: any) {
-    console.error('❌ Email sending failed:');
-    console.error('   Error code:', error.code);
-    console.error('   Error message:', error.message);
-    if (error.response?.body) {
-      console.error('   Response body:', JSON.stringify(error.response.body, null, 2));
-    }
+    console.error('Email sending failed:', error.message);
     return false;
   }
 }
@@ -146,7 +115,7 @@ export async function sendChallengeEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1 style="margin: 0;">📸 Your Daily Photo Challenge</h1>
+      <h1 style="margin: 0;">Your Daily Photo Challenge</h1>
       <p style="margin: 10px 0 0 0; opacity: 0.9;">Ready to create something amazing, ${userName}?</p>
     </div>
     <div class="content">
@@ -158,25 +127,25 @@ export async function sendChallengeEmail(
         </div>
         <h2 style="color: #667eea; margin-top: 0;">Today's Challenge</h2>
         <p style="font-size: 16px; line-height: 1.8;">${challenge.challengeText}</p>
-        
-        <h3 style="color: #764ba2;">💡 Pro Tips</h3>
+
+        <h3 style="color: #764ba2;">Pro Tips</h3>
         <p style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 3px solid #ffc107;">${challenge.tips}</p>
-        
+
         ${challenge.recommendedGear.length > 0 ? `
-        <h3 style="color: #764ba2;">🎒 Recommended Gear</h3>
+        <h3 style="color: #764ba2;">Recommended Gear</h3>
         <ul class="gear-list">
-          ${challenge.recommendedGear.map(gear => `<li>📷 ${gear}</li>`).join('')}
+          ${challenge.recommendedGear.map(gear => `<li>${gear}</li>`).join('')}
         </ul>
         ` : ''}
       </div>
-      
+
       <p style="text-align: center; color: #666;">
         <a href="https://myfoto.topues.com/dashboard" class="cta-button">View Challenge & Submit Photos</a>
       </p>
-      
+
       <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">
         You're receiving this because you're enrolled in Foto AI photography coaching.<br>
-        Keep shooting! 📸
+        Keep shooting!
       </p>
     </div>
   </div>
@@ -185,27 +154,27 @@ export async function sendChallengeEmail(
   `;
 
   const text = `
-📸 Your Daily Photo Challenge
+Your Daily Photo Challenge
 
 Hi ${userName},
 
 Today's Challenge (${challenge.category} | ${challenge.difficulty} | ${challenge.duration}):
 ${challenge.challengeText}
 
-💡 Pro Tips:
+Pro Tips:
 ${challenge.tips}
 
-${challenge.recommendedGear.length > 0 ? `🎒 Recommended Gear:\n${challenge.recommendedGear.map(g => `- ${g}`).join('\n')}` : ''}
+${challenge.recommendedGear.length > 0 ? `Recommended Gear:\n${challenge.recommendedGear.map(g => `- ${g}`).join('\n')}` : ''}
 
 View your challenge and submit photos at: https://myfoto.topues.com/dashboard
 
-Keep shooting! 📸
+Keep shooting!
 - Foto AI
   `;
 
   return await sendEmail({
     to: userEmail,
-    subject: `📸 Your ${challenge.category} challenge is ready!`,
+    subject: `Your ${challenge.category} challenge is ready!`,
     text,
     html,
   });
@@ -241,7 +210,7 @@ export async function sendWeeklyReport(
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎉 Weekly Progress Report</h1>
+      <h1>Weekly Progress Report</h1>
       <p>Great work this week, ${userName}!</p>
     </div>
     <div class="stats">
@@ -256,11 +225,11 @@ export async function sendWeeklyReport(
     </div>
     <div style="padding: 30px; background: #f8f9fa;">
       ${report.favoriteSubjects.length > 0 ? `
-        <h3>📊 Your Top Categories</h3>
+        <h3>Your Top Categories</h3>
         <p>${report.favoriteSubjects.join(', ')}</p>
       ` : ''}
       ${report.weekHighlight ? `
-        <h3>✨ Week Highlight</h3>
+        <h3>Week Highlight</h3>
         <p>${report.weekHighlight}</p>
       ` : ''}
       <p style="text-align: center; margin-top: 30px;">
@@ -274,7 +243,7 @@ export async function sendWeeklyReport(
 
   return await sendEmail({
     to: userEmail,
-    subject: `📊 Your Week in Photography - ${report.challengesCompleted} challenges completed!`,
+    subject: `Your Week in Photography - ${report.challengesCompleted} challenges completed!`,
     html,
   });
 }
@@ -304,7 +273,7 @@ export async function sendWeatherAlert(
 <body>
   <div class="container">
     <div class="alert-box">
-      <h2>⚡ Weather Alert for Photography</h2>
+      <h2>Weather Alert for Photography</h2>
       <p><strong>${alert.condition}</strong></p>
       <p>${alert.message}</p>
       <p style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
@@ -321,7 +290,7 @@ export async function sendWeatherAlert(
 
   return await sendEmail({
     to: userEmail,
-    subject: `⚡ Perfect Photo Weather: ${alert.condition}`,
+    subject: `Perfect Photo Weather: ${alert.condition}`,
     html,
   });
 }

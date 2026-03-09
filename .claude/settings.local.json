@@ -33,7 +33,9 @@
       "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://mcp.apify.com/?tools=actors,docs,apify/rag-web-browser'' -Headers @{''Authorization''=''Bearer apify_api_oB1Fs5IJi2EOTnhRPeJsd7fxS6tkQ11aIOMV''} -TimeoutSec 10 | Select-Object -ExpandProperty StatusCode\")",
       "Bash(npx next lint:*)",
       "Bash(node_modules/.bin/next lint)",
-      "Bash(node_modules/.bin/tsc:*)"
+      "Bash(node_modules/.bin/tsc:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npx next build:*)"
     ]
   }
 }
