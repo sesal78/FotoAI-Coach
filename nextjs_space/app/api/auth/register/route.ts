@@ -7,6 +7,7 @@ import {
   COLLECTION_USER_PROGRESS,
 } from '@/lib/appwrite-collections';
 import { SESSION_COOKIE } from '@/lib/session';
+import { createEmailSession } from '@/lib/appwrite-session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,13 +22,8 @@ export async function POST(request: NextRequest) {
     // Create Appwrite user
     const user = await account.create(ID.unique(), email, password, name);
 
-    // Create a session using a plain project-scoped client (no API key) so the returned
-    // session.secret is a valid user session token compatible with setSession().
-    const sessionClient = new Client()
-      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-      .setProject(process.env.APPWRITE_PROJECT_ID!);
-    const sessionAccount = new Account(sessionClient);
-    const session = await sessionAccount.createEmailPasswordSession(email, password);
+    // Create session via REST API (SDK no longer returns secret in Appwrite 1.8+)
+    const { secret } = await createEmailSession(email, password);
 
     // Initialise default preferences and progress documents
     await Promise.all([
@@ -68,24 +64,23 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    // Send email verification — use a session-scoped client with the new session secret
+    // Send email verification
     try {
       const verifyClient = new Client()
         .setEndpoint(process.env.APPWRITE_ENDPOINT!)
         .setProject(process.env.APPWRITE_PROJECT_ID!)
-        .setSession(session.secret);
+        .setSession(secret);
       const verifyAccount = new Account(verifyClient);
       const proto = request.headers.get('x-forwarded-proto') || 'https';
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
       await verifyAccount.createVerification(`${appUrl}/verify-email/confirm`);
     } catch (verifyErr) {
-      // Non-fatal — registration succeeded even if email fails
       console.warn('[register] Failed to send verification email:', verifyErr);
     }
 
     const response = NextResponse.json({ success: true, userId: user.$id });
-    response.cookies.set(SESSION_COOKIE, session.secret, {
+    response.cookies.set(SESSION_COOKIE, secret, {
       path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

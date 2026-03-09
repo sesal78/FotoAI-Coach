@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client, Account } from 'node-appwrite';
 import { SESSION_COOKIE } from '@/lib/session';
+import { createEmailSession } from '@/lib/appwrite-session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,22 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    // Use a plain project-scoped client (no API key) so the returned session.secret
-    // is a valid user session token compatible with setSession() in createSessionClient.
-    const client = new Client()
-      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-      .setProject(process.env.APPWRITE_PROJECT_ID!);
-    const account = new Account(client);
-    const session = await account.createEmailPasswordSession(email, password);
-    console.log('[login] Session created for', session.userId, '— secret length:', session.secret?.length);
+    const { userId, secret } = await createEmailSession(email, password);
+    console.log('[login] Session created for', userId, '— secret length:', secret.length);
 
-    const response = NextResponse.json({ success: true, userId: session.userId });
-    response.cookies.set(SESSION_COOKIE, session.secret, {
+    const response = NextResponse.json({ success: true, userId });
+    response.cookies.set(SESSION_COOKIE, secret, {
       path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
     });
 
     return response;
