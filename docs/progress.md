@@ -51,11 +51,11 @@
   - Approved on: —
 
 ### Phase 5 — Enhanced Challenge System (Story-Driven + Technical Mastery)
-- Status: IN_PROGRESS
+- Status: READY_FOR_REVIEW
 - Scope: See docs/ROADMAP.md Phase 5
-- Implementation summary: —
-- Verification summary: —
-- DoD summary: —
+- Implementation summary: Added STORY_DRIVEN and TECHNICAL_MASTERY challenge types with rich prompts, new fields (shotList, narrativeContext, editingDirection, masteryArea, technicalLevel, successCriteria, whatToLookFor), dashboard UI for displaying them
+- Verification summary: `npx next build` passes cleanly
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API — build passes, types checked
 - Risks: Prompt quality needs iteration
 - Dependencies: None
 - Approval:
