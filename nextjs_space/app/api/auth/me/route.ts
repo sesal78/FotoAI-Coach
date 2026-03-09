@@ -13,7 +13,8 @@ export async function GET(request: Request) {
       { id: user.$id, email: user.email, name: user.name },
       { headers: { 'Cache-Control': 'no-store' } },
     );
-  } catch {
+  } catch (err: any) {
+    console.error('[/api/auth/me]', err.message || err);
     return NextResponse.json(
       { error: 'Not authenticated' },
       { status: 401, headers: { 'Cache-Control': 'no-store' } },

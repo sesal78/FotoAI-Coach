@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       .setProject(process.env.APPWRITE_PROJECT_ID!);
     const account = new Account(client);
     const session = await account.createEmailPasswordSession(email, password);
+    console.log('[login] Session created for', session.userId, '— secret length:', session.secret?.length);
 
     const response = NextResponse.json({ success: true, userId: session.userId });
     response.cookies.set(SESSION_COOKIE, session.secret, {
