@@ -51,7 +51,12 @@ async function addAttr(collectionId: string, type: 'string' | 'boolean' | 'integ
     else if (type === 'datetime') await databases.createDatetimeAttribute(DB_ID, collectionId, key, options?.required ?? false, options?.default ?? null);
     else if (type === 'stringArray') await databases.createStringAttribute(DB_ID, collectionId, key, options?.size || 255, false, undefined, true);
   } catch (e: any) {
-    if (e?.code !== 409) throw e;
+    if (e?.code === 409) return; // attribute already exists
+    if (e?.type === 'attribute_limit_exceeded') {
+      console.warn(`⚠️  Attribute limit reached for ${collectionId}.${key} — skipping`);
+      return;
+    }
+    throw e;
   }
 }
 
