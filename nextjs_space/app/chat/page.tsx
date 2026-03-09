@@ -20,6 +20,7 @@ import {
   Aperture,
   Map,
   Target,
+  Trash2,
 } from 'lucide-react'
 
 interface Challenge {
@@ -46,11 +47,32 @@ const SUGGESTED_PROMPTS = [
   { icon: Target, text: 'I have a Fujifilm X-T5 — what should I practise?' },
 ]
 
+const CHAT_STORAGE_KEY = 'foto_chat_history'
+
+function loadChatHistory(): Message[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveChatHistory(messages: Message[]) {
+  if (typeof window === 'undefined') return
+  try {
+    // Keep last 50 messages to avoid bloating localStorage
+    const toSave = messages.slice(-50)
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(toSave))
+  } catch { /* silent */ }
+}
+
 export default function ChatPage() {
   const { user, status } = useAppwriteAuth()
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [loadingChallenge, setLoadingChallenge] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => loadChatHistory())
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -62,6 +84,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     scrollToBottom()
+  }, [messages])
+
+  // Persist chat messages to localStorage (skip temporary loading messages)
+  useEffect(() => {
+    const hasLoadingMsg = messages.some(m => m.content === '...')
+    if (!hasLoadingMsg && messages.length > 0) {
+      saveChatHistory(messages)
+    }
   }, [messages])
 
   const loadChallenge = useCallback(async () => {
@@ -236,7 +266,22 @@ export default function ChatPage() {
               <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
                 <MessageSquare className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold">Foto AI Coach</span>
-                <span className="ml-auto text-xs text-muted-foreground">challenges auto-save ✓</span>
+                <span className="ml-auto flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">challenges auto-save ✓</span>
+                  {messages.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setMessages([])
+                        localStorage.removeItem(CHAT_STORAGE_KEY)
+                        toast.success('Chat history cleared')
+                      }}
+                      title="Clear chat history"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </span>
               </div>
 
               {/* Messages */}

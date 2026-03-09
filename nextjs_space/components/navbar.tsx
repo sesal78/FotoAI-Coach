@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown } from 'lucide-react'
+import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTheme } from 'next-themes'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
 import {
   DropdownMenu,
@@ -30,6 +31,10 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, status, signOut } = useAppwriteAuth()
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,7 +53,8 @@ export default function Navbar() {
 
   async function handleSignOut() {
     await signOut()
-    router.push('/')
+    // Use hard navigation to avoid RSC payload fetch errors during session teardown
+    window.location.href = '/'
   }
 
   const isAuthenticated = status === 'authenticated'
@@ -97,6 +103,17 @@ export default function Navbar() {
                 </Link>
               )) ?? []}
 
+              {/* Theme toggle */}
+              {mounted && (
+                <button
+                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                  className="ml-2 p-2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Toggle dark mode"
+                >
+                  {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </button>
+              )}
+
               {/* Auth controls */}
               {status === 'loading' ? (
                 <div className="ml-4 h-9 w-9 rounded-full bg-muted animate-pulse" />
@@ -141,14 +158,14 @@ export default function Navbar() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/dashboard#progress" className="flex items-center gap-2 cursor-pointer">
+                        <Link href="/progress" className="flex items-center gap-2 cursor-pointer">
                           <TrendingUp className="h-4 w-4" />
                           My Progress
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link href="/dashboard#settings" className="flex items-center gap-2 cursor-pointer">
+                        <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
                           <Settings className="h-4 w-4" />
                           Settings
                         </Link>
@@ -263,6 +280,16 @@ export default function Navbar() {
 
                 {/* Auth CTA */}
                 <div className="p-6 border-t border-border space-y-3">
+                  {/* Theme toggle (mobile) */}
+                  {mounted && (
+                    <button
+                      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-sm mb-2"
+                    >
+                      {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    </button>
+                  )}
                   {isAuthenticated ? (
                     <>
                       {/* User info */}
@@ -280,8 +307,8 @@ export default function Navbar() {
                       {/* Quick links */}
                       {[
                         { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-                        { href: '/dashboard#progress', icon: TrendingUp, label: 'My Progress' },
-                        { href: '/dashboard#settings', icon: Settings, label: 'Settings' },
+                        { href: '/progress', icon: TrendingUp, label: 'My Progress' },
+                        { href: '/settings', icon: Settings, label: 'Settings' },
                       ].map(({ href, icon: Icon, label }) => (
                         <Link
                           key={href}

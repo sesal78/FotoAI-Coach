@@ -55,7 +55,7 @@ export default function CoachingApproach() {
   })
 
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-background">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Coaching Philosophy */}
         <motion.div
@@ -65,10 +65,10 @@ export default function CoachingApproach() {
           transition={{ duration: 0.8 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-6">
             The Foto Coaching Philosophy
           </h2>
-          <p className="text-lg text-slate-600 max-w-4xl mx-auto leading-relaxed">
+          <p className="text-lg text-muted-foreground max-w-4xl mx-auto leading-relaxed">
             Foto believes that great photography comes from understanding both the technical craft and the creative vision. 
             Our AI-powered coaching approach combines personalized technical guidance with creative inspiration, 
             helping you develop your unique photographic voice while mastering the fundamentals.
@@ -85,15 +85,15 @@ export default function CoachingApproach() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: inView ? 1 : 0, y: inView ? 0 : 30 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
-                className="bg-slate-50 rounded-2xl p-8 hover:bg-slate-100 transition-all duration-300 photography-card"
+                className="bg-muted rounded-2xl p-8 hover:bg-muted/80 transition-all duration-300 photography-card"
               >
                 <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl mb-6">
                   {IconComponent && <IconComponent className="h-7 w-7 text-white" />}
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-4">
+                <h3 className="text-xl font-bold text-foreground mb-4">
                   {approach?.title}
                 </h3>
-                <p className="text-slate-600 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   {approach?.description}
                 </p>
               </motion.div>

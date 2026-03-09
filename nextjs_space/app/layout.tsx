@@ -23,8 +23,8 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
+          defaultTheme="dark"
+          enableSystem
           disableTransitionOnChange
         >
           <AuthProvider>
@@ -41,12 +41,10 @@ export default function RootLayout({
               </div>
               <Toaster
                 position="bottom-right"
+                theme="system"
                 toastOptions={{
                   style: {
                     fontFamily: 'DM Sans, sans-serif',
-                    background: 'hsl(30 10% 12%)',
-                    color: 'hsl(45 20% 95%)',
-                    border: 'none',
                   }
                 }}
               />

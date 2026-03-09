@@ -34,20 +34,36 @@ function SignupForm() {
     }
   }, [status, router, from]);
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  function validateForm(): boolean {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = 'Full name is required';
+    if (!email.trim()) {
+      errors.email = 'Email address is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    if (!password) {
+      errors.password = 'Password is required';
+    } else if (password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
       justRegistered.current = true;
       await register(email, password, name);
-      router.replace(`/verify-email?email=${encodeURIComponent(email)}`);
+      router.replace('/onboarding');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
     } finally {
@@ -123,13 +139,13 @@ function SignupForm() {
               <input
                 id="name"
                 type="text"
-                required
                 autoComplete="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => { const { name: _, ...rest } = prev; return rest; }); }}
                 placeholder="Alex Johnson"
-                className="w-full px-4 py-3 bg-transparent border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm"
+                className={`w-full px-4 py-3 bg-transparent border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm ${fieldErrors.name ? 'border-destructive' : 'border-border'}`}
               />
+              {fieldErrors.name && <p className="text-xs text-destructive">{fieldErrors.name}</p>}
             </div>
 
             {/* Email */}
@@ -140,13 +156,13 @@ function SignupForm() {
               <input
                 id="email"
                 type="email"
-                required
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setFieldErrors((prev) => { const { email: _, ...rest } = prev; return rest; }); }}
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-transparent border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm"
+                className={`w-full px-4 py-3 bg-transparent border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm ${fieldErrors.email ? 'border-destructive' : 'border-border'}`}
               />
+              {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
             </div>
 
             {/* Password */}
@@ -158,12 +174,11 @@ function SignupForm() {
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  required
                   autoComplete="new-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setFieldErrors((prev) => { const { password: _, ...rest } = prev; return rest; }); }}
                   placeholder="Min. 8 characters"
-                  className="w-full px-4 py-3 pr-12 bg-transparent border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm"
+                  className={`w-full px-4 py-3 pr-12 bg-transparent border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm ${fieldErrors.password ? 'border-destructive' : 'border-border'}`}
                 />
                 <button
                   type="button"
@@ -193,6 +208,7 @@ function SignupForm() {
                   ))}
                 </div>
               )}
+              {fieldErrors.password && <p className="text-xs text-destructive mt-1">{fieldErrors.password}</p>}
             </div>
 
             {/* Submit */}

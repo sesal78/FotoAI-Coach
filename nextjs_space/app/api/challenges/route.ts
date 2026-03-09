@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
     const recentChallenges = recentResult.documents;
 
     // Fetch weather data
-    const location = preferences.currentLocation || preferences.homeLocation || 'San Francisco, CA';
+    const location = preferences.currentLocation || preferences.homeLocation || 'Melbourne, Australia';
     const weather = await getWeather(location);
 
     // Prepare user profile for challenge generation

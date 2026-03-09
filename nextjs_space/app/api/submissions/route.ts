@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     let photoUrl: string | null = null;
 
     // Handle photo upload via Appwrite Storage
-    if (photo) {
+    if (photo && STORAGE_BUCKET_SUBMISSIONS) {
       try {
         const fileBuffer = Buffer.from(await photo.arrayBuffer());
         const uploaded = await storage.createFile(
@@ -157,6 +157,21 @@ export async function POST(request: NextRequest) {
         console.error('Photo upload failed:', uploadError);
         // Continue without photo
       }
+    } else if (photo && !STORAGE_BUCKET_SUBMISSIONS) {
+      console.warn('Photo provided but APPWRITE_STORAGE_BUCKET_ID is not configured');
+    }
+
+    // Build submission data — omit null values for Appwrite compatibility
+    const submissionData: Record<string, unknown> = {
+      challengeId,
+      userId,
+      notes: notes || '',
+      feedbackStatus: 'pending',
+      submittedAt: new Date().toISOString(),
+    };
+    if (photoUrl) submissionData.photoUrl = photoUrl;
+    if (rating && parseInt(rating) >= 1 && parseInt(rating) <= 5) {
+      submissionData.rating = parseInt(rating);
     }
 
     // Create submission document (feedback generated asynchronously)
@@ -164,16 +179,7 @@ export async function POST(request: NextRequest) {
       DATABASE_ID,
       COLLECTION_CHALLENGE_SUBMISSIONS,
       ID.unique(),
-      {
-        challengeId,
-        userId,
-        photoUrl,
-        notes,
-        feedback: null,
-        feedbackStatus: 'pending',
-        rating: rating ? parseInt(rating) : null,
-        submittedAt: new Date().toISOString(),
-      }
+      submissionData
     );
 
     // Update challenge status to completed
@@ -306,7 +312,7 @@ async function generateFeedbackAsync(
       COLLECTION_CHALLENGE_SUBMISSIONS,
       submissionId,
       {
-        feedback,
+        feedback: feedback || 'Great work!',
         feedbackStatus: 'ready',
       }
     );
@@ -318,13 +324,10 @@ async function generateFeedbackAsync(
         DATABASE_ID,
         COLLECTION_CHALLENGE_SUBMISSIONS,
         submissionId,
-        {
-          feedback: 'Great work completing this challenge! Keep practicing and exploring your creative vision.',
-          feedbackStatus: 'ready',
-        }
+        { feedbackStatus: 'ready' }
       );
     } catch (updateError) {
-      console.error('Failed to update fallback feedback:', updateError);
+      console.error('Failed to update fallback feedback status:', updateError);
     }
   }
 }

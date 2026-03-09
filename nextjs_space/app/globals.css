@@ -139,9 +139,15 @@
 
 .editorial-card:hover {
   transform: translateY(-4px);
-  box-shadow: 
+  box-shadow:
     0 20px 40px -15px rgba(30, 25, 20, 0.15),
     0 8px 16px -8px rgba(30, 25, 20, 0.1);
+}
+
+.dark .editorial-card:hover {
+  box-shadow:
+    0 20px 40px -15px rgba(0, 0, 0, 0.4),
+    0 8px 16px -8px rgba(0, 0, 0, 0.3);
 }
 
 /* Accent line - editorial divider */

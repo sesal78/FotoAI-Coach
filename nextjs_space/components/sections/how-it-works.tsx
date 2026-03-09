@@ -52,7 +52,7 @@ export default function HowItWorks() {
   })
 
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-background">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           ref={ref}
@@ -61,10 +61,10 @@ export default function HowItWorks() {
           transition={{ duration: 0.8 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             How Foto Works
           </h2>
-          <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
             Foto's AI-powered coaching process is designed to be intuitive and effective. 
             Here's how you can start improving your photography skills today.
           </p>
@@ -86,16 +86,16 @@ export default function HowItWorks() {
                   {step?.number}
                 </div>
 
-                <div className="bg-slate-50 rounded-2xl p-8 h-full hover:bg-slate-100 transition-all duration-300 photography-card">
+                <div className="bg-muted rounded-2xl p-8 h-full hover:bg-muted/80 transition-all duration-300 photography-card">
                   <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl mb-6">
                     {IconComponent && <IconComponent className="h-8 w-8 text-white" />}
                   </div>
                   
-                  <h3 className="text-xl font-bold text-slate-900 mb-4">
+                  <h3 className="text-xl font-bold text-foreground mb-4">
                     {step?.title}
                   </h3>
                   
-                  <p className="text-slate-600 leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed">
                     {step?.description}
                   </p>
                 </div>

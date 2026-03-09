@@ -60,8 +60,8 @@ export default function LocationsPage() {
     }
   }
 
-  async function searchLocations() {
-    if (!query.trim()) {
+  async function searchWithQuery(searchQuery: string) {
+    if (!searchQuery.trim()) {
       toast.error('Please enter a search query');
       return;
     }
@@ -73,8 +73,8 @@ export default function LocationsPage() {
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query: query.trim(),
+        body: JSON.stringify({
+          query: searchQuery.trim(),
           location: 'Melbourne, Australia'
         }),
       });
@@ -92,6 +92,10 @@ export default function LocationsPage() {
     } finally {
       setSearching(false);
     }
+  }
+
+  function searchLocations() {
+    searchWithQuery(query);
   }
 
   function LocationCard({ location }: { location: Location }) {
@@ -282,7 +286,7 @@ export default function LocationsPage() {
                   key={i}
                   variant="outline"
                   size="sm"
-                  onClick={() => setQuery(example)}
+                  onClick={() => { setQuery(example); searchWithQuery(example); }}
                   className="text-xs"
                 >
                   {example}

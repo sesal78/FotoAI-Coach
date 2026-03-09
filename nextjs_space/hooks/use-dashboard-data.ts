@@ -65,19 +65,22 @@ export function useUserProgress(userId: string | undefined) {
 }
 
 /**
- * Fetches the 5 most recent challenges (any status) for the current user.
+ * Fetches the most recent challenges (any status) for the current user.
+ * Supports pagination via limit parameter.
  */
-export function useRecentChallenges(userId: string | undefined) {
-  return useQuery<Challenge[]>({
-    queryKey: ['challenges', 'recent', userId],
+export function useRecentChallenges(userId: string | undefined, limit: number = 5) {
+  return useQuery<{ challenges: Challenge[]; hasMore: boolean }>({
+    queryKey: ['challenges', 'recent', userId, limit],
     queryFn: async () => {
       const res = await fetch(
-        `/api/challenges?userId=${userId}&status=all&limit=5`,
+        `/api/challenges?userId=${userId}&status=all&limit=${limit + 1}`,
         { cache: 'no-store' },
       );
       if (!res.ok) throw new Error(`Failed to fetch recent challenges (${res.status})`);
       const data = await res.json();
-      return data.challenges ?? [];
+      const all: Challenge[] = data.challenges ?? [];
+      const hasMore = all.length > limit;
+      return { challenges: all.slice(0, limit), hasMore };
     },
     enabled: !!userId,
   });

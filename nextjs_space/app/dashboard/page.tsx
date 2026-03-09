@@ -34,7 +34,10 @@ export default function DashboardPage() {
   // React Query hooks — auto-fetch when userId is available
   const { data: currentChallenge, isLoading: challengeLoading } = usePendingChallenge(session?.id);
   const { data: progress } = useUserProgress(session?.id);
-  const { data: recentChallenges = [] } = useRecentChallenges(session?.id);
+  const [historyLimit, setHistoryLimit] = useState(5);
+  const { data: recentData } = useRecentChallenges(session?.id, historyLimit);
+  const recentChallenges = recentData?.challenges ?? [];
+  const hasMoreChallenges = recentData?.hasMore ?? false;
   const { data: itineraries = [], isLoading: itinerariesLoading } = useItineraries(session?.id);
   const invalidateDashboard = useInvalidateDashboard();
 
@@ -319,11 +322,15 @@ export default function DashboardPage() {
             <div className="editorial-card p-5 lg:p-6">
               <span className="overline mb-2 block">Top Styles</span>
               <div className="flex flex-wrap gap-2 mt-2">
-                {progress.favoriteSubjects.slice(0, 3).map((subject) => (
-                  <Badge key={subject} variant="secondary" className="text-xs font-medium">
-                    {subject}
-                  </Badge>
-                ))}
+                {progress.favoriteSubjects.length > 0 ? (
+                  progress.favoriteSubjects.slice(0, 3).map((subject) => (
+                    <Badge key={subject} variant="secondary" className="text-xs font-medium">
+                      {subject}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">Complete challenges to discover your top styles</p>
+                )}
               </div>
             </div>
           </div>
@@ -613,6 +620,18 @@ export default function DashboardPage() {
                   <div className="text-center py-12 text-muted-foreground">
                     <Camera className="w-12 h-12 mx-auto mb-4 opacity-30" />
                     <p>No challenges yet. Generate your first one!</p>
+                  </div>
+                )}
+
+                {hasMoreChallenges && (
+                  <div className="text-center pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setHistoryLimit((prev) => prev + 10)}
+                      className="font-medium"
+                    >
+                      Load More Challenges
+                    </Button>
                   </div>
                 )}
               </div>
