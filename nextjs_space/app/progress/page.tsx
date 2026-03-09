@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { useUserProgress, useRecentChallenges } from '@/hooks/use-dashboard-data';
+import { useUserProgress, useRecentChallenges, useWeeklyInsights } from '@/hooks/use-dashboard-data';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -14,6 +14,11 @@ import {
   TrendingUp,
   Target,
   BarChart3,
+  Lightbulb,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
 } from 'lucide-react';
 import {
   BarChart,
@@ -40,7 +45,11 @@ export default function ProgressPage() {
   const { user, status } = useAppwriteAuth();
   const { data: progress, isLoading: progressLoading } = useUserProgress(user?.id);
   const { data: recentData } = useRecentChallenges(user?.id, 50);
+  const { data: weeklyInsights, isLoading: insightsLoading } = useWeeklyInsights(user?.id, 5);
+  const [showOlderReports, setShowOlderReports] = useState(false);
   const allChallenges = recentData?.challenges ?? [];
+  const latestReport = weeklyInsights?.[0] ?? null;
+  const olderReports = weeklyInsights?.slice(1) ?? [];
 
   // Derive chart data from challenges
   const categoryData = useMemo(() => {
@@ -126,6 +135,152 @@ export default function ProgressPage() {
             Track your photography journey and growth over time.
           </p>
         </div>
+
+        {/* Weekly Insights */}
+        {insightsLoading ? (
+          <div className="editorial-card p-6 lg:p-8 mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold display-font">Weekly Insights</h2>
+            </div>
+            <div className="animate-pulse space-y-3">
+              <div className="h-4 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+              <div className="h-4 bg-muted rounded w-2/3" />
+            </div>
+          </div>
+        ) : latestReport ? (
+          <div className="editorial-card p-6 lg:p-8 mb-10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold display-font">Weekly Insights</h2>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                {latestReport.weekStart} — {latestReport.weekEnd}
+              </div>
+            </div>
+
+            {/* Summary */}
+            <p className="text-[15px] leading-relaxed mb-5">
+              {latestReport.insights.summary}
+            </p>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-primary">
+                  {latestReport.stats.challengesCompletedThisWeek}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Completed
+                  {latestReport.stats.challengesCompletedLastWeek > 0 && (
+                    <span className={latestReport.stats.challengesCompletedThisWeek >= latestReport.stats.challengesCompletedLastWeek ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                      {' '}({latestReport.stats.challengesCompletedThisWeek >= latestReport.stats.challengesCompletedLastWeek ? '+' : ''}
+                      {latestReport.stats.challengesCompletedThisWeek - latestReport.stats.challengesCompletedLastWeek} vs last)
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-orange-500">{latestReport.stats.currentStreak}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Day Streak</div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-purple-500">
+                  {latestReport.stats.averageCritiqueScore !== null ? latestReport.stats.averageCritiqueScore : '—'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Avg Score</div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{latestReport.stats.challengeCompletionRate}%</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Completion</div>
+              </div>
+            </div>
+
+            {/* Highlights */}
+            {latestReport.insights.highlights.length > 0 && (
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Highlights</h3>
+                <ul className="space-y-1.5">
+                  {latestReport.insights.highlights.map((h, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Skill breakdown */}
+            {latestReport.insights.skillBreakdown && (
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Skill Progress</h3>
+                <p className="text-sm">{latestReport.insights.skillBreakdown}</p>
+              </div>
+            )}
+
+            {/* Recommendation */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">Next Week</h3>
+                  <p className="text-sm text-amber-700 dark:text-amber-400">{latestReport.insights.recommendation}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Motivational note */}
+            <p className="text-sm text-muted-foreground italic text-center">{latestReport.insights.motivationalNote}</p>
+
+            {/* Older reports toggle */}
+            {olderReports.length > 0 && (
+              <div className="mt-6 border-t pt-4">
+                <button
+                  onClick={() => setShowOlderReports(!showOlderReports)}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
+                >
+                  {showOlderReports ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {showOlderReports ? 'Hide' : 'Show'} previous reports ({olderReports.length})
+                </button>
+
+                {showOlderReports && (
+                  <div className="mt-4 space-y-4">
+                    {olderReports.map((report) => (
+                      <div key={report.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">{report.weekStart} — {report.weekEnd}</span>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span>{report.stats.challengesCompletedThisWeek} completed</span>
+                            {report.stats.averageCritiqueScore !== null && (
+                              <span>Avg: {report.stats.averageCritiqueScore}/100</span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{report.insights.summary}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="editorial-card p-6 lg:p-8 mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold display-font">Weekly Insights</h2>
+            </div>
+            <div className="text-center py-6 text-muted-foreground">
+              <Sparkles className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Your first weekly insights report will appear here after the next weekly summary is generated.</p>
+              <p className="text-xs mt-1">Reports are generated every Sunday.</p>
+            </div>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-10">

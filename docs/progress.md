@@ -8,9 +8,9 @@
 - Repository: foto-photography-coach
 - Human approver: (pending)
 - Created on: 2025-07-14
-- Last updated: 2025-07-14
-- Current phase: Phase 4
-- Current phase status: IN_PROGRESS
+- Last updated: 2026-03-09
+- Current phase: Phase 6
+- Current phase status: READY_FOR_REVIEW
 
 ## Status Legend
 - NOT_STARTED
@@ -26,57 +26,70 @@
 > Goal: Transform Foto from a basic challenge-and-critique tool into a premium AI photography coaching platform by adding 6 high-impact features that leverage existing infrastructure.
 
 ### Phase 4 — "How to Recreate This" Reverse Engineering
-- Status: READY_FOR_REVIEW
-- Scope: See docs/ROADMAP.md Phase 4
+- Status: APPROVED
+- Scope: Upload inspiration photo → AI reverse-engineers settings, lighting, position, shot recipe
 - Implementation summary:
-  - `lib/llm.ts`: Added `reverseEngineerPhoto()` — vision-based analysis returning settings, lighting, camera position, lens type, post-processing, shot recipe, difficulty, gear needed
-  - `lib/types.ts`: Added `ReverseEngineeringResult` and `ReverseAnalysis` interfaces
-  - `lib/appwrite-collections.ts`: Added `COLLECTION_REVERSE_ANALYSES`
-  - `scripts/appwrite-setup.ts`: Added `reverse_analyses` collection (userId, photoUrl, resultJson, analysisDate)
-  - `app/api/reverse-engineer/route.ts`: GET (fetch history) + POST (upload photo, call LLM, persist result)
-  - `app/recreate/page.tsx`: Full UI — upload area, settings grid, lighting section, camera position, lens analysis, post-processing, numbered shot recipe, gear badges, analysis history
-  - `hooks/use-dashboard-data.ts`: Added `useReverseAnalyses()` React Query hook
-  - `components/navbar.tsx`: Added "Recreate" to desktop nav, user dropdown, and mobile quick links
-- Verification summary:
-  - `npx next build` passes cleanly — 0 errors, 0 warnings
-  - `/recreate` page compiled (6.58 kB), `/api/reverse-engineer` route registered
-  - All existing pages and routes unchanged
-- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API applied — build passes, types checked, route registered
-- Risks: Requires `yarn ts-node scripts/appwrite-setup.ts` to create `reverse_analyses` collection in Appwrite
-- Dependencies: None (existing critiquePhoto pattern)
+  - `lib/llm.ts`: `reverseEngineerPhoto()` — vision-based analysis
+  - `lib/types.ts`: `ReverseEngineeringResult` and `ReverseAnalysis` interfaces
+  - `lib/appwrite-collections.ts`: `COLLECTION_REVERSE_ANALYSES`
+  - `scripts/appwrite-setup.ts`: `reverse_analyses` collection
+  - `app/api/reverse-engineer/route.ts`: GET (history) + POST (analyse)
+  - `app/recreate/page.tsx`: Full UI with settings grid, lighting, shot recipe, history
+  - `hooks/use-dashboard-data.ts`: `useReverseAnalyses()` hook
+  - `components/navbar.tsx`: "Recreate" in all nav locations
+- Verification summary: `npx next build` passes — 0 errors
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API satisfied
+- Risks: None
+- Dependencies: None
 - Approval:
-  - Progress update approved? (pending)
-  - Approved to proceed? (pending)
-  - Approved by: —
-  - Approved on: —
+  - Progress update approved? YES
+  - Approved to proceed? YES (user said "yes" to commit and move to Phase 5)
+  - Approved by: User
+  - Approved on: 2025-07-14
+  - Commit: 0810b9f
 
 ### Phase 5 — Enhanced Challenge System (Story-Driven + Technical Mastery)
-- Status: READY_FOR_REVIEW
-- Scope: See docs/ROADMAP.md Phase 5
-- Implementation summary: Added STORY_DRIVEN and TECHNICAL_MASTERY challenge types with rich prompts, new fields (shotList, narrativeContext, editingDirection, masteryArea, technicalLevel, successCriteria, whatToLookFor), dashboard UI for displaying them
-- Verification summary: `npx next build` passes cleanly
-- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API — build passes, types checked
-- Risks: Prompt quality needs iteration
+- Status: APPROVED
+- Scope: Two new challenge types — STORY_DRIVEN (shot lists, narrative, editing direction) + TECHNICAL_MASTERY (levels 1-5, mastery area, success criteria)
+- Implementation summary:
+  - `lib/llm.ts`: Extended `generateChallenge()` — new type union, return type, rich prompt templates with `extra` field
+  - `lib/types.ts`: Added 7 optional fields to `Challenge` interface
+  - `scripts/appwrite-setup.ts`: 7 new attributes on `daily_challenges` collection
+  - `app/api/challenges/route.ts`: Spread new fields into Appwrite document creation
+  - `app/dashboard/page.tsx`: 6 challenge types in selector, shot list display, mastery level badges, success criteria UI
+- Verification summary: `npx next build` passes — 0 errors
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API satisfied
+- Risks: None
 - Dependencies: None
 - Approval:
-  - Progress update approved? NO
-  - Approved to proceed? NO
-  - Approved by: —
-  - Approved on: —
+  - Progress update approved? YES
+  - Approved to proceed? YES (user said "yes" to commit)
+  - Approved by: User
+  - Approved on: 2025-07-14
+  - Commit: 8c8a036
 
 ### Phase 6 — Weekly Insights Report
-- Status: NOT_STARTED
-- Scope: See docs/ROADMAP.md Phase 6
-- Implementation summary: —
-- Verification summary: —
-- DoD summary: —
-- Risks: Scheduled endpoint already exists but may need rework
+- Status: READY_FOR_REVIEW
+- Scope: Auto-generated weekly summary with AI insights, email delivery, and in-app display on progress page
+- Implementation summary:
+  - `lib/appwrite-collections.ts`: Added `COLLECTION_WEEKLY_REPORTS`
+  - `lib/types.ts`: Added `WeeklyInsightsData`, `WeeklyInsightsResult`, `WeeklyReport` interfaces
+  - `lib/llm.ts`: Added `generateWeeklyInsights()` — personalized narrative from aggregated stats with graceful fallback
+  - `lib/email.ts`: Rewrote `sendWeeklyReport()` — rich HTML email with 4-stat trend row, AI summary, highlights, skill progress, recommendation box, text fallback
+  - `app/api/scheduled/weekly-report/route.ts`: Full rewrite — aggregates 5 collections (challenges, submissions, critiques, progress, preferences) for this week + last week, computes trends, calls LLM, persists report, sends email
+  - `app/api/insights/route.ts`: New GET endpoint for fetching user reports (newest first, paginated)
+  - `hooks/use-dashboard-data.ts`: Added `useWeeklyInsights()` React Query hook
+  - `app/progress/page.tsx`: Added "Weekly Insights" section — summary, stats with trends, highlights, skill breakdown, recommendation card, expandable older reports
+  - `scripts/appwrite-setup.ts`: Added `weekly_reports` collection (userId, weekStart, weekEnd, statsJson, insightsJson, reportDate)
+- Verification summary: `npx next build` passes — 0 errors, all routes compile
+- DoD summary: DoD_FRONTEND_UI + DoD_BACKEND_API satisfied
+- Risks: None — additive only, no existing features modified
 - Dependencies: None
 - Approval:
-  - Progress update approved? NO
-  - Approved to proceed? NO
-  - Approved by: —
-  - Approved on: —
+  - Progress update approved? YES
+  - Approved to proceed? (pending)
+  - Approved by: User
+  - Approved on: 2026-03-09
 
 ### Phase 7 — Editing Recipe Generator
 - Status: NOT_STARTED
@@ -129,7 +142,6 @@
 - Scope: Next.js app, Appwrite auth, challenge generation, dashboard, submissions
 - Verification: App builds, auth flow works, challenges generate and persist
 - DoD: All core routes functional
-- Risks: None
 - Approval record: Completed prior to v2 planning
 
 ### Phase 2 — UX & Navigation
@@ -137,7 +149,6 @@
 - Scope: Onboarding wizard, progress charts, settings page, password recovery, dark mode
 - Verification: All pages render, onboarding saves preferences, charts display data
 - DoD: All pages functional
-- Risks: None
 - Approval record: Completed prior to v2 planning
 
 ### Phase 3 — AI Photo Critique Engine
@@ -145,10 +156,12 @@
 - Scope: Vision-powered critique (technical/composition/creative scores), upload UI, critique history, auto-trigger on submission
 - Verification: Critique generates from uploaded photos, scores display, history persists
 - DoD: Vision pipeline works end-to-end
-- Risks: None
 - Approval record: Completed — commits 85b7c2d, 83d873b, 3e2e5d8
 
 ---
 
 ## Change Log
-- 2025-07-14: Created progress ledger with Phases 4-9 roadmap (pending approval)
+- 2025-07-14: Created progress ledger with Phases 4-9 roadmap
+- 2025-07-14: Phase 4 completed and committed (0810b9f) — approved by user
+- 2025-07-14: Phase 5 completed and committed (8c8a036) — approved by user
+- 2026-03-09: Phase 6 implemented — progress update approved by user

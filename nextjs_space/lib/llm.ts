@@ -479,6 +479,89 @@ Respond with raw JSON only.`;
 }
 
 /**
+ * Generate personalized weekly insights from aggregated user stats.
+ * Returns a narrative summary, highlights, skill breakdown, and recommendation.
+ */
+export async function generateWeeklyInsights(context: {
+  userName: string;
+  skillLevel: string;
+  stats: import('@/lib/types').WeeklyInsightsData;
+}): Promise<import('@/lib/types').WeeklyInsightsResult> {
+  const { userName, skillLevel, stats } = context;
+
+  const challengeTrend = stats.challengesCompletedLastWeek > 0
+    ? Math.round(((stats.challengesCompletedThisWeek - stats.challengesCompletedLastWeek) / stats.challengesCompletedLastWeek) * 100)
+    : stats.challengesCompletedThisWeek > 0 ? 100 : 0;
+
+  const scoreDelta = (current: number | null, previous: number | null) => {
+    if (current === null || previous === null) return 'no data';
+    const diff = current - previous;
+    return diff > 0 ? `+${diff} points` : diff < 0 ? `${diff} points` : 'no change';
+  };
+
+  const systemPrompt = `You are Foto AI, a warm and insightful photography coach writing a personalized weekly progress report for ${userName}.
+
+Skill level: ${skillLevel}
+
+This week's data:
+- Challenges completed: ${stats.challengesCompletedThisWeek} (last week: ${stats.challengesCompletedLastWeek}, trend: ${challengeTrend > 0 ? '+' : ''}${challengeTrend}%)
+- Submissions: ${stats.submissionsThisWeek}
+- Challenge completion rate: ${stats.challengeCompletionRate}%
+- Current streak: ${stats.currentStreak} days (personal best: ${stats.longestStreak})
+- Top categories this week: ${stats.topCategories.length > 0 ? stats.topCategories.join(', ') : 'none'}
+- Average critique score: ${stats.averageCritiqueScore !== null ? stats.averageCritiqueScore + '/100' : 'no critiques this week'}
+- Previous week average: ${stats.previousAverageCritiqueScore !== null ? stats.previousAverageCritiqueScore + '/100' : 'no data'}
+- Score trends vs last week:
+  - Technical: ${scoreDelta(stats.scoreTrend.technical, stats.previousScoreTrend.technical)}
+  - Composition: ${scoreDelta(stats.scoreTrend.composition, stats.previousScoreTrend.composition)}
+  - Creative: ${scoreDelta(stats.scoreTrend.creative, stats.previousScoreTrend.creative)}
+
+Write a personalized weekly insights report. Be specific to the data — reference actual numbers and trends. Keep the tone encouraging but honest.
+
+Handle edge cases:
+- If no activity this week, focus on re-engagement and motivation
+- If no critique scores, skip skill breakdown details and focus on challenge activity
+- If this is clearly a first week (no previous data), welcome them warmly
+
+Respond in JSON:
+{
+  "summary": "2-3 sentence overview of the week — highlight the most notable stat or trend",
+  "highlights": ["3-4 short bullet points of specific achievements or notable stats"],
+  "skillBreakdown": "1-2 sentences about score trends across technical/composition/creative dimensions (or skip if no critique data)",
+  "recommendation": "One specific, actionable recommendation for next week based on the data",
+  "motivationalNote": "One short encouraging sentence to close"
+}
+
+Respond with raw JSON only.`;
+
+  try {
+    const response = await callLLM(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Generate my weekly insights report for the week of ${stats.weekStart} to ${stats.weekEnd}.` },
+      ],
+      {
+        model: 'gpt-4o-mini',
+        temperature: 0.7,
+        max_tokens: 800,
+        json_mode: true,
+      }
+    );
+
+    return JSON.parse(response.content);
+  } catch (error) {
+    console.error('Weekly insights generation failed:', error);
+    return {
+      summary: `You completed ${stats.challengesCompletedThisWeek} challenges this week. Keep pushing your creative boundaries!`,
+      highlights: [`${stats.challengesCompletedThisWeek} challenges completed`, `${stats.currentStreak} day streak`],
+      skillBreakdown: stats.averageCritiqueScore !== null ? `Average critique score: ${stats.averageCritiqueScore}/100` : 'Submit photos for critique to track your skill growth.',
+      recommendation: 'Try a new challenge type next week to expand your skills.',
+      motivationalNote: 'Every photo you take makes you a better photographer. Keep shooting!',
+    };
+  }
+}
+
+/**
  * Generate a location-based photography itinerary
  */
 export async function generateItinerary(context: {

@@ -236,69 +236,167 @@ Keep shooting!
 }
 
 /**
- * Send weekly progress report
+ * Send weekly progress report with AI-generated insights
  */
 export async function sendWeeklyReport(
   userEmail: string,
   userName: string,
   report: {
     challengesCompleted: number;
+    challengesCompletedLastWeek: number;
     currentStreak: number;
+    longestStreak: number;
+    averageScore: number | null;
+    previousAverageScore: number | null;
+    completionRate: number;
     favoriteSubjects: string[];
-    weekHighlight?: string;
+    insights: {
+      summary: string;
+      highlights: string[];
+      skillBreakdown: string;
+      recommendation: string;
+      motivationalNote: string;
+    };
   }
 ): Promise<boolean> {
+  const challengeTrendIcon = report.challengesCompleted > report.challengesCompletedLastWeek ? '&#9650;' : report.challengesCompleted < report.challengesCompletedLastWeek ? '&#9660;' : '&#9644;';
+  const challengeTrendColor = report.challengesCompleted >= report.challengesCompletedLastWeek ? '#2e7d32' : '#c62828';
+  const scoreTrendIcon = report.averageScore !== null && report.previousAverageScore !== null
+    ? (report.averageScore > report.previousAverageScore ? '&#9650;' : report.averageScore < report.previousAverageScore ? '&#9660;' : '&#9644;')
+    : '';
+  const scoreTrendColor = report.averageScore !== null && report.previousAverageScore !== null
+    ? (report.averageScore >= report.previousAverageScore ? '#2e7d32' : '#c62828')
+    : '#666';
+
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
-    .stats { display: flex; justify-content: space-around; padding: 30px; background: white; }
-    .stat { text-align: center; }
-    .stat-number { font-size: 36px; font-weight: bold; color: #f5576c; }
-    .stat-label { font-size: 14px; color: #666; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 8px 0 0; opacity: 0.9; }
+    .stats-row { display: flex; justify-content: space-around; padding: 24px 16px; background: white; border-bottom: 1px solid #eee; }
+    .stat { text-align: center; flex: 1; }
+    .stat-number { font-size: 32px; font-weight: bold; color: #667eea; }
+    .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat-trend { font-size: 12px; margin-top: 2px; }
+    .content { padding: 24px; background: #f8f9fa; }
+    .section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .section h3 { margin: 0 0 12px; color: #667eea; font-size: 16px; }
+    .highlight-list { padding-left: 0; list-style: none; margin: 0; }
+    .highlight-list li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .highlight-list li:last-child { border-bottom: none; }
+    .highlight-list li::before { content: "\\2713 "; color: #2e7d32; font-weight: bold; margin-right: 6px; }
+    .recommendation-box { background: #fff3cd; padding: 16px; border-radius: 6px; border-left: 4px solid #ffc107; font-size: 14px; }
+    .cta-button { display: inline-block; padding: 12px 28px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
+    .footer { text-align: center; color: #999; font-size: 12px; padding: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Weekly Progress Report</h1>
-      <p>Great work this week, ${userName}!</p>
+      <h1>Your Weekly Insights</h1>
+      <p>${userName}, here's how your week in photography went</p>
     </div>
-    <div class="stats">
+
+    <div class="stats-row">
       <div class="stat">
         <div class="stat-number">${report.challengesCompleted}</div>
-        <div class="stat-label">Challenges Completed</div>
+        <div class="stat-label">Completed</div>
+        <div class="stat-trend" style="color: ${challengeTrendColor};">${challengeTrendIcon} vs last week (${report.challengesCompletedLastWeek})</div>
       </div>
       <div class="stat">
         <div class="stat-number">${report.currentStreak}</div>
         <div class="stat-label">Day Streak</div>
+        <div class="stat-trend" style="color: #666;">Best: ${report.longestStreak}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">${report.averageScore !== null ? report.averageScore : '—'}</div>
+        <div class="stat-label">Avg Score</div>
+        ${report.averageScore !== null ? `<div class="stat-trend" style="color: ${scoreTrendColor};">${scoreTrendIcon} vs last week</div>` : '<div class="stat-trend" style="color: #666;">No critiques</div>'}
+      </div>
+      <div class="stat">
+        <div class="stat-number">${report.completionRate}%</div>
+        <div class="stat-label">Completion</div>
       </div>
     </div>
-    <div style="padding: 30px; background: #f8f9fa;">
+
+    <div class="content">
+      <div class="section">
+        <h3>Summary</h3>
+        <p style="font-size: 15px; margin: 0;">${report.insights.summary}</p>
+      </div>
+
+      ${report.insights.highlights.length > 0 ? `
+      <div class="section">
+        <h3>Highlights</h3>
+        <ul class="highlight-list">
+          ${report.insights.highlights.map(h => `<li>${h}</li>`).join('')}
+        </ul>
+      </div>
+      ` : ''}
+
+      ${report.insights.skillBreakdown ? `
+      <div class="section">
+        <h3>Skill Progress</h3>
+        <p style="font-size: 14px; margin: 0;">${report.insights.skillBreakdown}</p>
+      </div>
+      ` : ''}
+
       ${report.favoriteSubjects.length > 0 ? `
-        <h3>Your Top Categories</h3>
-        <p>${report.favoriteSubjects.join(', ')}</p>
+      <div class="section">
+        <h3>Top Categories</h3>
+        <p style="font-size: 14px; margin: 0;">${report.favoriteSubjects.join(' &bull; ')}</p>
+      </div>
       ` : ''}
-      ${report.weekHighlight ? `
-        <h3>Week Highlight</h3>
-        <p>${report.weekHighlight}</p>
-      ` : ''}
-      <p style="text-align: center; margin-top: 30px;">
-        <a href="https://myfoto.topues.com/dashboard" style="display: inline-block; padding: 12px 24px; background: #f5576c; color: white; text-decoration: none; border-radius: 6px;">View Full Dashboard</a>
-      </p>
+
+      <div class="section">
+        <h3>Recommendation for Next Week</h3>
+        <div class="recommendation-box">${report.insights.recommendation}</div>
+      </div>
+
+      <div style="text-align: center; padding: 8px 0;">
+        <p style="font-style: italic; color: #555; font-size: 14px;">${report.insights.motivationalNote}</p>
+        <a href="https://myfoto.topues.com/progress" class="cta-button">View Full Progress</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      You're receiving this because you're enrolled in Foto AI photography coaching.<br>
+      Keep shooting!
     </div>
   </div>
 </body>
 </html>
   `;
 
+  const text = `Your Weekly Insights — ${userName}
+
+${report.insights.summary}
+
+Challenges completed: ${report.challengesCompleted} (last week: ${report.challengesCompletedLastWeek})
+Streak: ${report.currentStreak} days (best: ${report.longestStreak})
+${report.averageScore !== null ? `Average critique score: ${report.averageScore}/100` : ''}
+Completion rate: ${report.completionRate}%
+
+${report.insights.highlights.map(h => `- ${h}`).join('\n')}
+
+${report.insights.skillBreakdown}
+
+Recommendation: ${report.insights.recommendation}
+
+${report.insights.motivationalNote}
+
+View your progress: https://myfoto.topues.com/progress
+  `;
+
   return await sendEmail({
     to: userEmail,
-    subject: `Your Week in Photography - ${report.challengesCompleted} challenges completed!`,
+    subject: `Your Week in Photography — ${report.challengesCompleted} challenges completed!`,
+    text,
     html,
   });
 }

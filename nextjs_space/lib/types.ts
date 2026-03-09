@@ -107,3 +107,37 @@ export interface ReverseAnalysis {
   result: ReverseEngineeringResult;
   analysisDate: string;
 }
+
+export interface WeeklyInsightsData {
+  weekStart: string;
+  weekEnd: string;
+  challengesCompletedThisWeek: number;
+  challengesCompletedLastWeek: number;
+  submissionsThisWeek: number;
+  averageCritiqueScore: number | null;
+  previousAverageCritiqueScore: number | null;
+  scoreTrend: { technical: number | null; composition: number | null; creative: number | null };
+  previousScoreTrend: { technical: number | null; composition: number | null; creative: number | null };
+  topCategories: string[];
+  challengeCompletionRate: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+
+export interface WeeklyInsightsResult {
+  summary: string;
+  highlights: string[];
+  skillBreakdown: string;
+  recommendation: string;
+  motivationalNote: string;
+}
+
+export interface WeeklyReport {
+  id: string;
+  userId: string;
+  weekStart: string;
+  weekEnd: string;
+  stats: WeeklyInsightsData;
+  insights: WeeklyInsightsResult;
+  reportDate: string;
+}

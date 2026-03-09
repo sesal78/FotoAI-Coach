@@ -209,6 +209,16 @@ async function setup() {
   await addAttr('reverse_analyses', 'string', 'analysisDate');
   console.log('✅ reverse_analyses attributes done\n');
 
+  // ---- weekly_reports ----
+  await createCollectionSafe('weekly_reports', 'Weekly Reports');
+  await addAttr('weekly_reports', 'string', 'userId', { required: true });
+  await addAttr('weekly_reports', 'string', 'weekStart', { required: true });
+  await addAttr('weekly_reports', 'string', 'weekEnd', { required: true });
+  await addAttr('weekly_reports', 'string', 'statsJson', { size: 5000 });
+  await addAttr('weekly_reports', 'string', 'insightsJson', { size: 5000 });
+  await addAttr('weekly_reports', 'string', 'reportDate');
+  console.log('✅ weekly_reports attributes done\n');
+
   // ---- Storage bucket ----
   try {
     const bucket = await storage.createBucket(

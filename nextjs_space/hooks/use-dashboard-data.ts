@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis } from '@/lib/types';
+import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport } from '@/lib/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +131,22 @@ export function useReverseAnalyses(userId: string | undefined) {
       if (!res.ok) throw new Error(`Failed to fetch analyses (${res.status})`);
       const data = await res.json();
       return data.analyses ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Fetches weekly insight reports for the current user.
+ */
+export function useWeeklyInsights(userId: string | undefined, limit: number = 10) {
+  return useQuery<WeeklyReport[]>({
+    queryKey: ['weekly-insights', userId, limit],
+    queryFn: async () => {
+      const res = await fetch(`/api/insights?userId=${userId}&limit=${limit}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to fetch insights (${res.status})`);
+      const data = await res.json();
+      return data.reports ?? [];
     },
     enabled: !!userId,
   });

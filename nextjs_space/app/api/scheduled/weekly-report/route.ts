@@ -8,15 +8,28 @@ import {
   COLLECTION_DAILY_CHALLENGES,
   COLLECTION_CHALLENGE_SUBMISSIONS,
   COLLECTION_USER_PROGRESS,
+  COLLECTION_PHOTO_CRITIQUES,
+  COLLECTION_WEEKLY_REPORTS,
+  COLLECTION_USER_PREFERENCES,
   COLLECTION_AGENT_ACTIONS,
 } from '@/lib/appwrite-collections';
 import { sendWeeklyReport } from '@/lib/email';
+import { generateWeeklyInsights } from '@/lib/llm';
+import type { WeeklyInsightsData } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/scheduled/weekly-report - Generate and send weekly progress reports
- * This endpoint is called by cron jobs every Sunday
+ * Compute average of an array of numbers, or null if empty.
+ */
+function avg(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+}
+
+/**
+ * POST /api/scheduled/weekly-report - Generate and send weekly insights reports
+ * Called by cron every Sunday.
  */
 export async function POST(request: NextRequest) {
   const authError = verifyCronRequest(request);
@@ -25,97 +38,143 @@ export async function POST(request: NextRequest) {
   try {
     const { databases, users } = createAdminClient();
 
-    // Get all users from Appwrite Auth
     const allUsers = await users.list();
     const userList = allUsers.users;
 
     const results = [];
-    const oneWeekAgo = new Date();
+    const now = new Date();
+    const oneWeekAgo = new Date(now);
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const twoWeeksAgo = new Date(now);
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+    const weekStart = oneWeekAgo.toISOString().split('T')[0];
+    const weekEnd = now.toISOString().split('T')[0];
 
     for (const user of userList) {
       try {
-        // Get progress for streak info
-        const progressResult = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTION_USER_PROGRESS,
-          [Query.equal('userId', user.$id), Query.limit(1)]
-        );
-        const progressDoc = progressResult.documents[0] ?? null;
-
-        // Get challenges from the past week
-        const weekChallengesResult = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTION_DAILY_CHALLENGES,
-          [
+        // Fetch all required data in parallel
+        const [
+          progressResult,
+          thisWeekChallenges,
+          lastWeekChallenges,
+          thisWeekSubmissions,
+          thisWeekCritiques,
+          lastWeekCritiques,
+          prefsResult,
+        ] = await Promise.all([
+          databases.listDocuments(DATABASE_ID, COLLECTION_USER_PROGRESS, [
+            Query.equal('userId', user.$id), Query.limit(1),
+          ]),
+          databases.listDocuments(DATABASE_ID, COLLECTION_DAILY_CHALLENGES, [
             Query.equal('userId', user.$id),
             Query.greaterThanEqual('issuedDate', oneWeekAgo.toISOString()),
-          ]
-        );
-        const weekChallenges = weekChallengesResult.documents;
-        const completedChallenges = weekChallenges.filter((c) => c.status === 'completed');
-
-        // Get submissions from the past week
-        const weekSubmissionsResult = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTION_CHALLENGE_SUBMISSIONS,
-          [
+          ]),
+          databases.listDocuments(DATABASE_ID, COLLECTION_DAILY_CHALLENGES, [
+            Query.equal('userId', user.$id),
+            Query.greaterThanEqual('issuedDate', twoWeeksAgo.toISOString()),
+            Query.lessThan('issuedDate', oneWeekAgo.toISOString()),
+          ]),
+          databases.listDocuments(DATABASE_ID, COLLECTION_CHALLENGE_SUBMISSIONS, [
             Query.equal('userId', user.$id),
             Query.greaterThanEqual('submittedAt', oneWeekAgo.toISOString()),
-          ]
-        );
-        const weekSubmissions = weekSubmissionsResult.documents;
+          ]),
+          databases.listDocuments(DATABASE_ID, COLLECTION_PHOTO_CRITIQUES, [
+            Query.equal('userId', user.$id),
+            Query.greaterThanEqual('critiqueDate', oneWeekAgo.toISOString()),
+          ]),
+          databases.listDocuments(DATABASE_ID, COLLECTION_PHOTO_CRITIQUES, [
+            Query.equal('userId', user.$id),
+            Query.greaterThanEqual('critiqueDate', twoWeeksAgo.toISOString()),
+            Query.lessThan('critiqueDate', oneWeekAgo.toISOString()),
+          ]),
+          databases.listDocuments(DATABASE_ID, COLLECTION_USER_PREFERENCES, [
+            Query.equal('userId', user.$id), Query.limit(1),
+          ]),
+        ]);
 
-        // Fetch challenge category for each submission
-        const challengeIdSet = [
-          ...new Set(weekSubmissions.map((s) => s.challengeId as string)),
-        ];
+        const progressDoc = progressResult.documents[0] ?? null;
+        const skillLevel = (prefsResult.documents[0]?.skillLevel as string) || 'intermediate';
 
-        const challengeCategoryMap: Record<string, string> = {};
-        await Promise.all(
-          challengeIdSet.map(async (challengeId) => {
-            try {
-              const challengeDoc = await databases.getDocument(
-                DATABASE_ID,
-                COLLECTION_DAILY_CHALLENGES,
-                challengeId
-              );
-              challengeCategoryMap[challengeId] = challengeDoc.category as string;
-            } catch {
-              // Challenge may have been deleted; skip
-            }
-          })
-        );
+        // Compute stats
+        const completedThisWeek = thisWeekChallenges.documents.filter((c) => c.status === 'completed');
+        const completedLastWeek = lastWeekChallenges.documents.filter((c) => c.status === 'completed');
 
-        // Analyze favorite subjects
+        const thisWeekScores = thisWeekCritiques.documents.map((c) => c.overallScore as number);
+        const lastWeekScores = lastWeekCritiques.documents.map((c) => c.overallScore as number);
+
+        // Category breakdown from this week's completed challenges
         const categoryCount: Record<string, number> = {};
-        weekSubmissions.forEach((sub) => {
-          const category = challengeCategoryMap[sub.challengeId as string];
-          if (category) {
-            categoryCount[category] = (categoryCount[category] || 0) + 1;
-          }
+        completedThisWeek.forEach((c) => {
+          const cat = c.category as string;
+          if (cat) categoryCount[cat] = (categoryCount[cat] || 0) + 1;
         });
-
-        const favoriteSubjects = Object.entries(categoryCount)
+        const topCategories = Object.entries(categoryCount)
           .sort(([, a], [, b]) => b - a)
           .slice(0, 3)
-          .map(([category]) => category);
+          .map(([cat]) => cat);
 
-        // Get week highlight (highest rated submission)
-        const bestSubmission = weekSubmissions
-          .filter((s) => s.rating)
-          .sort((a, b) => ((b.rating as number) || 0) - ((a.rating as number) || 0))[0];
+        const completionRate = thisWeekChallenges.documents.length > 0
+          ? Math.round((completedThisWeek.length / thisWeekChallenges.documents.length) * 100)
+          : 0;
 
-        const weekHighlight = bestSubmission
-          ? `Your ${challengeCategoryMap[bestSubmission.challengeId as string] || 'photography'} challenge received ${bestSubmission.rating} stars!`
-          : undefined;
-
-        // Send weekly report email
-        const emailSent = await sendWeeklyReport(user.email, user.name, {
-          challengesCompleted: completedChallenges.length,
+        const stats: WeeklyInsightsData = {
+          weekStart,
+          weekEnd,
+          challengesCompletedThisWeek: completedThisWeek.length,
+          challengesCompletedLastWeek: completedLastWeek.length,
+          submissionsThisWeek: thisWeekSubmissions.documents.length,
+          averageCritiqueScore: avg(thisWeekScores),
+          previousAverageCritiqueScore: avg(lastWeekScores),
+          scoreTrend: {
+            technical: avg(thisWeekCritiques.documents.map((c) => c.technicalScore as number)),
+            composition: avg(thisWeekCritiques.documents.map((c) => c.compositionScore as number)),
+            creative: avg(thisWeekCritiques.documents.map((c) => c.creativeScore as number)),
+          },
+          previousScoreTrend: {
+            technical: avg(lastWeekCritiques.documents.map((c) => c.technicalScore as number)),
+            composition: avg(lastWeekCritiques.documents.map((c) => c.compositionScore as number)),
+            creative: avg(lastWeekCritiques.documents.map((c) => c.creativeScore as number)),
+          },
+          topCategories,
+          challengeCompletionRate: completionRate,
           currentStreak: (progressDoc?.currentStreak as number) || 0,
-          favoriteSubjects,
-          weekHighlight,
+          longestStreak: (progressDoc?.longestStreak as number) || 0,
+        };
+
+        // Generate AI insights
+        const insights = await generateWeeklyInsights({
+          userName: user.name,
+          skillLevel,
+          stats,
+        });
+
+        // Persist report to weekly_reports collection
+        const reportDoc = await databases.createDocument(
+          DATABASE_ID,
+          COLLECTION_WEEKLY_REPORTS,
+          ID.unique(),
+          {
+            userId: user.$id,
+            weekStart,
+            weekEnd,
+            statsJson: JSON.stringify(stats),
+            insightsJson: JSON.stringify(insights),
+            reportDate: now.toISOString(),
+          }
+        );
+
+        // Send email
+        const emailSent = await sendWeeklyReport(user.email, user.name, {
+          challengesCompleted: completedThisWeek.length,
+          challengesCompletedLastWeek: completedLastWeek.length,
+          currentStreak: stats.currentStreak,
+          longestStreak: stats.longestStreak,
+          averageScore: stats.averageCritiqueScore,
+          previousAverageScore: stats.previousAverageCritiqueScore,
+          completionRate,
+          favoriteSubjects: topCategories,
+          insights,
         });
 
         // Log agent action
@@ -125,11 +184,11 @@ export async function POST(request: NextRequest) {
           ID.unique(),
           {
             userId: user.$id,
-            actionType: 'WEEKLY_REPORT',
+            actionType: 'WEEKLY_INSIGHTS_REPORT',
             details: JSON.stringify({
-              challengesCompleted: completedChallenges.length,
-              totalChallenges: weekChallenges.length,
-              favoriteSubjects,
+              reportId: reportDoc.$id,
+              challengesCompleted: completedThisWeek.length,
+              averageScore: stats.averageCritiqueScore,
               emailSent,
             }),
             success: true,
@@ -139,11 +198,12 @@ export async function POST(request: NextRequest) {
         results.push({
           userId: user.$id,
           status: 'success',
-          challengesCompleted: completedChallenges.length,
+          reportId: reportDoc.$id,
+          challengesCompleted: completedThisWeek.length,
           emailSent,
         });
       } catch (userError) {
-        console.error(`Weekly report failed for user ${user.$id}:`, userError);
+        console.error(`Weekly insights failed for user ${user.$id}:`, userError);
         results.push({
           userId: user.$id,
           status: 'error',
@@ -153,13 +213,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Weekly report generation completed',
+      message: 'Weekly insights report generation completed',
       results,
     });
   } catch (error) {
-    console.error('Weekly report cron failed:', error);
+    console.error('Weekly insights cron failed:', error);
     return NextResponse.json(
-      { error: 'Weekly report generation failed' },
+      { error: 'Weekly insights report generation failed' },
       { status: 500 }
     );
   }

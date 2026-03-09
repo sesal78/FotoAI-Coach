@@ -12,5 +12,6 @@ export const COLLECTION_USER_PROGRESS = 'user_progress';
 export const COLLECTION_AGENT_ACTIONS = 'agent_actions';
 export const COLLECTION_PHOTO_CRITIQUES = 'photo_critiques';
 export const COLLECTION_REVERSE_ANALYSES = 'reverse_analyses';
+export const COLLECTION_WEEKLY_REPORTS = 'weekly_reports';
 
 export const STORAGE_BUCKET_SUBMISSIONS = process.env.APPWRITE_STORAGE_BUCKET_ID!;
