@@ -61,9 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         throw new Error(data.error || 'Login failed');
       }
-      await fetchUser();
+      // Validate the new session — fetchUser sets status silently,
+      // so we must verify it actually succeeded.
+      const meRes = await fetch('/api/auth/me');
+      if (!meRes.ok) {
+        throw new Error('Session could not be verified. Please try again.');
+      }
+      const userData = await meRes.json();
+      setUser({ id: userData.id, email: userData.email, name: userData.name });
+      setStatus('authenticated');
     },
-    [fetchUser],
+    [],
   );
 
   const signOut = useCallback(async () => {
