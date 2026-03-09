@@ -344,6 +344,89 @@ Respond with raw JSON only.`;
 }
 
 /**
+ * Reverse-engineer how an inspiration photo was taken.
+ * Returns estimated camera settings, lighting, position, and a shot recipe.
+ */
+export async function reverseEngineerPhoto(context: {
+  imageDataUri: string;
+  skillLevel: string;
+  gear?: string[];
+}): Promise<import('@/lib/types').ReverseEngineeringResult> {
+  const { imageDataUri, skillLevel, gear } = context;
+
+  const toneGuide =
+    skillLevel === 'beginner'
+      ? 'Use simple, beginner-friendly language. Avoid jargon or explain it when used. Be encouraging.'
+      : skillLevel === 'professional'
+        ? 'Be precise and technical. Assume familiarity with advanced concepts.'
+        : 'Be clear and specific. Briefly explain technical terms where helpful.';
+
+  const systemPrompt = `You are Foto AI, an expert photography coach who reverse-engineers photos to help photographers recreate shots they admire.
+
+Photographer skill level: ${skillLevel}
+${gear?.length ? `Available gear: ${gear.join(', ')}` : ''}
+
+Tone: ${toneGuide}
+
+Analyse the uploaded photograph and determine how it was taken. Provide:
+
+1. ESTIMATED CAMERA SETTINGS — ISO, aperture, shutter speed, focal length, metering mode
+2. LIGHTING ANALYSIS — time of day, light type (natural/artificial/mixed), direction, any modifiers
+3. CAMERA POSITION — distance from subject, angle, height relative to subject
+4. LENS TYPE — what kind of lens was likely used and why
+5. POST-PROCESSING — editing approach to achieve this look (color grade, contrast, toning)
+6. SHOT RECIPE — step-by-step instructions (5-8 steps) to recreate this shot
+7. DIFFICULTY — how hard this is to recreate (beginner / intermediate / advanced)
+8. GEAR NEEDED — essential equipment to recreate this${gear?.length ? ' (prefer items from the photographer\'s gear list when possible)' : ''}
+
+Respond in JSON:
+{
+  "estimatedSettings": {
+    "iso": "<range or value>",
+    "aperture": "<value>",
+    "shutterSpeed": "<value>",
+    "focalLength": "<value>",
+    "meteringMode": "<mode>"
+  },
+  "lightingAnalysis": {
+    "timeOfDay": "<description>",
+    "lightType": "<natural/artificial/mixed — details>",
+    "lightDirection": "<direction relative to camera>",
+    "modifiers": "<any light modifiers or none>"
+  },
+  "cameraPosition": "<description of camera position, distance, angle>",
+  "lensType": "<lens type and reasoning>",
+  "postProcessing": "<editing approach description>",
+  "shotRecipe": ["step 1", "step 2", "..."],
+  "difficultyToRecreate": "<beginner|intermediate|advanced>",
+  "gearNeeded": ["item 1", "item 2", "..."]
+}
+
+Respond with raw JSON only.`;
+
+  const response = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Reverse-engineer this photograph. How was this shot taken and how can I recreate it?' },
+          { type: 'image_url', image_url: { url: imageDataUri, detail: 'high' } },
+        ],
+      },
+    ],
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0.6,
+      max_tokens: 1500,
+      json_mode: true,
+    },
+  );
+
+  return JSON.parse(response.content);
+}
+
+/**
  * Generate a location-based photography itinerary
  */
 export async function generateItinerary(context: {

@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Challenge, UserProgress, PhotoCritique } from '@/lib/types';
+import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis } from '@/lib/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -115,6 +115,22 @@ export function usePhotoCritiques(userId: string | undefined) {
       if (!res.ok) throw new Error(`Failed to fetch critiques (${res.status})`);
       const data = await res.json();
       return data.critiques ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Fetches reverse-engineering analyses for the current user.
+ */
+export function useReverseAnalyses(userId: string | undefined) {
+  return useQuery<ReverseAnalysis[]>({
+    queryKey: ['reverse-analyses', userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/reverse-engineer?userId=${userId}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to fetch analyses (${res.status})`);
+      const data = await res.json();
+      return data.analyses ?? [];
     },
     enabled: !!userId,
   });

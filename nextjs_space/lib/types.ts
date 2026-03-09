@@ -68,3 +68,33 @@ export interface PhotoCritique {
   suggestedSettings: string;
   critiqueDate: string;
 }
+
+export interface ReverseEngineeringResult {
+  estimatedSettings: {
+    iso: string;
+    aperture: string;
+    shutterSpeed: string;
+    focalLength: string;
+    meteringMode: string;
+  };
+  lightingAnalysis: {
+    timeOfDay: string;
+    lightType: string;
+    lightDirection: string;
+    modifiers: string;
+  };
+  cameraPosition: string;
+  lensType: string;
+  postProcessing: string;
+  shotRecipe: string[];
+  difficultyToRecreate: string;
+  gearNeeded: string[];
+}
+
+export interface ReverseAnalysis {
+  id: string;
+  userId: string;
+  photoUrl: string;
+  result: ReverseEngineeringResult;
+  analysisDate: string;
+}

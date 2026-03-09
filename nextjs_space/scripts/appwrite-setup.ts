@@ -192,6 +192,14 @@ async function setup() {
   await addAttr('photo_critiques', 'string', 'critiqueDate');
   console.log('✅ photo_critiques attributes done\n');
 
+  // ---- reverse_analyses ----
+  await createCollectionSafe('reverse_analyses', 'Reverse Analyses');
+  await addAttr('reverse_analyses', 'string', 'userId', { required: true });
+  await addAttr('reverse_analyses', 'string', 'photoUrl', { required: true, size: 1000 });
+  await addAttr('reverse_analyses', 'string', 'resultJson', { size: 10000 });
+  await addAttr('reverse_analyses', 'string', 'analysisDate');
+  console.log('✅ reverse_analyses attributes done\n');
+
   // ---- Storage bucket ----
   try {
     const bucket = await storage.createBucket(
