@@ -50,3 +50,21 @@ export interface UserProgress {
   completionRate: number;
   favoriteSubjects: string[];
 }
+
+export interface PhotoCritique {
+  id: string;
+  userId: string;
+  submissionId?: string;
+  photoUrl: string;
+  technicalScore: number;
+  compositionScore: number;
+  creativeScore: number;
+  overallScore: number;
+  technicalFeedback: string;
+  compositionFeedback: string;
+  creativeFeedback: string;
+  strengths: string[];
+  improvements: string[];
+  suggestedSettings: string;
+  critiqueDate: string;
+}

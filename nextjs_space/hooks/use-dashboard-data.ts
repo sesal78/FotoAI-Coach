@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Challenge, UserProgress } from '@/lib/types';
+import type { Challenge, UserProgress, PhotoCritique } from '@/lib/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -99,6 +99,22 @@ export function useItineraries(userId: string | undefined) {
       if (!res.ok) throw new Error(`Failed to fetch itineraries (${res.status})`);
       const data = await res.json();
       return data.itineraries ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Fetches photo critiques for the current user.
+ */
+export function usePhotoCritiques(userId: string | undefined) {
+  return useQuery<PhotoCritique[]>({
+    queryKey: ['critiques', userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/critiques?userId=${userId}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to fetch critiques (${res.status})`);
+      const data = await res.json();
+      return data.critiques ?? [];
     },
     enabled: !!userId,
   });

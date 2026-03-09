@@ -10,5 +10,6 @@ export const COLLECTION_CHALLENGE_SUBMISSIONS = 'challenge_submissions';
 export const COLLECTION_ITINERARIES = 'itineraries';
 export const COLLECTION_USER_PROGRESS = 'user_progress';
 export const COLLECTION_AGENT_ACTIONS = 'agent_actions';
+export const COLLECTION_PHOTO_CRITIQUES = 'photo_critiques';
 
 export const STORAGE_BUCKET_SUBMISSIONS = process.env.APPWRITE_STORAGE_BUCKET_ID!;

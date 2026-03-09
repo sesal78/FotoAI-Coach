@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon } from 'lucide-react'
+import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 const navItems = [
   { href: '/', label: 'Home' },
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/critique', label: 'Critique' },
   { href: '/chat', label: 'Coach' },
   { href: '/locations', label: 'Locations' },
   { href: '/about', label: 'About' },
@@ -155,6 +156,12 @@ export default function Navbar() {
                         <Link href="/locations" className="flex items-center gap-2 cursor-pointer">
                           <MapPin className="h-4 w-4" />
                           Locations
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/critique" className="flex items-center gap-2 cursor-pointer">
+                          <Eye className="h-4 w-4" />
+                          Photo Critique
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -307,6 +314,7 @@ export default function Navbar() {
                       {/* Quick links */}
                       {[
                         { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+                        { href: '/critique', icon: Eye, label: 'Photo Critique' },
                         { href: '/progress', icon: TrendingUp, label: 'My Progress' },
                         { href: '/settings', icon: Settings, label: 'Settings' },
                       ].map(({ href, icon: Icon, label }) => (

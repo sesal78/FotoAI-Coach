@@ -169,6 +169,24 @@ async function setup() {
   await addAttr('agent_actions', 'string', 'executedAt');
   console.log('✅ agent_actions attributes done\n');
 
+  // ---- photo_critiques ----
+  await createCollectionSafe('photo_critiques', 'Photo Critiques');
+  await addAttr('photo_critiques', 'string', 'userId', { required: true });
+  await addAttr('photo_critiques', 'string', 'submissionId');
+  await addAttr('photo_critiques', 'string', 'photoUrl', { required: true, size: 1000 });
+  await addAttr('photo_critiques', 'integer', 'technicalScore', { min: 0, max: 100 });
+  await addAttr('photo_critiques', 'integer', 'compositionScore', { min: 0, max: 100 });
+  await addAttr('photo_critiques', 'integer', 'creativeScore', { min: 0, max: 100 });
+  await addAttr('photo_critiques', 'integer', 'overallScore', { min: 0, max: 100 });
+  await addAttr('photo_critiques', 'string', 'technicalFeedback', { size: 3000 });
+  await addAttr('photo_critiques', 'string', 'compositionFeedback', { size: 3000 });
+  await addAttr('photo_critiques', 'string', 'creativeFeedback', { size: 3000 });
+  await addAttr('photo_critiques', 'stringArray', 'strengths');
+  await addAttr('photo_critiques', 'stringArray', 'improvements');
+  await addAttr('photo_critiques', 'string', 'suggestedSettings', { size: 1000 });
+  await addAttr('photo_critiques', 'string', 'critiqueDate');
+  console.log('✅ photo_critiques attributes done\n');
+
   // ---- Storage bucket ----
   try {
     const bucket = await storage.createBucket(

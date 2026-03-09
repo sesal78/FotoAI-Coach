@@ -1,9 +1,13 @@
 
 // LLM API utilities for Foto AI Agent
 
+export type LLMContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } };
+
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | LLMContentPart[];
 }
 
 export interface LLMResponse {
@@ -17,7 +21,7 @@ export interface LLMResponse {
 }
 
 /**
- * Call Abacus.AI LLM API
+ * Call OpenAI-compatible LLM API (supports text and vision)
  */
 export async function callLLM(
   messages: LLMMessage[],
@@ -62,7 +66,7 @@ export async function callLLM(
     }
 
     const data = await response.json();
-    
+
     return {
       content: data.choices[0].message.content,
       model: data.model,
@@ -238,6 +242,105 @@ Please provide constructive feedback.`;
     console.error('Feedback generation failed:', error);
     return 'Thank you for completing this challenge! Keep practicing and exploring your creative vision.';
   }
+}
+
+/**
+ * Photo critique result type
+ */
+export interface PhotoCritiqueResult {
+  technicalScore: number;
+  compositionScore: number;
+  creativeScore: number;
+  overallScore: number;
+  technicalFeedback: string;
+  compositionFeedback: string;
+  creativeFeedback: string;
+  strengths: string[];
+  improvements: string[];
+  suggestedSettings: string;
+}
+
+/**
+ * Analyse a photo across technical, composition, and creative dimensions.
+ * Accepts a base64 data URI or a public image URL.
+ */
+export async function critiquePhoto(context: {
+  imageDataUri: string;
+  skillLevel: string;
+  challengeText?: string;
+  userNotes?: string;
+  gear?: string[];
+}): Promise<PhotoCritiqueResult> {
+  const { imageDataUri, skillLevel, challengeText, userNotes, gear } = context;
+
+  const toneGuide =
+    skillLevel === 'beginner'
+      ? 'Use an encouraging, "explain like I\'m five" tone. Celebrate small wins and avoid jargon.'
+      : skillLevel === 'professional'
+        ? 'Be direct and technical. Assume strong fundamentals. Focus on subtle refinements.'
+        : 'Be constructive and specific. Explain technical concepts briefly where needed.';
+
+  const systemPrompt = `You are Foto AI, an expert photography coach providing detailed photo critiques.
+
+Photographer skill level: ${skillLevel}
+${gear?.length ? `Gear: ${gear.join(', ')}` : ''}
+${challengeText ? `Challenge being attempted: ${challengeText}` : ''}
+${userNotes ? `Photographer's notes: ${userNotes}` : ''}
+
+Tone: ${toneGuide}
+
+Analyse the uploaded photograph across three dimensions:
+
+1. TECHNICAL (exposure, focus/sharpness, noise, white balance, dynamic range)
+2. COMPOSITION (rule of thirds, leading lines, balance, depth/layering, negative space, frame edges)
+3. CREATIVE (storytelling, emotional impact, colour theory, genre execution)
+
+For each dimension:
+- Provide 3-5 sentences of specific, actionable feedback
+- Score from 0-100
+
+Also provide:
+- An overall score (weighted average: technical 35%, composition 35%, creative 30%)
+- Top 3 strengths (short phrases)
+- Top 3 priority improvements (short phrases, most impactful first)
+- A brief "suggested settings" note if you can infer better camera settings
+
+Respond in JSON:
+{
+  "technicalScore": <number>,
+  "compositionScore": <number>,
+  "creativeScore": <number>,
+  "overallScore": <number>,
+  "technicalFeedback": "<string>",
+  "compositionFeedback": "<string>",
+  "creativeFeedback": "<string>",
+  "strengths": ["<string>", "<string>", "<string>"],
+  "improvements": ["<string>", "<string>", "<string>"],
+  "suggestedSettings": "<string>"
+}
+
+Respond with raw JSON only.`;
+
+  const response = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Please critique this photograph.' },
+          { type: 'image_url', image_url: { url: imageDataUri, detail: 'high' } },
+        ],
+      },
+    ],
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0.6,
+      max_tokens: 1500,
+      json_mode: true,
+    },
+  );
+
+  return JSON.parse(response.content);
 }
 
 /**
