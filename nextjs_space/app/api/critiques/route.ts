@@ -85,7 +85,26 @@ export async function POST(request: NextRequest) {
     if (photo) {
       // Direct upload — convert to base64
       const buffer = Buffer.from(await photo.arrayBuffer());
-      const mimeType = photo.type || 'image/jpeg';
+      const rawMime = photo.type || 'image/jpeg';
+      const ext = (photo.name || '').toLowerCase().match(/\.\w+$/)?.[0] || '';
+      const RAW_EXTENSIONS = ['.cr2', '.cr3', '.nef', '.arw', '.dng', '.raf', '.orf', '.rw2', '.pef', '.srw', '.raw'];
+      const isRaw = RAW_EXTENSIONS.includes(ext) || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(rawMime);
+
+      if (isRaw) {
+        // Check if it's actually a JPEG/PNG with wrong MIME (some cameras do this)
+        const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8;
+        const isPng = buffer[0] === 0x89 && buffer[1] === 0x50;
+        if (!isJpeg && !isPng) {
+          return NextResponse.json(
+            { error: 'RAW files cannot be analysed directly. Please export as JPEG or PNG first, then upload for critique.' },
+            { status: 400 }
+          );
+        }
+        // It's actually JPEG/PNG with wrong extension/MIME — proceed
+      }
+      // Use detected MIME based on magic bytes, not the file's reported MIME
+      const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8;
+      const mimeType = isJpeg ? 'image/jpeg' : rawMime.startsWith('image/') ? rawMime : 'image/jpeg';
       imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
       // Also upload to storage for record keeping
@@ -112,7 +131,17 @@ export async function POST(request: NextRequest) {
       if (fileIdMatch) {
         const fileBytes = await storage.getFileView(STORAGE_BUCKET_SUBMISSIONS, fileIdMatch[1]);
         const buffer = Buffer.from(fileBytes);
-        imageDataUri = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+        // Detect actual format from magic bytes
+        const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8;
+        const isPng = buffer[0] === 0x89 && buffer[1] === 0x50;
+        if (!isJpeg && !isPng) {
+          return NextResponse.json(
+            { error: 'This photo appears to be a RAW file. Please export as JPEG or PNG first for critique.' },
+            { status: 400 }
+          );
+        }
+        const detectedMime = isJpeg ? 'image/jpeg' : 'image/png';
+        imageDataUri = `data:${detectedMime};base64,${buffer.toString('base64')}`;
       } else {
         return NextResponse.json({ error: 'Could not resolve photo from submission' }, { status: 400 });
       }

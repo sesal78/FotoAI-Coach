@@ -97,10 +97,12 @@ export async function POST(request: NextRequest) {
         console.log('[chat] Parsed challenge:', challengeData.category, challengeData.difficulty);
         const { databases } = createAdminClient();
 
-        // Upsert: update existing pending challenge or create new one
+        // Upsert: update existing CHATBOT pending challenge or create new one
+        // Only overwrite chatbot-generated challenges, not dashboard-generated ones
         const existing = await databases.listDocuments(DATABASE_ID, COLLECTION_DAILY_CHALLENGES, [
           Query.equal('userId', userId),
           Query.equal('status', 'pending'),
+          Query.equal('challengeType', 'CHATBOT_GENERATED'),
           Query.limit(1),
         ]);
 

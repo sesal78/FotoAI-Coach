@@ -65,13 +65,14 @@ export async function POST(request: NextRequest) {
 
     const { databases } = createAdminClient();
 
-    // Check if user has a pending challenge (findFirst equivalent)
+    // Check if user has a pending CHATBOT challenge (only overwrite chatbot challenges)
     const existingResult = await databases.listDocuments(
       DATABASE_ID,
       COLLECTION_DAILY_CHALLENGES,
       [
         Query.equal('userId', resolvedUserId),
         Query.equal('status', 'pending'),
+        Query.equal('challengeType', 'CHATBOT_GENERATED'),
         Query.limit(1),
       ]
     );

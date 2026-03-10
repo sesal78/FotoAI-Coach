@@ -17,8 +17,19 @@ import {
 import { generateFeedback, critiquePhoto } from '@/lib/llm';
 import { awardChallengeXP, awardSubmissionXP } from '@/lib/xp';
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic',
+  // RAW formats
+  'image/x-canon-cr2', 'image/x-canon-cr3', 'image/x-nikon-nef',
+  'image/x-sony-arw', 'image/x-adobe-dng', 'image/x-fuji-raf',
+  'image/x-olympus-orf', 'image/x-panasonic-rw2', 'image/x-pentax-pef',
+  'image/x-samsung-srw', 'image/x-dcraw',
+  // Some browsers report RAW as generic
+  'application/octet-stream',
+];
+const RAW_EXTENSIONS = ['.cr2', '.cr3', '.nef', '.arw', '.dng', '.raf', '.orf', '.rw2', '.pef', '.srw', '.raw'];
+const VISION_SUPPORTED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB (RAW files are large)
 
 export const dynamic = 'force-dynamic';
 
@@ -130,15 +141,18 @@ export async function POST(request: NextRequest) {
 
     // Validate photo file before upload
     if (photo) {
-      if (!ALLOWED_MIME_TYPES.includes(photo.type)) {
+      const ext = (photo.name || '').toLowerCase().match(/\.\w+$/)?.[0] || '';
+      const isRawByExt = RAW_EXTENSIONS.includes(ext);
+      const isAllowedMime = ALLOWED_MIME_TYPES.includes(photo.type);
+      if (!isAllowedMime && !isRawByExt) {
         return NextResponse.json(
-          { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, HEIC' },
+          { error: `Invalid file type "${photo.type}". Allowed: JPEG, PNG, WebP, HEIC, and RAW formats (CR2, NEF, ARW, DNG, RAF, ORF, etc.)` },
           { status: 400 }
         );
       }
       if (photo.size > MAX_FILE_SIZE) {
         return NextResponse.json(
-          { error: 'File too large. Maximum size: 10 MB' },
+          { error: 'File too large. Maximum size: 50 MB' },
           { status: 400 }
         );
       }
@@ -389,7 +403,17 @@ async function generateCritiqueAsync(
 
     const fileBytes = await storage.getFileView(STORAGE_BUCKET_SUBMISSIONS, fileIdMatch[1]);
     const buffer = Buffer.from(fileBytes);
-    const imageDataUri = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+
+    // Detect format: if it's a RAW file (not JPEG/PNG), we can't send to vision API
+    // Check JPEG magic bytes (FF D8 FF) or PNG (89 50 4E 47)
+    const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8;
+    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+    if (!isJpeg && !isPng) {
+      console.warn('Auto-critique skipped: file is not JPEG/PNG (likely RAW). Vision API requires standard image formats.');
+      return;
+    }
+    const mimeType = isJpeg ? 'image/jpeg' : 'image/png';
+    const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
     const result = await critiquePhoto({
       imageDataUri,

@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
         [
           Query.equal('userId', userId),
           Query.equal('status', 'pending'),
+          Query.notEqual('challengeType', 'CHATBOT_GENERATED'),
           Query.greaterThanEqual('issuedDate', today.toISOString()),
           Query.limit(1),
         ]

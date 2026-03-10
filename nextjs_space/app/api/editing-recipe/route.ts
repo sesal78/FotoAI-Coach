@@ -92,8 +92,33 @@ export async function POST(request: NextRequest) {
       editedPhoto.arrayBuffer().then((ab) => Buffer.from(ab)),
     ]);
 
-    const originalMime = originalPhoto.type || 'image/jpeg';
-    const editedMime = editedPhoto.type || 'image/jpeg';
+    // Detect MIME from magic bytes — RAW files report wrong MIME types
+    function detectMime(buf: Buffer, fallback: string): string {
+      if (buf[0] === 0xFF && buf[1] === 0xD8) return 'image/jpeg';
+      if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'image/png';
+      if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return 'image/webp'; // RIFF (WebP)
+      // If none match, it's likely a RAW file
+      return fallback;
+    }
+
+    const RAW_EXTENSIONS = ['.cr2', '.cr3', '.nef', '.arw', '.dng', '.raf', '.orf', '.rw2', '.pef', '.srw', '.raw'];
+    const VISION_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+    const originalMime = detectMime(originalBuffer, originalPhoto.type || 'image/jpeg');
+    const editedMime = detectMime(editedBuffer, editedPhoto.type || 'image/jpeg');
+
+    // Check if either file is a RAW that can't be sent to vision API
+    const origExt = (originalPhoto.name || '').toLowerCase().match(/\.\w+$/)?.[0] || '';
+    const editExt = (editedPhoto.name || '').toLowerCase().match(/\.\w+$/)?.[0] || '';
+
+    if ((RAW_EXTENSIONS.includes(origExt) && !VISION_MIMES.includes(originalMime)) ||
+        (RAW_EXTENSIONS.includes(editExt) && !VISION_MIMES.includes(editedMime))) {
+      return NextResponse.json(
+        { error: 'RAW files cannot be analysed directly by the AI vision model. Please export both photos as JPEG or PNG first.' },
+        { status: 400 }
+      );
+    }
+
     const originalDataUri = `data:${originalMime};base64,${originalBuffer.toString('base64')}`;
     const editedDataUri = `data:${editedMime};base64,${editedBuffer.toString('base64')}`;
 
