@@ -43,8 +43,9 @@ const TOOLTIP_STYLE = {
 
 export default function ProgressPage() {
   const { user, status } = useAppwriteAuth();
-  const { data: progress, isLoading: progressLoading } = useUserProgress(user?.id);
-  const { data: recentData } = useRecentChallenges(user?.id, 50);
+  const hasFotoaiSession = status === 'authenticated';
+  const { data: progress, isLoading: progressLoading } = useUserProgress(hasFotoaiSession);
+  const { data: recentData } = useRecentChallenges(50, hasFotoaiSession);
   const { data: weeklyInsights, isLoading: insightsLoading } = useWeeklyInsights(user?.id, 5);
   const [showOlderReports, setShowOlderReports] = useState(false);
   const allChallenges = recentData?.challenges ?? [];

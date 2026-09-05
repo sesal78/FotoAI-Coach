@@ -1,7 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
+import {
+  createFotoaiGear,
+  deleteFotoaiGear,
+  getFotoaiPreferences,
+  listFotoaiGear,
+  saveFotoaiPreferences,
+  type FotoaiGear,
+  type FotoaiGearCategory,
+  type FotoaiPreferences,
+  type FotoaiSkillLevel,
+} from '@/lib/fotoai/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,70 +20,43 @@ import { toast } from 'sonner';
 import { ArrowLeft, Save, Camera, MapPin, User } from 'lucide-react';
 import Link from 'next/link';
 
-interface Preferences {
-  skillLevel: string;
-  photographyInterests: string[];
-  homeLocation: string;
-  currentLocation: string;
-}
-
-interface GearItem {
-  id: string;
-  category: string;
-  brand: string;
-  model: string;
-}
-
 export default function SettingsPage() {
-  const { user, status } = useAppwriteAuth();
+  const { user, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [prefs, setPrefs] = useState<Preferences>({
+  const [prefs, setPrefs] = useState<FotoaiPreferences>({
     skillLevel: 'intermediate',
     photographyInterests: [],
-    homeLocation: '',
-    currentLocation: '',
+    homeLocation: null,
+    currentLocation: null,
   });
-  const [gear, setGear] = useState<GearItem[]>([]);
+  const [gear, setGear] = useState<FotoaiGear[]>([]);
   const [newGearBrand, setNewGearBrand] = useState('');
   const [newGearModel, setNewGearModel] = useState('');
-  const [newGearCategory, setNewGearCategory] = useState('camera');
+  const [newGearCategory, setNewGearCategory] = useState<FotoaiGearCategory>('camera');
 
-  const skillLevels = ['beginner', 'intermediate', 'advanced', 'professional'];
+  const skillLevels: FotoaiSkillLevel[] = ['beginner', 'intermediate', 'advanced', 'professional'];
   const interestOptions = [
     'street', 'portrait', 'landscape', 'architecture', 'nature',
     'abstract', 'documentary', 'travel', 'macro', 'night',
   ];
 
   useEffect(() => {
-    if (status === 'authenticated' && user?.id) {
+    if (status === 'authenticated') {
       loadSettings();
+    } else if (status === 'unauthenticated') {
+      setLoading(false);
     }
-  }, [status, user?.id]);
+  }, [status]);
 
   async function loadSettings() {
     try {
-      const [prefsRes, gearRes] = await Promise.all([
-        fetch(`/api/settings/preferences?userId=${user!.id}`),
-        fetch(`/api/settings/gear?userId=${user!.id}`),
+      const [loadedPreferences, loadedGear] = await Promise.all([
+        getFotoaiPreferences(),
+        listFotoaiGear(),
       ]);
-
-      if (prefsRes.ok) {
-        const data = await prefsRes.json();
-        if (data.preferences) {
-          setPrefs({
-            skillLevel: data.preferences.skillLevel || 'intermediate',
-            photographyInterests: data.preferences.photographyInterests || [],
-            homeLocation: data.preferences.homeLocation || '',
-            currentLocation: data.preferences.currentLocation || '',
-          });
-        }
-      }
-
-      if (gearRes.ok) {
-        const data = await gearRes.json();
-        setGear(data.gear || []);
-      }
+      setPrefs(loadedPreferences);
+      setGear(loadedGear);
     } catch (err) {
       console.error('Failed to load settings:', err);
     } finally {
@@ -83,16 +67,12 @@ export default function SettingsPage() {
   async function savePreferences() {
     setSaving(true);
     try {
-      const res = await fetch('/api/settings/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user!.id, ...prefs }),
-      });
-      if (res.ok) {
-        toast.success('Preferences saved!');
-      } else {
-        toast.error('Failed to save preferences');
-      }
+      setPrefs(await saveFotoaiPreferences({
+        ...prefs,
+        homeLocation: prefs.homeLocation?.trim() || null,
+        currentLocation: prefs.currentLocation?.trim() || null,
+      }));
+      toast.success('Preferences saved!');
     } catch {
       toast.error('Failed to save preferences');
     } finally {
@@ -106,25 +86,15 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const res = await fetch('/api/settings/gear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user!.id,
-          category: newGearCategory,
-          brand: newGearBrand.trim(),
-          model: newGearModel.trim(),
-        }),
+      const item = await createFotoaiGear({
+        category: newGearCategory,
+        brand: newGearBrand.trim(),
+        model: newGearModel.trim(),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGear((prev) => [...prev, data.gear]);
-        setNewGearBrand('');
-        setNewGearModel('');
-        toast.success('Gear added!');
-      } else {
-        toast.error('Failed to add gear');
-      }
+      setGear((prev) => [...prev, item]);
+      setNewGearBrand('');
+      setNewGearModel('');
+      toast.success('Gear added!');
     } catch {
       toast.error('Failed to add gear');
     }
@@ -132,11 +102,9 @@ export default function SettingsPage() {
 
   async function removeGear(gearId: string) {
     try {
-      const res = await fetch(`/api/settings/gear?gearId=${gearId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setGear((prev) => prev.filter((g) => g.id !== gearId));
-        toast.success('Gear removed');
-      }
+      await deleteFotoaiGear(gearId);
+      setGear((prev) => prev.filter((g) => g.id !== gearId));
+      toast.success('Gear removed');
     } catch {
       toast.error('Failed to remove gear');
     }
@@ -258,7 +226,7 @@ export default function SettingsPage() {
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-2">Home Location</label>
               <Input
-                value={prefs.homeLocation}
+                value={prefs.homeLocation ?? ''}
                 onChange={(e) => setPrefs((p) => ({ ...p, homeLocation: e.target.value }))}
                 placeholder="e.g., Melbourne, Australia"
                 className="h-11"
@@ -267,7 +235,7 @@ export default function SettingsPage() {
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-2">Current Location</label>
               <Input
-                value={prefs.currentLocation}
+                value={prefs.currentLocation ?? ''}
                 onChange={(e) => setPrefs((p) => ({ ...p, currentLocation: e.target.value }))}
                 placeholder="e.g., Melbourne CBD"
                 className="h-11"
@@ -324,14 +292,13 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <select
                 value={newGearCategory}
-                onChange={(e) => setNewGearCategory(e.target.value)}
+                onChange={(e) => setNewGearCategory(e.target.value as FotoaiGearCategory)}
                 className="h-11 px-3 border border-border bg-background text-foreground rounded-md text-sm"
               >
                 <option value="camera">Camera</option>
                 <option value="lens">Lens</option>
                 <option value="tripod">Tripod</option>
-                <option value="filter">Filter</option>
-                <option value="flash">Flash</option>
+                <option value="light">Light</option>
                 <option value="other">Other</option>
               </select>
               <Input

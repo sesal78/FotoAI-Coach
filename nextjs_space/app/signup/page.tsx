@@ -62,7 +62,11 @@ function SignupForm() {
     setLoading(true);
     try {
       justRegistered.current = true;
-      await register(email, password, name);
+      const result = await register(email, password, name);
+      if (result.confirmationRequired) {
+        setError('Account created. Confirm your email, then sign in.');
+        return;
+      }
       router.replace('/onboarding');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');

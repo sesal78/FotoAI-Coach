@@ -1,14 +1,19 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  getFotoaiSession,
+  loginFotoai,
+  logoutFotoai,
+  registerFotoai,
+  type FotoaiUser,
+} from '@/lib/fotoai/client';
+import { clearFotoaiQueryCache } from '@/lib/fotoai/query-cache';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export interface AppwriteUser {
-  id: string;
-  email: string;
-  name: string;
-}
+export type AppwriteUser = FotoaiUser;
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -19,7 +24,7 @@ interface AuthContextValue {
   status: AuthStatus;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<{ confirmationRequired: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,24 +32,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // ── Provider ───────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AppwriteUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
 
-  // Use our own /api/auth/me endpoint -- it reads the httpOnly session cookie
-  // server-side. Calling account.get() from the browser SDK doesn't work because
-  // the cookie lives on our domain, not on Appwrite's domain.
+  // The FotoAI API reads and verifies the HttpOnly session cookie server-side.
   const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) throw new Error('Not authenticated');
-      const data = await res.json();
-      setUser({ id: data.id, email: data.email, name: data.name });
+      setUser(await getFotoaiSession());
       setStatus('authenticated');
     } catch {
+      clearFotoaiQueryCache(queryClient);
       setUser(null);
       setStatus('unauthenticated');
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     fetchUser();
@@ -52,48 +54,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Login failed');
-      }
-      // Validate the new session — fetchUser sets status silently,
-      // so we must verify it actually succeeded.
-      const meRes = await fetch('/api/auth/me');
-      if (!meRes.ok) {
-        throw new Error('Session could not be verified. Please try again.');
-      }
-      const userData = await meRes.json();
-      setUser({ id: userData.id, email: userData.email, name: userData.name });
+      await loginFotoai(email, password);
+      clearFotoaiQueryCache(queryClient);
+      const userData = await getFotoaiSession();
+      setUser(userData);
       setStatus('authenticated');
     },
-    [],
+    [queryClient],
   );
 
   const signOut = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    setStatus('unauthenticated');
-  }, []);
+    try {
+      await logoutFotoai();
+    } finally {
+      clearFotoaiQueryCache(queryClient);
+      setUser(null);
+      setStatus('unauthenticated');
+    }
+  }, [queryClient]);
 
   const register = useCallback(
     async (email: string, password: string, name: string) => {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Registration failed');
+      const result = await registerFotoai(email, password, name);
+      clearFotoaiQueryCache(queryClient);
+      if (result.confirmationRequired) {
+        setUser(null);
+        setStatus('unauthenticated');
+        return result;
       }
       await fetchUser();
+      return result;
     },
-    [fetchUser],
+    [fetchUser, queryClient],
   );
 
   return (

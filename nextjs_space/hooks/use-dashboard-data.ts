@@ -3,64 +3,33 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Challenge, UserProgress, PhotoCritique, ReverseAnalysis, WeeklyReport, EditingRecipeAnalysis, SkillTreeResponse, PortfolioAnalysisDoc } from '@/lib/types';
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function readLocalStorageChallenge(): Challenge | undefined {
-  try {
-    const raw = localStorage.getItem('currentChallenge');
-    return raw ? (JSON.parse(raw) as Challenge) : undefined;
-  } catch {
-    return undefined;
-  }
-}
+import { getFotoaiProgress, listFotoaiChallenges } from '@/lib/fotoai/client';
 
 // ── Hooks ───────────────────────────────────────────────────────────────────
 
 /**
  * Fetches the single pending challenge for the current user.
- * Falls back to localStorage if the server hasn't responded yet.
- * On success the challenge is persisted to localStorage for offline use.
  */
-export function usePendingChallenge(userId: string | undefined) {
+export function usePendingChallenge(enabled: boolean) {
   return useQuery<Challenge | null>({
-    queryKey: ['challenges', 'pending', userId],
+    queryKey: ['fotoai', 'challenges', 'pending'],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/challenges?userId=${userId}&status=pending&limit=1`,
-        { cache: 'no-store' },
-      );
-      if (!res.ok) throw new Error(`Failed to fetch pending challenge (${res.status})`);
-      const data = await res.json();
-      const challenge: Challenge | null = data.challenges?.[0] ?? null;
-
-      // Persist to localStorage for offline fallback
-      if (challenge) {
-        localStorage.setItem('currentChallenge', JSON.stringify(challenge));
-      }
+      const challenge = (await listFotoaiChallenges({ status: 'pending', limit: 1 }))[0] ?? null;
 
       return challenge;
     },
-    enabled: !!userId,
-    placeholderData: () => readLocalStorageChallenge() ?? undefined,
+    enabled,
   });
 }
 
 /**
  * Fetches aggregate progress stats for the current user.
  */
-export function useUserProgress(userId: string | undefined) {
+export function useUserProgress(enabled: boolean) {
   return useQuery<UserProgress | null>({
-    queryKey: ['progress', userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/progress?userId=${userId}`, {
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error(`Failed to fetch progress (${res.status})`);
-      const data = await res.json();
-      return data.progress ?? null;
-    },
-    enabled: !!userId,
+    queryKey: ['fotoai', 'progress'],
+    queryFn: () => getFotoaiProgress(),
+    enabled,
   });
 }
 
@@ -68,21 +37,15 @@ export function useUserProgress(userId: string | undefined) {
  * Fetches the most recent challenges (any status) for the current user.
  * Supports pagination via limit parameter.
  */
-export function useRecentChallenges(userId: string | undefined, limit: number = 5) {
+export function useRecentChallenges(limit: number = 5, enabled: boolean = true) {
   return useQuery<{ challenges: Challenge[]; hasMore: boolean }>({
-    queryKey: ['challenges', 'recent', userId, limit],
+    queryKey: ['fotoai', 'challenges', 'recent', limit],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/challenges?userId=${userId}&status=all&limit=${limit + 1}`,
-        { cache: 'no-store' },
-      );
-      if (!res.ok) throw new Error(`Failed to fetch recent challenges (${res.status})`);
-      const data = await res.json();
-      const all: Challenge[] = data.challenges ?? [];
+      const all = await listFotoaiChallenges({ status: 'all', limit: limit + 1 });
       const hasMore = all.length > limit;
       return { challenges: all.slice(0, limit), hasMore };
     },
-    enabled: !!userId,
+    enabled,
   });
 }
 
@@ -206,8 +169,8 @@ export function useSkillTree(userId: string | undefined) {
 export function useInvalidateDashboard() {
   const queryClient = useQueryClient();
   return useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['challenges'] });
-    queryClient.invalidateQueries({ queryKey: ['progress'] });
+    queryClient.invalidateQueries({ queryKey: ['fotoai', 'challenges'] });
+    queryClient.invalidateQueries({ queryKey: ['fotoai', 'progress'] });
     queryClient.invalidateQueries({ queryKey: ['itineraries'] });
   }, [queryClient]);
 }

@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:fotoai": "node tests/fotoai/run.mjs"
   },
   "devDependencies": {
     "@next/swc-wasm-nodejs": "13.5.1",

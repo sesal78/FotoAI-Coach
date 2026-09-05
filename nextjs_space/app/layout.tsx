@@ -27,8 +27,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <QueryProvider>
+          <QueryProvider>
+            <AuthProvider>
               {/* Subtle grain texture overlay */}
               <div className="grain-overlay" aria-hidden="true" />
 
@@ -48,8 +48,8 @@ export default function RootLayout({
                   }
                 }}
               />
-            </QueryProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

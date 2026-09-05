@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
+import {
+  createFotoaiGear,
+  saveFotoaiPreferences,
+  type CreateFotoaiGearInput,
+  type FotoaiSkillLevel,
+} from '@/lib/fotoai/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +25,7 @@ import {
 
 const STEPS = ['Welcome', 'Skill & Interests', 'Location', 'Gear'] as const;
 
-const SKILL_LEVELS = [
+const SKILL_LEVELS: Array<{ value: FotoaiSkillLevel; label: string; desc: string }> = [
   { value: 'beginner', label: 'Beginner', desc: 'Just getting started with photography' },
   { value: 'intermediate', label: 'Intermediate', desc: 'Comfortable with basics, learning more' },
   { value: 'advanced', label: 'Advanced', desc: 'Strong technical skills, refining style' },
@@ -32,7 +38,7 @@ const INTEREST_OPTIONS = [
   'food', 'fashion', 'sports', 'wildlife', 'urban',
 ];
 
-const GEAR_PRESETS = [
+const GEAR_PRESETS: CreateFotoaiGearInput[] = [
   { category: 'camera', brand: 'Sony', model: 'A7 IV' },
   { category: 'camera', brand: 'Canon', model: 'R6 II' },
   { category: 'camera', brand: 'Nikon', model: 'Z6 III' },
@@ -44,12 +50,12 @@ const GEAR_PRESETS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, status } = useAppwriteAuth();
+  const { user, status } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
   // Form state
-  const [skillLevel, setSkillLevel] = useState('intermediate');
+  const [skillLevel, setSkillLevel] = useState<FotoaiSkillLevel>('intermediate');
   const [interests, setInterests] = useState<string[]>(['street', 'portrait', 'architecture']);
   const [homeLocation, setHomeLocation] = useState('');
   const [currentLocation, setCurrentLocation] = useState('');
@@ -96,33 +102,21 @@ export default function OnboardingPage() {
   }
 
   async function finishOnboarding() {
-    if (!user?.id) return;
+    if (status !== 'authenticated') return;
     setSaving(true);
 
     try {
-      // Save preferences
-      await fetch('/api/settings/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          skillLevel,
-          photographyInterests: interests,
-          homeLocation: homeLocation || null,
-          currentLocation: currentLocation || null,
-        }),
+      await saveFotoaiPreferences({
+        skillLevel,
+        photographyInterests: interests,
+        homeLocation: homeLocation || null,
+        currentLocation: currentLocation || null,
       });
 
-      // Save gear items in parallel
-      await Promise.all(
-        selectedGear.map((gear) =>
-          fetch('/api/settings/gear', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, ...gear }),
-          }),
-        ),
-      );
+      const gearResults = await Promise.allSettled(selectedGear.map((item) => createFotoaiGear(item)));
+      if (gearResults.some((result) => result.status === 'rejected')) {
+        throw new Error('One or more gear items could not be saved');
+      }
 
       toast.success('Profile set up! Let\'s start shooting.');
       router.replace('/dashboard');

@@ -27,15 +27,16 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { submitFotoaiChallenge, updateFotoaiChallengeStatus } from '@/lib/fotoai/client';
 
 export default function DashboardPage() {
   const { user: session, status: sessionStatus } = useAppwriteAuth();
 
-  // React Query hooks — auto-fetch when userId is available
-  const { data: currentChallenge, isLoading: challengeLoading } = usePendingChallenge(session?.id);
-  const { data: progress } = useUserProgress(session?.id);
+  const hasFotoaiSession = sessionStatus === 'authenticated';
+  const { data: currentChallenge, isLoading: challengeLoading } = usePendingChallenge(hasFotoaiSession);
+  const { data: progress } = useUserProgress(hasFotoaiSession);
   const [historyLimit, setHistoryLimit] = useState(5);
-  const { data: recentData } = useRecentChallenges(session?.id, historyLimit);
+  const { data: recentData } = useRecentChallenges(historyLimit, hasFotoaiSession);
   const recentChallenges = recentData?.challenges ?? [];
   const hasMoreChallenges = recentData?.hasMore ?? false;
   const { data: itineraries = [], isLoading: itinerariesLoading } = useItineraries(session?.id);
@@ -43,7 +44,6 @@ export default function DashboardPage() {
 
   // UI / form state (not server data)
   const [submitting, setSubmitting] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [emailing, setEmailing] = useState(false);
 
   // Submission form state
@@ -67,46 +67,8 @@ export default function DashboardPage() {
     { value: 'TECHNICAL_MASTERY', label: '🎯 Technical Mastery', description: 'Progressive skill drills with success criteria' },
   ];
 
-  async function generateNewChallenge() {
-    try {
-      setGenerating(true);
-      toast.info('Generating your personalized challenge...');
-
-      const response = await fetch('/api/challenges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: session?.id,
-          challengeType: selectedChallengeType,
-          forceGenerate: true,
-        }),
-        cache: 'no-store',
-      });
-
-      const data = await response.json();
-      console.log('🎯 Generated challenge:', data);
-
-      if (response.ok) {
-        const challenge = data.challenge;
-
-        // Immediate localStorage cache (before React Query refetches)
-        localStorage.setItem('currentChallenge', JSON.stringify(challenge));
-        console.log('✅ New challenge generated and cached');
-
-        toast.success('New challenge generated!');
-
-        // Invalidate all dashboard queries so React Query refetches
-        invalidateDashboard();
-      } else {
-        console.error('Challenge generation failed:', data);
-        toast.error(data.error || 'Failed to generate challenge');
-      }
-    } catch (error) {
-      console.error('Challenge generation failed:', error);
-      toast.error('Failed to generate challenge. Check console for details.');
-    } finally {
-      setGenerating(false);
-    }
+  function generateNewChallenge() {
+    toast.error('Challenge generation is not available in FotoAI Phase 1.');
   }
 
   async function emailChallenge() {
@@ -153,41 +115,22 @@ export default function DashboardPage() {
       setSubmitting(true);
       toast.info('Submitting your challenge...');
 
-      const formData = new FormData();
-      formData.append('challengeId', currentChallenge.id);
-      formData.append('userId', session?.id || '');
-      formData.append('notes', notes);
-      formData.append('rating', rating.toString());
-      
-      if (photo) {
-        formData.append('photo', photo);
-      }
-
-      const response = await fetch('/api/submissions', {
-        method: 'POST',
-        body: formData,
+      const submission = await submitFotoaiChallenge({
+        challengeId: currentChallenge.id,
+        notes,
+        rating,
+        photo,
       });
+      toast.success('Challenge submitted! 🎉');
+      toast.success(typeof submission.feedback === 'string' ? submission.feedback : 'Great work!');
 
-      const data = await response.json();
+      // Reset form
+      setPhoto(null);
+      setNotes('');
+      setRating(0);
 
-      if (response.ok) {
-        toast.success('Challenge submitted! 🎉');
-        toast.success(data.submission.feedback || 'Great work!');
-
-        // Clear localStorage cache
-        localStorage.removeItem('currentChallenge');
-        console.log('✅ Challenge completed and cache cleared');
-
-        // Reset form
-        setPhoto(null);
-        setNotes('');
-        setRating(0);
-
-        // Invalidate all dashboard queries so React Query refetches
-        invalidateDashboard();
-      } else {
-        toast.error(data.error || 'Failed to submit challenge');
-      }
+      // Invalidate all dashboard queries so React Query refetches
+      invalidateDashboard();
     } catch (error) {
       console.error('Submission failed:', error);
       toast.error('Failed to submit challenge. Check console for details.');
@@ -203,33 +146,16 @@ export default function DashboardPage() {
       setSubmitting(true);
       toast.info('Skipping challenge...');
 
-      const response = await fetch(`/api/challenges/${currentChallenge.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'skipped'
-        }),
-      });
+      await updateFotoaiChallengeStatus(currentChallenge.id, 'skipped');
+      toast.success('Challenge skipped. Ready for a new one!');
 
-      const data = await response.json();
+      // Reset form
+      setPhoto(null);
+      setNotes('');
+      setRating(0);
 
-      if (response.ok) {
-        toast.success('Challenge skipped. Ready for a new one!');
-
-        // Clear localStorage cache
-        localStorage.removeItem('currentChallenge');
-        console.log('✅ Challenge skipped and cache cleared');
-
-        // Reset form
-        setPhoto(null);
-        setNotes('');
-        setRating(0);
-
-        // Invalidate all dashboard queries so React Query refetches
-        invalidateDashboard();
-      } else {
-        toast.error(data.error || 'Failed to skip challenge');
-      }
+      // Invalidate all dashboard queries so React Query refetches
+      invalidateDashboard();
     } catch (error) {
       console.error('Skip failed:', error);
       toast.error('Failed to skip challenge. Check console for details.');
@@ -585,11 +511,10 @@ export default function DashboardPage() {
                 
                 <Button
                   onClick={generateNewChallenge}
-                  disabled={generating}
                   size="lg"
                   className="w-full h-14 bg-foreground text-background hover:bg-primary font-semibold tracking-wide text-base"
                 >
-                  {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
+                  {`Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
                 </Button>
               </div>
             )}
@@ -619,11 +544,10 @@ export default function DashboardPage() {
                 
                 <Button
                   onClick={generateNewChallenge}
-                  disabled={generating}
                   size="lg"
                   className="w-full h-12 bg-foreground text-background hover:bg-primary font-semibold tracking-wide"
                 >
-                  {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
+                  {`Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
                 </Button>
               </div>
             )}

@@ -1,0 +1,9 @@
+import { createChallengeHandlers } from '@/lib/fotoai/handlers/challenges.ts';
+import { getFotoaiDeps } from '@/lib/fotoai/server.ts';
+
+export const dynamic = 'force-dynamic';
+
+const handlers = createChallengeHandlers(getFotoaiDeps);
+
+export const GET = handlers.get;
+export const PATCH = handlers.patch;
