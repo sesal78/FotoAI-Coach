@@ -255,7 +255,7 @@ test('routes: malformed ids and bodies are 400, never 500', async () => {
 test('routes: submission upload is size-gated before parsing (411 / 413), no DB access', async () => {
   let selects = 0;
   const original = deps.client.restSelect;
-  deps.client.restSelect = async (...args) => { selects += 1; return original.call(deps.client, ...args); };
+  deps.client.restSelect = (async (table: string, query: Record<string, string>, accessToken: string) => { selects += 1; return original(table, query, accessToken); }) as unknown as typeof deps.client.restSelect;
 
   // Streamed body without Content-Length -> 411.
   const noLength = new Request('http://localhost/api/fotoai/submissions', {
