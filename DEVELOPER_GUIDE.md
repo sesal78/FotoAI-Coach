@@ -813,7 +813,7 @@ npx prisma db seed
 DATABASE_URL="postgresql://user:password@localhost:5432/fotoai"
 
 # NextAuth
-NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+NEXTAUTH_SECRET="generate-a-long-random-secret"
 NEXTAUTH_URL="http://localhost:3000"
 
 # Abacus.AI
