@@ -100,9 +100,8 @@ NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your_secret_here
 
 # API Keys (Already configured)
-ABACUSAI_API_KEY=d1e430cfe3ef4f50907f5a15deaed762
-SENDGRID_API_KEY=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
-OPENWEATHERMAP_API_KEY=c81d3ddccab6346224f583763697145b
+ABACUSAI_API_KEY=
+SENDGRID_API_KEY
 
 # Email Configuration
 FROM_EMAIL=noreply@myfoto.topues.com
