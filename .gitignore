@@ -18,3 +18,11 @@ out
 .deploy
 .logs
 *.tsbuildinfo
+
+# secrets and logs — never commit these
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.log
+*.pdf.tmp
