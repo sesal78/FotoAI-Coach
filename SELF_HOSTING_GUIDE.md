@@ -31,13 +31,13 @@ Complete guide for deploying Foto AI Agent in your home lab.
 
 ### Required API Keys
 1. **Abacus.AI API Key** - For LLM functionality
-   - Already configured: `d1e430cfe3ef4f50907f5a15deaed762`
+   - Already configured: `
 
 2. **SendGrid API Key** - For email notifications
-   - Already configured: `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`
+   - Already configured: 
 
 3. **OpenWeatherMap API Key** - For weather data
-   - Already configured: `c81d3ddccab6346224f583763697145b`
+   - Already configured: `
 
 ---
 
