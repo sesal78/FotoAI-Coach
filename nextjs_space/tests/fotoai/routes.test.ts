@@ -19,12 +19,20 @@ let challenges: ReturnType<typeof createChallengeHandlers>;
 let progress: ReturnType<typeof createProgressHandlers>;
 let aliceChallenge: Record<string, any>;
 let bobChallenge: Record<string, any>;
+// Submission follow-ups (XP, feedback, auto-critique) are collected so a test
+// can await them; their own assertions live in submission-followups.test.ts.
+let followups: Array<Promise<unknown>>;
+
+async function settleFollowups(): Promise<void> {
+  await Promise.all(followups.splice(0));
+}
 
 beforeEach(() => {
   deps = createTestDeps();
   const provider = () => deps;
   auth = createAuthHandlers(provider);
-  subs = createSubmissionHandlers(provider);
+  followups = [];
+  subs = createSubmissionHandlers(provider, { scheduleFollowups: (task) => { followups.push(task()); } });
   challenges = createChallengeHandlers(provider);
   progress = createProgressHandlers(provider);
   aliceChallenge = deps.client.seed('fotoai_daily_challenges', {
@@ -152,6 +160,10 @@ test('routes: alice cannot see or touch bob\'s challenge or submission (404), bo
   assert.equal(create.status, 201, JSON.stringify(await create.clone().json()));
   const bobSub = (await body(create)).submission;
   assert.ok(bobSub.photo_object_key.startsWith(`${BOB}/submissions/${bobSub.id}/`));
+  // Bob's own follow-ups (XP rpc, critique sign) are service calls made for Bob;
+  // let them finish and clear them so the check below covers only Alice's attempts.
+  await settleFollowups();
+  deps.client.serviceCalls.length = 0;
 
   const attempts: Array<[string, Promise<Response>]> = [
     ['get challenge', challenges.get(request(`/api/fotoai/challenges/${bobChallenge.id}`, { cookie: cookieFor(TOKEN_ALICE) }), { params: { id: bobChallenge.id } })],
@@ -205,6 +217,10 @@ test('routes: owner can login, submit with photo, list, sign, and delete; object
   assert.equal(sub.rating, 5);
   assert.match(sub.photo_object_key, new RegExp(`^${ALICE}/submissions/${sub.id}/[0-9a-f-]+\\.jpg$`));
   assert.ok(!('photoUrl' in sub), 'no public URL is stored');
+  // Follow-ups add XP rpc + critique sign calls; they are asserted in
+  // submission-followups.test.ts, so clear them before the sign/remove check below.
+  await settleFollowups();
+  deps.client.serviceCalls.length = 0;
 
   const get = await subs.get(request(`/api/fotoai/submissions/${sub.id}`, { cookie: cookieFor(TOKEN_ALICE) }), { params: { id: sub.id } });
   assert.equal(get.status, 200);
