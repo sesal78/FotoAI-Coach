@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { FotoaiClientError, listFotoaiChallenges } from '@/lib/fotoai/client'
+import { sendFotoaiChat } from '@/lib/fotoai/client-challenges'
 import {
   Clock,
   MapPin,
@@ -69,7 +71,7 @@ function saveChatHistory(messages: Message[]) {
 }
 
 export default function ChatPage() {
-  const { user, status } = useAppwriteAuth()
+  const { status } = useAppwriteAuth()
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [loadingChallenge, setLoadingChallenge] = useState(false)
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory())
@@ -95,20 +97,15 @@ export default function ChatPage() {
   }, [messages])
 
   const loadChallenge = useCallback(async () => {
-    if (!user?.id) return
+    if (status !== 'authenticated') return
     setLoadingChallenge(true)
     try {
-      const res = await fetch(
-        `/api/challenges?userId=${user.id}&status=pending&limit=1`,
-        { cache: 'no-store' }
-      )
-      if (!res.ok) return
-      const data = await res.json()
-      setChallenge(data.challenges?.[0] ?? null)
+      const pending = await listFotoaiChallenges({ status: 'pending', limit: 1 })
+      setChallenge(pending[0] ?? null)
     } catch { /* silent */ } finally {
       setLoadingChallenge(false)
     }
-  }, [user?.id])
+  }, [status])
 
   useEffect(() => {
     if (status === 'authenticated') loadChallenge()
@@ -127,18 +124,7 @@ export default function ChatPage() {
     setMessages([...newMessages, { role: 'assistant', content: '...' }])
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        const errMsg = data?.error || 'Sorry, something went wrong. Please try again.'
-        setMessages([...newMessages, { role: 'assistant', content: errMsg }])
-        return
-      }
+      const data = await sendFotoaiChat(newMessages)
 
       setMessages([...newMessages, { role: 'assistant', content: data.message }])
 
@@ -150,11 +136,11 @@ export default function ChatPage() {
           action: { label: 'Dashboard', onClick: () => window.location.href = '/dashboard' },
         })
       }
-    } catch {
-      setMessages([
-        ...newMessages,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
-      ])
+    } catch (error) {
+      const errMsg = error instanceof FotoaiClientError
+        ? (error.status === 401 ? 'Please sign in to chat with Foto.' : error.message)
+        : 'Sorry, something went wrong. Please try again.'
+      setMessages([...newMessages, { role: 'assistant', content: errMsg }])
     } finally {
       setSending(false)
       textareaRef.current?.focus()

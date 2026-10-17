@@ -7,9 +7,9 @@ import {
   usePendingChallenge,
   useUserProgress,
   useRecentChallenges,
-  useItineraries,
   useInvalidateDashboard,
 } from '@/hooks/use-dashboard-data';
+import { useCreateItinerary, useItineraries } from '@/hooks/fotoai/itineraries';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,6 +28,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { submitFotoaiChallenge, updateFotoaiChallengeStatus } from '@/lib/fotoai/client';
+import {
+  emailFotoaiChallenge,
+  generateFotoaiChallenge,
+  type FotoaiChallengeType,
+} from '@/lib/fotoai/client-challenges';
 
 export default function DashboardPage() {
   const { user: session, status: sessionStatus } = useAppwriteAuth();
@@ -39,18 +44,20 @@ export default function DashboardPage() {
   const { data: recentData } = useRecentChallenges(historyLimit, hasFotoaiSession);
   const recentChallenges = recentData?.challenges ?? [];
   const hasMoreChallenges = recentData?.hasMore ?? false;
-  const { data: itineraries = [], isLoading: itinerariesLoading } = useItineraries(session?.id);
+  const { data: itineraries = [], isLoading: itinerariesLoading } = useItineraries(hasFotoaiSession);
+  const createItinerary = useCreateItinerary();
   const invalidateDashboard = useInvalidateDashboard();
 
   // UI / form state (not server data)
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [emailing, setEmailing] = useState(false);
 
   // Submission form state
   const [photo, setPhoto] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
   const [rating, setRating] = useState<number>(0);
-  const [selectedChallengeType, setSelectedChallengeType] = useState<string>('WEEKEND_DEEP_DIVE');
+  const [selectedChallengeType, setSelectedChallengeType] = useState<FotoaiChallengeType>('WEEKEND_DEEP_DIVE');
 
   // Itinerary state
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
@@ -58,7 +65,7 @@ export default function DashboardPage() {
   const [itineraryDuration, setItineraryDuration] = useState('2-3 hours');
 
   // Challenge type options
-  const challengeTypes = [
+  const challengeTypes: Array<{ value: FotoaiChallengeType; label: string; description: string }> = [
     { value: 'WEEKEND_DEEP_DIVE', label: '🌅 Weekend Deep Dive', description: '2-4 hours of comprehensive exploration' },
     { value: 'LUNCH_BREAK', label: '🥪 Lunch Break', description: '30-45 min quick creative burst' },
     { value: 'AFTER_WORK', label: '🌆 After Work', description: '1-2 hours golden hour session' },
@@ -67,8 +74,20 @@ export default function DashboardPage() {
     { value: 'TECHNICAL_MASTERY', label: '🎯 Technical Mastery', description: 'Progressive skill drills with success criteria' },
   ];
 
-  function generateNewChallenge() {
-    toast.error('Challenge generation is not available in FotoAI Phase 1.');
+  async function generateNewChallenge() {
+    try {
+      setGenerating(true);
+      toast.info('Generating your personalized challenge...');
+      await generateFotoaiChallenge({ challengeType: selectedChallengeType, forceGenerate: true });
+      toast.success('New challenge generated!');
+      // Invalidate all dashboard queries so React Query refetches
+      invalidateDashboard();
+    } catch (error) {
+      console.error('Challenge generation failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate challenge');
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function emailChallenge() {
@@ -78,31 +97,20 @@ export default function DashboardPage() {
       setEmailing(true);
       toast.info('Sending challenge to your email...');
 
-      const response = await fetch('/api/challenges/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          challengeText: currentChallenge.challengeText,
-          category: currentChallenge.category,
-          difficulty: currentChallenge.difficulty,
-          duration: currentChallenge.duration,
-          tips: currentChallenge.tips,
-          recommendedGear: currentChallenge.recommendedGear,
-          location: currentChallenge.location,
-          weatherConditions: currentChallenge.weatherConditions,
-        }),
+      await emailFotoaiChallenge({
+        challengeText: currentChallenge.challengeText,
+        category: currentChallenge.category,
+        difficulty: currentChallenge.difficulty,
+        duration: currentChallenge.duration,
+        tips: currentChallenge.tips,
+        recommendedGear: currentChallenge.recommendedGear,
+        location: currentChallenge.location,
+        weatherConditions: currentChallenge.weatherConditions,
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Challenge sent to your email! 📧');
-      } else {
-        toast.error(data.error || 'Failed to send email');
-      }
+      toast.success('Challenge sent to your email! 📧');
     } catch (error) {
       console.error('Email failed:', error);
-      toast.error('Failed to send email');
+      toast.error(error instanceof Error ? error.message : 'Failed to send email');
     } finally {
       setEmailing(false);
     }
@@ -169,27 +177,11 @@ export default function DashboardPage() {
       setGeneratingItinerary(true);
       toast.info('Generating your photo tour itinerary...');
 
-      const response = await fetch('/api/itinerary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: session?.id,
-          location: itineraryLocation,
-          duration: itineraryDuration,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Itinerary generated!');
-        invalidateDashboard();
-      } else {
-        toast.error(data.error || 'Failed to generate itinerary');
-      }
+      await createItinerary.mutateAsync({ location: itineraryLocation, duration: itineraryDuration });
+      toast.success('Itinerary generated!');
     } catch (error) {
       console.error('Itinerary generation failed:', error);
-      toast.error('Failed to generate itinerary');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate itinerary');
     } finally {
       setGeneratingItinerary(false);
     }
@@ -511,10 +503,11 @@ export default function DashboardPage() {
                 
                 <Button
                   onClick={generateNewChallenge}
+                  disabled={generating}
                   size="lg"
                   className="w-full h-14 bg-foreground text-background hover:bg-primary font-semibold tracking-wide text-base"
                 >
-                  {`Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
+                  {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
                 </Button>
               </div>
             )}
@@ -544,10 +537,11 @@ export default function DashboardPage() {
                 
                 <Button
                   onClick={generateNewChallenge}
+                  disabled={generating}
                   size="lg"
                   className="w-full h-12 bg-foreground text-background hover:bg-primary font-semibold tracking-wide"
                 >
-                  {`Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
+                  {generating ? 'Generating...' : `Generate ${challengeTypes.find(t => t.value === selectedChallengeType)?.label.split(' ').slice(1).join(' ')} Challenge`}
                 </Button>
               </div>
             )}
@@ -666,10 +660,7 @@ export default function DashboardPage() {
               {itineraries.length > 0 ? (
                 <div className="space-y-4">
                   {itineraries.map((itinerary) => {
-                    let spots = [];
-                    try {
-                      spots = typeof itinerary.spots === 'string' ? JSON.parse(itinerary.spots) : itinerary.spots;
-                    } catch { spots = []; }
+                    const spots = Array.isArray(itinerary.spots) ? itinerary.spots : [];
                     
                     return (
                       <div key={itinerary.id} className="border border-border p-5 hover:border-primary/50 transition-all">
