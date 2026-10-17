@@ -21,6 +21,7 @@
 // at register when GoTrue returns a session at once). Idempotent, never
 // overwrites, failures are logged and never block the sign-in.
 
+import { accessTokenNeedsRefresh, exchangeRefreshToken } from '../session-refresh.ts';
 import { FotoaiAuthError, FotoaiUpstreamError, FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import { isUuid } from '../object-keys.ts';
@@ -179,13 +180,15 @@ export function createAuthHandlers(provider: DepsProvider) {
     /** POST /api/fotoai/auth/logout */
     logout: withFotoai(provider, async (request, deps) => {
       requireJsonContentType(request);
-      const token = readCookieValue(request.headers.get('cookie'), FOTOAI_SESSION_COOKIE);
-      if (token) {
-        try {
-          await deps.client.signOut(token);
-        } catch (err) {
-          deps.log?.('warn', `Sign-out upstream call failed: ${(err as Error).message}`);
-        }
+      const cookieHeader = request.headers.get('cookie');
+      let token = readCookieValue(cookieHeader, FOTOAI_SESSION_COOKIE);
+      const refresh = readCookieValue(cookieHeader, FOTOAI_REFRESH_COOKIE);
+      try {
+        // An expired access cookie cannot revoke the session; renew it first so logout ends it at Supabase.
+        if (refresh && accessTokenNeedsRefresh(token)) token = (await exchangeRefreshToken(deps.client, refresh)).accessToken;
+        if (token) await deps.client.signOut(token);
+      } catch (err) {
+        deps.log?.('warn', `Sign-out upstream call failed: ${(err as Error).message}`);
       }
       return json({ success: true }, { headers: clearedHeaders(deps.env.cookieSecure) });
     }, { refreshSession: false }),

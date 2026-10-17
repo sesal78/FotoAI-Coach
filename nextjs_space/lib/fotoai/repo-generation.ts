@@ -166,6 +166,19 @@ export function createGenerationRepo(client: FotoaiSupabaseClient) {
       return rows[0] ?? null;
     },
 
+    /** The caller's pending chatbot challenge with exactly this text, if any (to avoid duplicates). */
+    async findPendingChatbotByText(scope: OwnerScope, challengeText: string): Promise<ChallengeRow | null> {
+      const rows = await client.restSelect<ChallengeRow>(
+        T_CHALLENGES,
+        {
+          ...owner(scope), status: 'eq.pending', challenge_type: `eq.${CHATBOT_CHALLENGE_TYPE}`,
+          challenge_text: `eq.${challengeText}`, select: '*', limit: '1',
+        },
+        scope.accessToken,
+      );
+      return rows[0] ?? null;
+    },
+
     async insertChallenge(scope: OwnerScope, row: Record<string, unknown>): Promise<ChallengeRow> {
       return client.restInsert<ChallengeRow>(
         T_CHALLENGES, { ...row, user_id: requireUuid(scope.userId, 'session user id') }, scope.accessToken,

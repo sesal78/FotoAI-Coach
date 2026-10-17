@@ -163,3 +163,12 @@ test('chat: its JSON body cap fits the 40,000-character message limit even with 
   assert.equal(tooBig.status, 413);
   assert.equal(deps.calls.length, 1, 'no LLM call for the oversized body');
 });
+
+test('chat: the coach repeating the same challenge does not create a duplicate', async () => {
+  deps.fakes.callLLM = () => ({ content: block({ challengeText: 'Shoot reflections after rain' }), model: 'fake' });
+  const first = await (await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }))).json();
+  const again = await (await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }))).json();
+  assert.equal(again.challenge.id, first.challenge.id);
+  assert.equal(rowsOf(T_CH, ALICE).length, 1);
+  assert.equal(rowsOf('fotoai_user_progress', ALICE)[0].total_challenges_issued, 1);
+});

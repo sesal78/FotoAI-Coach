@@ -6,6 +6,8 @@
 // then sees the new token, and the response sets both cookies again. A
 // rejected refresh token clears both cookies, so the user is asked to sign in.
 
+import { createHash } from 'node:crypto';
+
 import { FotoaiAuthError } from './errors.ts';
 import {
   FOTOAI_REFRESH_COOKIE,
@@ -18,6 +20,37 @@ import type { FotoaiSupabaseClient, PasswordSession } from './supabase-http.ts';
 
 export const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 const REFRESH_MARGIN_SECONDS = 60;
+// How long a refresh result is shared with other requests that still carry the old refresh token.
+const SHARED_REFRESH_MS = 30_000;
+
+// Single-flight per process: refresh tokens rotate, and GoTrue revokes a session when an
+// already-used refresh token is presented again after its short reuse window. Parallel or
+// slow requests (LLM and upload calls) that carry the same old token must therefore share
+// one refresh call and its result instead of each calling GoTrue.
+const sharedRefresh = new Map<string, { promise: Promise<PasswordSession>; until: number }>();
+
+function refreshOnce(client: Pick<FotoaiSupabaseClient, 'refreshSession'>, refreshToken: string): Promise<PasswordSession> {
+  const now = Date.now();
+  for (const [key, entry] of sharedRefresh) if (entry.until < now) sharedRefresh.delete(key);
+  const key = createHash('sha256').update(refreshToken).digest('hex');
+  const existing = sharedRefresh.get(key);
+  if (existing) return existing.promise;
+  const promise = client.refreshSession(refreshToken);
+  sharedRefresh.set(key, { promise, until: now + SHARED_REFRESH_MS });
+  // A failed refresh is never shared: drop it so a later attempt can succeed.
+  promise.catch(() => sharedRefresh.delete(key));
+  return promise;
+}
+
+/** Exchanges a refresh token for a session, sharing the result with concurrent callers. */
+export function exchangeRefreshToken(client: Pick<FotoaiSupabaseClient, 'refreshSession'>, refreshToken: string): Promise<PasswordSession> {
+  return refreshOnce(client, refreshToken);
+}
+
+/** Test hook: forget shared refresh results between tests. */
+export function resetRefreshCacheForTests(): void {
+  sharedRefresh.clear();
+}
 
 /** True when there is no access token or its JWT `exp` is within the margin. Unknown shapes are left to Supabase. */
 export function accessTokenNeedsRefresh(token: string | null, nowMs: number = Date.now()): boolean {
@@ -64,7 +97,7 @@ export async function refreshSessionIfNeeded(
   if (!refresh || !accessTokenNeedsRefresh(access)) return { request, setCookies: [] };
 
   try {
-    const session = await client.refreshSession(refresh);
+    const session = await refreshOnce(client, refresh);
     const headers = new Headers(request.headers);
     headers.set('cookie', withCookies(cookieHeader, {
       [FOTOAI_SESSION_COOKIE]: session.accessToken,
