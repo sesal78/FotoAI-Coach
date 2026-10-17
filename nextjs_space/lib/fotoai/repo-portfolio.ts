@@ -6,6 +6,14 @@
 // check-then-act limit. Users have no UPDATE grant, so the finished analysis
 // is a NEW row and the reservation is deleted afterwards. Pending rows are
 // never listed.
+//
+// A reservation is EXACTLY {status: 'pending'}; a finished analysis always has
+// more keys (photoAssessments), so a model result that happens to contain
+// status "pending" is still a finished analysis. A reservation older than
+// PORTFOLIO_RESERVATION_TTL_MS is left over from a release that failed: it no
+// longer counts toward the limit, and countOwnSince() reports it so the
+// caller can delete it. Reads page with offset (newest first), so skipped
+// reservations never shorten a page.
 
 import { FotoaiValidationError } from './errors.ts';
 import { requireUuid } from './object-keys.ts';
@@ -15,6 +23,11 @@ import type { FotoaiSupabaseClient } from './supabase-http.ts';
 
 const T_PORTFOLIO = 'fotoai_portfolio_analyses';
 export const PORTFOLIO_PENDING_STATUS = 'pending';
+/** Far longer than a normal analysis (20 photos: 4 vision batches + meta). The LLM calls have no
+ *  timeout, so a hung analysis older than this stops counting: at worst one extra analysis that day. */
+export const PORTFOLIO_RESERVATION_TTL_MS = 15 * 60 * 1000;
+/** Upper bound on pages read by one list or count. */
+const MAX_SCAN_PAGES = 5;
 
 export interface PortfolioAnalysisRow {
   id: string;
@@ -25,8 +38,11 @@ export interface PortfolioAnalysisRow {
 }
 
 function isReservation(row: Pick<PortfolioAnalysisRow, 'analysis'>): boolean {
-  return asJsonObject(row.analysis).status === PORTFOLIO_PENDING_STATUS;
+  const analysis = asJsonObject(row.analysis);
+  return Object.keys(analysis).length === 1 && analysis.status === PORTFOLIO_PENDING_STATUS;
 }
+
+type ScanRow = Pick<PortfolioAnalysisRow, 'id' | 'analysis' | 'analysis_date'>;
 
 function requirePhotoCount(photoCount: number): void {
   if (!Number.isInteger(photoCount) || photoCount < 1) {
@@ -34,33 +50,68 @@ function requirePhotoCount(photoCount: number): void {
   }
 }
 
+/**
+ * Visits the caller's own rows newest first, `pageSize` per page, until
+ * `visit` returns false, a page is short, or MAX_SCAN_PAGES were read. Only an
+ * equality filter on user_id is used. Rows seen twice (a new row shifts the
+ * offsets) are visited once.
+ */
+async function scanOwn<T extends ScanRow>(
+  client: FotoaiSupabaseClient, scope: OwnerScope, select: string, pageSize: number, visit: (row: T) => boolean,
+): Promise<void> {
+  const seen = new Set<string>();
+  for (let page = 0; page < MAX_SCAN_PAGES; page += 1) {
+    const rows = await client.restSelect<T>(T_PORTFOLIO, {
+      ...ownerFilter(scope),
+      select,
+      order: 'analysis_date.desc',
+      limit: String(pageSize),
+      offset: String(page * pageSize),
+    }, scope.accessToken);
+    for (const row of rows) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      if (!visit(row)) return;
+    }
+    if (rows.length < pageSize) return;
+  }
+}
+
 export function createPortfolioRepo(client: FotoaiSupabaseClient) {
   return {
-    /** Own finished analyses, newest first. In-flight reservations are left out. */
+    /** Own finished analyses, newest first. Reservations are skipped, not counted against the page. */
     async list(scope: OwnerScope, opts: { limit?: number } = {}): Promise<PortfolioAnalysisRow[]> {
-      const rows = await client.restSelect<PortfolioAnalysisRow>(T_PORTFOLIO, {
-        ...ownerFilter(scope),
-        select: 'id,user_id,photo_count,analysis,analysis_date',
-        order: 'analysis_date.desc',
-        limit: boundedLimit(opts.limit, 10, 50),
-      }, scope.accessToken);
-      return rows.filter((row) => !isReservation(row));
+      const limit = Number(boundedLimit(opts.limit, 10, 50));
+      const found: PortfolioAnalysisRow[] = [];
+      await scanOwn<PortfolioAnalysisRow>(client, scope, 'id,user_id,photo_count,analysis,analysis_date', limit, (row) => {
+        if (!isReservation(row)) found.push(row);
+        return found.length < limit;
+      });
+      return found;
     },
 
     /**
-     * Counts the caller's own analyses dated at or after `since`, up to `max`.
-     * Reads the newest `max` own rows and filters by date, so it needs only an
-     * equality filter on user_id.
+     * Counts the caller's own rows dated at or after `since`, up to `max`:
+     * finished analyses and live reservations. Stale reservations (older
+     * than PORTFOLIO_RESERVATION_TTL_MS at `now`) are not counted; their ids
+     * are returned so the caller can delete them.
      */
-    async countOwnSince(scope: OwnerScope, since: Date, max: number): Promise<number> {
-      const rows = await client.restSelect<Pick<PortfolioAnalysisRow, 'id' | 'analysis_date'>>(T_PORTFOLIO, {
-        ...ownerFilter(scope),
-        select: 'id,analysis_date',
-        order: 'analysis_date.desc',
-        limit: String(max),
-      }, scope.accessToken);
+    async countOwnSince(scope: OwnerScope, since: Date, max: number, now = Date.now()): Promise<{ count: number; staleReservations: string[] }> {
       const sinceMs = since.getTime();
-      return rows.filter((row) => Date.parse(row.analysis_date) >= sinceMs).length;
+      const staleBefore = now - PORTFOLIO_RESERVATION_TTL_MS;
+      const staleReservations: string[] = [];
+      let count = 0;
+      await scanOwn<ScanRow>(client, scope, 'id,analysis,analysis_date', max, (row) => {
+        const date = Date.parse(row.analysis_date);
+        if (isReservation(row) && date < staleBefore) {
+          staleReservations.push(row.id);
+          return true;
+        }
+        if (date < sinceMs) return false; // every later row is older
+        count += 1;
+        return count < max;
+      });
+      return { count, staleReservations };
     },
 
     /** Inserts the caller's pending reservation; it counts toward the daily limit at once. */

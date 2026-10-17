@@ -85,6 +85,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
       const [col, dir] = query.order.split('.');
       rows = [...rows].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (dir === 'desc' ? -1 : 1));
     }
+    if (query.offset) rows = rows.slice(Number(query.offset));
     if (query.limit) rows = rows.slice(0, Number(query.limit));
     return rows;
   };
