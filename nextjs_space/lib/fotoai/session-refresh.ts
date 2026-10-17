@@ -20,8 +20,10 @@ import type { FotoaiSupabaseClient, PasswordSession } from './supabase-http.ts';
 
 export const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 const REFRESH_MARGIN_SECONDS = 60;
-// How long a refresh result is shared with other requests that still carry the old refresh token.
-const SHARED_REFRESH_MS = 30_000;
+// While a refresh is in flight its result is shared; once it succeeds, it is shared until the
+// new access token expires, because slow handlers (portfolio, critiques, chat) deliver the new
+// cookies late and the browser keeps sending the old refresh token meanwhile.
+const IN_FLIGHT_MS = 5 * 60_000;
 
 // Single-flight per process: refresh tokens rotate, and GoTrue revokes a session when an
 // already-used refresh token is presented again after its short reuse window. Parallel or
@@ -36,15 +38,24 @@ function refreshOnce(client: Pick<FotoaiSupabaseClient, 'refreshSession'>, refre
   const existing = sharedRefresh.get(key);
   if (existing) return existing.promise;
   const promise = client.refreshSession(refreshToken);
-  sharedRefresh.set(key, { promise, until: now + SHARED_REFRESH_MS });
-  // A failed refresh is never shared: drop it so a later attempt can succeed.
-  promise.catch(() => sharedRefresh.delete(key));
+  const entry = { promise, until: now + IN_FLIGHT_MS };
+  sharedRefresh.set(key, entry);
+  promise.then(
+    (session) => { entry.until = Date.now() + Math.max(IN_FLIGHT_MS, (session.expiresIn - REFRESH_MARGIN_SECONDS) * 1000); },
+    // A failed refresh is never shared: drop it so a later attempt can succeed.
+    () => sharedRefresh.delete(key),
+  );
   return promise;
 }
 
 /** Exchanges a refresh token for a session, sharing the result with concurrent callers. */
 export function exchangeRefreshToken(client: Pick<FotoaiSupabaseClient, 'refreshSession'>, refreshToken: string): Promise<PasswordSession> {
   return refreshOnce(client, refreshToken);
+}
+
+/** Drops the shared result for a refresh token (logout). */
+export function forgetRefreshToken(refreshToken: string): void {
+  sharedRefresh.delete(createHash('sha256').update(refreshToken).digest('hex'));
 }
 
 /** Test hook: forget shared refresh results between tests. */

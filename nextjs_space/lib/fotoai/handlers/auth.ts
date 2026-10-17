@@ -21,7 +21,7 @@
 // at register when GoTrue returns a session at once). Idempotent, never
 // overwrites, failures are logged and never block the sign-in.
 
-import { accessTokenNeedsRefresh, exchangeRefreshToken } from '../session-refresh.ts';
+import { accessTokenNeedsRefresh, exchangeRefreshToken, forgetRefreshToken } from '../session-refresh.ts';
 import { FotoaiAuthError, FotoaiUpstreamError, FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import { isUuid } from '../object-keys.ts';
@@ -189,6 +189,8 @@ export function createAuthHandlers(provider: DepsProvider) {
         if (token) await deps.client.signOut(token);
       } catch (err) {
         deps.log?.('warn', `Sign-out upstream call failed: ${(err as Error).message}`);
+      } finally {
+        if (refresh) forgetRefreshToken(refresh);
       }
       return json({ success: true }, { headers: clearedHeaders(deps.env.cookieSecure) });
     }, { refreshSession: false }),

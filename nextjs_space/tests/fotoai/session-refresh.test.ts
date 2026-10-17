@@ -138,3 +138,27 @@ test('logout: a valid access cookie is signed out directly (no refresh)', async 
   assert.deepEqual(signedOut, [TOKEN_ALICE]);
   assert.equal(calls.count(), 0);
 });
+
+test('refresh: a request arriving minutes later with the old token still gets the shared session (slow handlers)', async () => {
+  const calls = countRefreshCalls();
+  await challenges.list(request('/api/fotoai/challenges', { cookie: 'fotoai_refresh=ref-alice' }));
+  const realNow = Date.now;
+  Date.now = () => realNow() + 10 * 60 * 1000; // 10 minutes later, e.g. after a long portfolio run
+  try {
+    const late = await challenges.list(request('/api/fotoai/challenges', { cookie: 'fotoai_refresh=ref-alice' }));
+    assert.equal(late.status, 200);
+    assert.equal(calls.count(), 1, 'the old refresh token is not sent to GoTrue again');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('logout forgets the shared session for its refresh token', async () => {
+  const calls = countRefreshCalls();
+  deps.client.signOut = async () => {};
+  await auth.logout(request('/api/fotoai/auth/logout', {
+    method: 'POST', cookie: 'fotoai_refresh=ref-alice', headers: { 'content-type': 'application/json' }, body: '{}',
+  }));
+  await challenges.list(request('/api/fotoai/challenges', { cookie: 'fotoai_refresh=ref-alice' }));
+  assert.equal(calls.count(), 2, 'after logout the old token is not answered from the shared result');
+});

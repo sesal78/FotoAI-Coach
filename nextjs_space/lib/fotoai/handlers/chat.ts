@@ -108,8 +108,9 @@ async function saveChatChallenge(deps: FotoaiDeps, scope: OwnerScope, raw: strin
 
     // Every chat challenge is a new row: earlier ones stay pending in history and can be continued.
     const repo = createGenerationRepo(deps.client);
-    const same = await repo.findPendingChatbotByText(scope, challengeText);
-    if (same) return same; // the coach repeated an open challenge
+    // Reuse an open challenge the coach repeated; a failed lookup must not block the save.
+    const same = await repo.findPendingChatbotByText(scope, challengeText).catch(() => null);
+    if (same) return same;
     const created = await repo.insertChallenge(scope, { ...fields, weather_conditions: null, status: 'pending' });
     try {
       await repo.incrementIssued(scope, CHATBOT_CHALLENGE_TYPE);
