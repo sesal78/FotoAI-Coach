@@ -4,13 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { usePhotoCritiques } from '@/hooks/use-dashboard-data';
+import { usePhotoCritiques } from '@/hooks/fotoai/critiques';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import type { PhotoCritique } from '@/lib/types';
+import { FotoaiClientError } from '@/lib/fotoai/client';
+import { createFotoaiCritique, type FotoaiCritique } from '@/lib/fotoai/client-features';
 import {
   ArrowLeft,
   Camera,
@@ -52,7 +53,7 @@ function ScoreRing({ score, label, icon: Icon }: { score: number; label: string;
   );
 }
 
-function CritiqueCard({ critique }: { critique: PhotoCritique }) {
+function CritiqueCard({ critique }: { critique: FotoaiCritique }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -175,12 +176,12 @@ function CritiqueCard({ critique }: { critique: PhotoCritique }) {
 }
 
 export default function CritiquePage() {
-  const { user, status } = useAppwriteAuth();
-  const { data: critiques = [], isLoading: critiquesLoading, refetch } = usePhotoCritiques(user?.id);
+  const { status } = useAppwriteAuth();
+  const { data: critiques = [], isLoading: critiquesLoading, refetch } = usePhotoCritiques(status === 'authenticated');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
-  const [latestCritique, setLatestCritique] = useState<PhotoCritique | null>(null);
+  const [latestCritique, setLatestCritique] = useState<FotoaiCritique | null>(null);
 
   function handleFileChange(file: File | null) {
     setPhoto(file);
@@ -195,26 +196,16 @@ export default function CritiquePage() {
   }
 
   async function handleAnalyse() {
-    if (!photo || !user?.id) return;
+    if (!photo || status !== 'authenticated') return;
 
     setAnalysing(true);
     try {
-      const formData = new FormData();
-      formData.append('photo', photo);
-      formData.append('userId', user.id);
-
-      const res = await fetch('/api/critiques', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (res.ok) {
-        setLatestCritique(data.critique);
-        toast.success('Photo analysed!');
-        refetch();
-      } else {
-        toast.error(data.error || 'Analysis failed');
-      }
-    } catch {
-      toast.error('Failed to analyse photo');
+      const critique = await createFotoaiCritique({ photo });
+      setLatestCritique(critique);
+      toast.success('Photo analysed!');
+      refetch();
+    } catch (error) {
+      toast.error(error instanceof FotoaiClientError ? error.message : 'Failed to analyse photo');
     } finally {
       setAnalysing(false);
     }

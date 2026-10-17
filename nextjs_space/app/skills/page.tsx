@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { useSkillTree } from '@/hooks/use-dashboard-data';
+import { useSkillTree } from '@/hooks/fotoai/skills';
 import { motion } from 'framer-motion';
 import {
   Triangle, Gauge, Layers, Thermometer, Crosshair, CircleDot, Timer, Zap,
@@ -195,7 +195,7 @@ function CategorySection({ category, skills }: { category: string; skills: Skill
 
 export default function SkillsPage() {
   const { user, status: authStatus } = useAppwriteAuth();
-  const { data: tree, isLoading } = useSkillTree(user?.id);
+  const { data: tree, isLoading } = useSkillTree(authStatus === 'authenticated');
   const [activeTab, setActiveTab] = useState<'all' | SkillCategory>('all');
 
   if (authStatus === 'loading' || isLoading) {
