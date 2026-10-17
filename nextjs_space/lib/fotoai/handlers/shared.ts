@@ -6,13 +6,18 @@ import { FotoaiError, FotoaiUpstreamError, isFotoaiError } from '../errors.ts';
 import { resolvePrincipal, type FotoaiPrincipal } from '../membership.ts';
 import type { FotoaiPhotoService } from '../photos.ts';
 import type { FotoaiRepository } from '../repository.ts';
+import type { FotoaiServices } from '../services.ts';
 import type { FotoaiSupabaseClient } from '../supabase-http.ts';
+import type { FotoaiXpService } from '../xp.ts';
 
 export interface FotoaiDeps {
   env: FotoaiEnv;
   client: FotoaiSupabaseClient;
   repo: FotoaiRepository;
   photos: FotoaiPhotoService;
+  xp: FotoaiXpService;
+  /** LLM, weather and email. Fakes in tests. */
+  services: FotoaiServices;
   /** Injectable logger so tests stay quiet. */
   log?: (level: 'warn' | 'error', message: string, meta?: Record<string, unknown>) => void;
 }

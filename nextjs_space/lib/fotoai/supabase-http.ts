@@ -5,8 +5,9 @@
 // explicit about which credential it uses:
 //   * user calls  -> apikey: anon key,          Authorization: Bearer <user token>  (RLS applies)
 //   * server calls-> apikey: service role key,  Authorization: Bearer <service key> (bypasses RLS)
-// Server calls are limited to signing, deleting, and XP awards, and every
-// caller must have proven ownership first (see photos.ts).
+// Server calls are limited to signing, deleting, uploading under a server-built
+// owner-prefixed key, XP awards, and cron jobs. Every request-path caller must
+// have proven ownership first (see photos.ts, xp.ts).
 
 import type { FotoaiEnv } from './env.ts';
 import {
@@ -44,7 +45,25 @@ export interface FotoaiSupabaseClient extends IdentityVerifier {
   storageCreateSignedUrl(objectKey: string, expiresInSeconds: number): Promise<string>;
   /** Server-only: removes with the service role. Caller must have checked ownership. */
   storageRemove(objectKeys: string[]): Promise<void>;
+  /**
+   * Server-only: uploads with the service role. Used for photo kinds the Storage
+   * insert policy does not cover; the caller builds the key from the session and
+   * must assert its owner prefix first (photos.ts does).
+   */
+  storageUploadAsService(objectKey: string, bytes: Uint8Array, contentType: string): Promise<void>;
+
+  /** Server-only: calls one allow-listed SQL function with the service role. */
+  serviceRpc<T = unknown>(fn: FotoaiServiceRpc, args: Record<string, unknown>): Promise<T>;
+  /** Cron only: service-role table access across all users. */
+  serviceSelect<T = Record<string, unknown>>(table: string, query: Record<string, string>): Promise<T[]>;
+  serviceInsert<T = Record<string, unknown>>(table: string, row: Record<string, unknown>): Promise<T>;
+  serviceUpdate<T = Record<string, unknown>>(table: string, query: Record<string, string>, patch: Record<string, unknown>): Promise<T[]>;
+  /** Cron only: one page of auth users (id, email, name). */
+  adminListUsers(page: number, perPage: number): Promise<VerifiedUser[]>;
 }
+
+export const FOTOAI_SERVICE_RPCS = ['fotoai_award_skill_xp'] as const;
+export type FotoaiServiceRpc = (typeof FOTOAI_SERVICE_RPCS)[number];
 
 function assertTable(table: string): void {
   if (!/^fotoai_[a-z_]+$/.test(table)) {
@@ -247,6 +266,77 @@ export function createFotoaiSupabaseClient(env: FotoaiEnv, fetchImpl: FetchLike 
         body: JSON.stringify({ prefixes: objectKeys }),
       });
       if (!res.ok) mapStatus(res, await readError(res));
+    },
+
+    async storageUploadAsService(objectKey, bytes, contentType) {
+      const res = await fetchImpl(`${base}/storage/v1/object/${env.bucket}/${objectKey}`, {
+        method: 'POST',
+        headers: serviceHeaders({ 'Content-Type': contentType, 'x-upsert': 'false' }),
+        body: bytes,
+      });
+      if (!res.ok) mapStatus(res, await readError(res));
+    },
+
+    async serviceRpc(fn, args) {
+      if (!(FOTOAI_SERVICE_RPCS as readonly string[]).includes(fn)) {
+        throw new FotoaiValidationError(`Refusing to call function "${fn}"`);
+      }
+      const res = await fetchImpl(`${base}/rest/v1/rpc/${fn}`, {
+        method: 'POST',
+        headers: serviceHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+        body: JSON.stringify(args),
+      });
+      if (!res.ok) mapStatus(res, await readError(res));
+      return (await res.json()) as any;
+    },
+
+    async serviceSelect(table, query) {
+      assertTable(table);
+      const res = await fetchImpl(`${base}/rest/v1/${table}?${toQuery(query)}`, {
+        headers: serviceHeaders({ Accept: 'application/json' }),
+      });
+      if (!res.ok) mapStatus(res, await readError(res));
+      return (await res.json()) as any[];
+    },
+
+    async serviceInsert(table, row) {
+      assertTable(table);
+      const res = await fetchImpl(`${base}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: serviceHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(row),
+      });
+      if (!res.ok) mapStatus(res, await readError(res));
+      const rows = (await res.json()) as any[];
+      if (!Array.isArray(rows) || rows.length !== 1) {
+        throw new FotoaiUpstreamError(res.status, 'Insert did not return exactly one row');
+      }
+      return rows[0];
+    },
+
+    async serviceUpdate(table, query, patch) {
+      assertTable(table);
+      if (!Object.keys(query).some((k) => k !== 'select')) {
+        throw new FotoaiValidationError('Refusing an unfiltered service update');
+      }
+      const res = await fetchImpl(`${base}/rest/v1/${table}?${toQuery(query)}`, {
+        method: 'PATCH',
+        headers: serviceHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) mapStatus(res, await readError(res));
+      return (await res.json()) as any[];
+    },
+
+    async adminListUsers(page, perPage) {
+      const res = await fetchImpl(`${base}/auth/v1/admin/users?${toQuery({ page: String(page), per_page: String(perPage) })}`, {
+        headers: serviceHeaders({ Accept: 'application/json' }),
+      });
+      if (!res.ok) mapStatus(res, await readError(res));
+      const body = (await res.json()) as { users?: Array<{ id?: string; email?: string | null; user_metadata?: Record<string, unknown> }> };
+      return (body.users ?? [])
+        .filter((u): u is { id: string; email?: string | null; user_metadata?: Record<string, unknown> } => typeof u.id === 'string')
+        .map((u) => ({ id: u.id, email: u.email ?? null, name: sanitizeAuthName(u.user_metadata?.name) }));
     },
   };
 }

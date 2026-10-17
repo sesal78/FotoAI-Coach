@@ -75,6 +75,65 @@ export function buildSubmissionObjectKey(
 }
 
 /**
+ * Photo kinds other than submissions. Their keys are
+ *   <ownerUserId>/<kind>/<rowId>/<random>.<ext>
+ * They are uploaded by the server with the service role (the Storage insert
+ * policy covers submissions only), so the server builds and checks every key.
+ */
+export const FEATURE_PHOTO_KINDS = ['critiques', 'reverse', 'editing', 'portfolio'] as const;
+export type FeaturePhotoKind = (typeof FEATURE_PHOTO_KINDS)[number];
+
+const FEATURE_OBJECT_KEY_RE = new RegExp(
+  `^${UUID_SOURCE}/(${FEATURE_PHOTO_KINDS.join('|')})/${UUID_SOURCE}/[a-z0-9-]+\\.(${PHOTO_EXTENSIONS.join('|')})$`,
+);
+
+export function buildFeatureObjectKey(
+  ownerUserId: string,
+  kind: FeaturePhotoKind,
+  rowId: string,
+  originalFilename: string,
+  random: () => string = randomUUID,
+): string {
+  const owner = requireUuid(ownerUserId, 'ownerUserId');
+  const row = requireUuid(rowId, 'rowId');
+  if (!(FEATURE_PHOTO_KINDS as readonly string[]).includes(kind)) {
+    throw new FotoaiValidationError('Unknown photo kind');
+  }
+  const ext = photoExtensionFromFilename(originalFilename);
+  if (!ext) {
+    throw new FotoaiValidationError(
+      `Unsupported photo extension. Allowed: ${PHOTO_EXTENSIONS.join(', ')}`,
+    );
+  }
+  const key = `${owner}/${kind}/${row}/${random().toLowerCase()}.${ext}`;
+  assertOwnedFeatureKey(key, owner);
+  return key;
+}
+
+/** Same rules as assertOwnedObjectKey, for the non-submission photo kinds. */
+export function assertOwnedFeatureKey(key: unknown, ownerUserId: string): asserts key is string {
+  const owner = requireUuid(ownerUserId, 'ownerUserId');
+  if (typeof key !== 'string' || key.length === 0 || key.length > MAX_KEY_LENGTH) {
+    throw new FotoaiValidationError('Object key is invalid');
+  }
+  if (!FEATURE_OBJECT_KEY_RE.test(key)) {
+    throw new FotoaiValidationError('Object key does not match the photo key format');
+  }
+  if (key.split('/')[0] !== owner) {
+    throw new FotoaiForbiddenError('Object key belongs to another user');
+  }
+}
+
+/** Accepts a submission key or a feature key owned by `ownerUserId`. */
+export function assertOwnedAnyPhotoKey(key: unknown, ownerUserId: string): asserts key is string {
+  if (typeof key === 'string' && key.split('/')[1] === 'submissions') {
+    assertOwnedObjectKey(key, ownerUserId);
+  } else {
+    assertOwnedFeatureKey(key, ownerUserId);
+  }
+}
+
+/**
  * Rejects any key that is not a well-formed submission key owned by `ownerUserId`.
  * - malformed / traversal / wrong shape -> 400 FotoaiValidationError
  * - well-formed but a different owner   -> 403 FotoaiForbiddenError

@@ -22,7 +22,7 @@ type Row = Record<string, any>;
 export interface FakeSupabase extends FotoaiSupabaseClient {
   tables: Map<string, Row[]>;
   objects: Map<string, { owner: string; bytes: number; contentType: string }>;
-  serviceCalls: Array<{ op: 'sign' | 'remove'; keys: string[] }>;
+  serviceCalls: Array<{ op: 'sign' | 'remove' | 'upload' | 'rpc' | 'select' | 'insert' | 'update' | 'users'; keys: string[] }>;
   seed(table: string, row: Row): Row;
   reset(): void;
 }
@@ -179,6 +179,75 @@ export function createFakeSupabase(): FakeSupabase {
     async storageRemove(keys) {
       serviceCalls.push({ op: 'remove', keys });
       for (const k of keys) objects.delete(k);
+    },
+
+    async storageUploadAsService(objectKey, bytes, contentType) {
+      serviceCalls.push({ op: 'upload', keys: [objectKey] });
+      if (objects.has(objectKey)) throw new FotoaiForbiddenError('fake storage: duplicate key');
+      objects.set(objectKey, { owner: objectKey.split('/')[0], bytes: bytes.byteLength, contentType });
+    },
+
+    // Emulates fotoai_award_skill_xp (0001): prerequisite check, de-duplication
+    // by (user, skill, kind, source), then an atomic skill update.
+    async serviceRpc(fn, args: Record<string, any>) {
+      serviceCalls.push({ op: 'rpc', keys: [fn] });
+      if (fn !== 'fotoai_award_skill_xp') throw new Error(`fake: unknown rpc ${fn}`);
+      const skills = rowsOf('fotoai_user_skills');
+      const mine = (skillId: string) => skills.find((r) => r.user_id === args.p_user_id && r.skill_id === skillId);
+      const prereqs: string[] = args.p_prerequisite_skills ?? [];
+      const current = mine(args.p_skill_id);
+      if (prereqs.some((id) => !['learned', 'practiced', 'mastered'].includes(mine(id)?.status))) {
+        return { outcome: 'locked', skill_id: args.p_skill_id, xp_awarded: 0, current_xp: current?.current_xp ?? 0, status: current?.status ?? 'locked', leveled_up: false } as any;
+      }
+      const events = rowsOf('fotoai_xp_events');
+      const dup = events.find((e) => e.user_id === args.p_user_id && e.skill_id === args.p_skill_id
+        && e.source_kind === args.p_source_kind && e.source_id === args.p_source_id);
+      if (dup) {
+        return { outcome: 'duplicate', skill_id: args.p_skill_id, xp_awarded: 0, current_xp: current?.current_xp ?? 0, status: current?.status ?? 'available', leveled_up: false } as any;
+      }
+      events.push({ id: nextUuid(), user_id: args.p_user_id, skill_id: args.p_skill_id, xp_amount: args.p_xp_amount,
+        source_kind: args.p_source_kind, source_id: args.p_source_id, awarded_at: new Date().toISOString() });
+      const prevStatus = current?.status ?? 'available';
+      const xp = (current?.current_xp ?? 0) + args.p_xp_amount;
+      const status = xp >= args.p_xp_to_master ? 'mastered' : xp >= args.p_xp_to_practice ? 'practiced' : xp >= args.p_xp_to_learn ? 'learned' : 'available';
+      if (current) Object.assign(current, { current_xp: xp, status });
+      else skills.push({ id: nextUuid(), user_id: args.p_user_id, skill_id: args.p_skill_id, current_xp: xp, status });
+      return { outcome: 'applied', skill_id: args.p_skill_id, xp_awarded: args.p_xp_amount, current_xp: xp, status, leveled_up: status !== prevStatus } as any;
+    },
+
+    // Service-role table access: no RLS, every call recorded.
+    async serviceSelect(table, query) {
+      serviceCalls.push({ op: 'select', keys: [table] });
+      let rows = rowsOf(table).filter((r) => matches(r, query));
+      if (query.order) {
+        const [col, dir] = query.order.split('.');
+        rows = [...rows].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (dir === 'desc' ? -1 : 1));
+      }
+      if (query.limit) rows = rows.slice(0, Number(query.limit));
+      return rows as any[];
+    },
+
+    async serviceInsert(table, row) {
+      serviceCalls.push({ op: 'insert', keys: [table] });
+      const full = { id: nextUuid(), ...row };
+      rowsOf(table).push(full);
+      return full as any;
+    },
+
+    async serviceUpdate(table, query, patch) {
+      serviceCalls.push({ op: 'update', keys: [table] });
+      const targets = rowsOf(table).filter((r) => matches(r, query));
+      for (const row of targets) Object.assign(row, patch);
+      return targets as any[];
+    },
+
+    async adminListUsers(page, perPage) {
+      serviceCalls.push({ op: 'users', keys: [String(page)] });
+      const all = [
+        { id: ALICE, email: 'alice@test.invalid', name: 'Alice' },
+        { id: BOB, email: 'bob@test.invalid', name: 'Bob' },
+      ];
+      return all.slice((page - 1) * perPage, page * perPage);
     },
   };
 

@@ -12,7 +12,15 @@
 
 import type { FotoaiEnv } from './env.ts';
 import { FotoaiValidationError } from './errors.ts';
-import { assertOwnedObjectKey, buildSubmissionObjectKey, photoExtensionFromFilename } from './object-keys.ts';
+import {
+  assertOwnedAnyPhotoKey,
+  assertOwnedFeatureKey,
+  assertOwnedObjectKey,
+  buildFeatureObjectKey,
+  buildSubmissionObjectKey,
+  type FeaturePhotoKind,
+  photoExtensionFromFilename,
+} from './object-keys.ts';
 import type { FotoaiRepository, OwnerScope, SubmissionRow } from './repository.ts';
 import type { FotoaiSupabaseClient } from './supabase-http.ts';
 
@@ -89,8 +97,35 @@ export function createPhotoService(client: FotoaiSupabaseClient, env: FotoaiEnv,
 
     /** Removes an object that the caller has already been proven to own. */
     async removeOwnedObject(scope: OwnerScope, objectKey: string): Promise<void> {
-      assertOwnedObjectKey(objectKey, scope.userId);
+      assertOwnedAnyPhotoKey(objectKey, scope.userId);
       await client.storageRemove([objectKey]);
+    },
+
+    /**
+     * Uploads a non-submission photo (critique, reverse, editing, portfolio).
+     * The key is built here from the session user and a row id the caller
+     * created for that user, then uploaded with the service role.
+     */
+    async storeFeaturePhoto(scope: OwnerScope, kind: FeaturePhotoKind, rowId: string, photo: IncomingPhoto, random?: () => string): Promise<StoredPhoto & { data: Uint8Array }> {
+      validateIncomingPhoto(photo);
+      const objectKey = buildFeatureObjectKey(scope.userId, kind, rowId, photo.name, random);
+      assertOwnedFeatureKey(objectKey, scope.userId);
+      const bytes = await photo.bytes();
+      if (bytes.byteLength !== photo.size) {
+        throw new FotoaiValidationError('Photo size did not match its declared size');
+      }
+      await client.storageUploadAsService(objectKey, bytes, photo.type);
+      return { objectKey, mime: photo.type, bytes: bytes.byteLength, data: bytes };
+    },
+
+    /**
+     * Signs a key taken from a row the caller already loaded through the
+     * owner-scoped repository. The owner prefix is checked again here.
+     */
+    async signOwnedKey(scope: OwnerScope, objectKey: string, ttlSeconds = DEFAULT_SIGNED_URL_TTL_SECONDS): Promise<string> {
+      const ttl = Math.min(Math.max(1, Math.floor(ttlSeconds)), MAX_SIGNED_URL_TTL_SECONDS);
+      assertOwnedAnyPhotoKey(objectKey, scope.userId);
+      return client.storageCreateSignedUrl(objectKey, ttl);
     },
 
     bucket: env.bucket,
