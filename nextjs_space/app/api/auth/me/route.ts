@@ -1,23 +1,9 @@
-import { NextResponse } from 'next/server';
-import { createSessionClient } from '@/lib/appwrite-server';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/me.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-// Prevent Next.js from caching this route
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-  try {
-    const { account } = await createSessionClient(request);
-    const user = await account.get();
+const gone = retiredRoute('/api/fotoai/auth/me');
 
-    return NextResponse.json(
-      { id: user.$id, email: user.email, name: user.name },
-      { headers: { 'Cache-Control': 'no-store' } },
-    );
-  } catch (err: any) {
-    console.error('[/api/auth/me]', err.message || err);
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
-}
+export const GET = gone;

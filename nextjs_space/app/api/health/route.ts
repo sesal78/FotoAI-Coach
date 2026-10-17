@@ -1,17 +1,21 @@
-
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/appwrite-server';
+import { NextResponse } from 'next/server';
+import { readFotoaiEnv } from '@/lib/fotoai/env';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/health - Health check endpoint
+ * GET /api/health - Health check endpoint (Docker healthcheck, deploy.sh, monitor.sh).
+ * Checks that the FotoAI Supabase config loads and that Supabase Auth answers.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Check Appwrite connection via health API
-    const { health } = createAdminClient();
-    await health.get();
+    const env = readFotoaiEnv();
+    const res = await fetch(`${env.supabaseUrl}/auth/v1/health`, {
+      headers: { apikey: env.anonKey },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error(`Supabase Auth health returned ${res.status}`);
 
     return NextResponse.json({
       status: 'healthy',

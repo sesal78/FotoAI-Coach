@@ -1,13 +1,9 @@
-
-import { NextRequest, NextResponse } from 'next/server';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/register.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * POST /api/signup — Proxies to /api/auth/register
- * Kept for backwards compatibility; prefer /api/auth/register directly.
- */
-export async function POST(request: NextRequest) {
-  const url = new URL('/api/auth/register', request.url);
-  return NextResponse.rewrite(url);
-}
+const gone = retiredRoute('/api/fotoai/auth/register');
+
+export const POST = gone;

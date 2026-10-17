@@ -1,15 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createSessionClient } from '@/lib/appwrite-server';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/resend-verification.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { account } = await createSessionClient(request);
-    const proto = request.headers.get('x-forwarded-proto') || 'https';
-    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
-    await account.createVerification(`${appUrl}/verify-email/confirm`);
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Failed to resend verification email' }, { status: 400 });
-  }
-}
+export const dynamic = 'force-dynamic';
+
+const gone = retiredRoute('/api/fotoai/auth/resend-verification');
+
+export const POST = gone;

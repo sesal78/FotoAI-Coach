@@ -1,36 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/appwrite-server';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/reset-password.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { userId, secret, password } = await request.json();
+export const dynamic = 'force-dynamic';
 
-    if (!userId || !secret || !password) {
-      return NextResponse.json(
-        { error: 'userId, secret, and password are required' },
-        { status: 400 }
-      );
-    }
+const gone = retiredRoute('/api/fotoai/auth/reset-password');
 
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
-    }
-
-    const { account } = createAdminClient();
-    await account.updateRecovery(userId, secret, password);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Password has been reset successfully.',
-    });
-  } catch (error: any) {
-    console.error('Reset password error:', error);
-    const message = error?.message?.includes('expired')
-      ? 'Reset link has expired. Please request a new one.'
-      : 'Failed to reset password. Please try again.';
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
-}
+export const POST = gone;
