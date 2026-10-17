@@ -120,6 +120,13 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
       throw new FotoaiAuthError('Invalid credentials');
     },
 
+    async refreshSession(refreshToken) {
+      if (refreshToken === 'ref-alice') {
+        return { userId: ALICE, accessToken: TOKEN_ALICE, refreshToken: 'ref-alice-2', expiresIn: 3600 };
+      }
+      throw new FotoaiAuthError('fake: refresh token rejected');
+    },
+
     async signUp() {
       return { userId: null, session: null };
     },

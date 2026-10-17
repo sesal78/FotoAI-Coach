@@ -1,0 +1,98 @@
+// Keeps FotoAI users signed in.
+//
+// The access cookie lives as long as the Supabase access token (about an hour).
+// Before a request is handled, an expired or nearly expired access token is
+// exchanged for a new session using the HttpOnly refresh cookie. The handler
+// then sees the new token, and the response sets both cookies again. A
+// rejected refresh token clears both cookies, so the user is asked to sign in.
+
+import { FotoaiAuthError } from './errors.ts';
+import {
+  FOTOAI_REFRESH_COOKIE,
+  FOTOAI_SESSION_COOKIE,
+  clearSessionCookie,
+  readCookieValue,
+  serializeSessionCookie,
+} from './session-cookie.ts';
+import type { FotoaiSupabaseClient, PasswordSession } from './supabase-http.ts';
+
+export const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+const REFRESH_MARGIN_SECONDS = 60;
+
+/** True when there is no access token or its JWT `exp` is within the margin. Unknown shapes are left to Supabase. */
+export function accessTokenNeedsRefresh(token: string | null, nowMs: number = Date.now()): boolean {
+  if (!token) return true;
+  const payload = token.split('.')[1];
+  if (!payload) return false;
+  try {
+    const exp = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))?.exp;
+    return typeof exp === 'number' && exp * 1000 - nowMs < REFRESH_MARGIN_SECONDS * 1000;
+  } catch {
+    return false;
+  }
+}
+
+export function sessionSetCookies(session: PasswordSession, secure: boolean): string[] {
+  return [
+    serializeSessionCookie(FOTOAI_SESSION_COOKIE, session.accessToken, { secure, maxAge: session.expiresIn }),
+    serializeSessionCookie(FOTOAI_REFRESH_COOKIE, session.refreshToken, { secure, maxAge: REFRESH_COOKIE_MAX_AGE }),
+  ];
+}
+
+function withCookies(cookieHeader: string, replacements: Record<string, string>): string {
+  const kept = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) => part && !Object.keys(replacements).includes(part.slice(0, part.indexOf('=')).trim()));
+  for (const [name, value] of Object.entries(replacements)) kept.push(`${name}=${encodeURIComponent(value)}`);
+  return kept.join('; ');
+}
+
+/**
+ * Returns the request to handle (with the new access token when refreshed) and
+ * the Set-Cookie values to add to the response. Network or upstream failures
+ * leave the request unchanged and set no cookies.
+ */
+export async function refreshSessionIfNeeded(
+  request: Request,
+  client: Pick<FotoaiSupabaseClient, 'refreshSession'>,
+  secure: boolean,
+): Promise<{ request: Request; setCookies: string[] }> {
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const access = readCookieValue(cookieHeader, FOTOAI_SESSION_COOKIE);
+  const refresh = readCookieValue(cookieHeader, FOTOAI_REFRESH_COOKIE);
+  if (!refresh || !accessTokenNeedsRefresh(access)) return { request, setCookies: [] };
+
+  try {
+    const session = await client.refreshSession(refresh);
+    const headers = new Headers(request.headers);
+    headers.set('cookie', withCookies(cookieHeader, {
+      [FOTOAI_SESSION_COOKIE]: session.accessToken,
+      [FOTOAI_REFRESH_COOKIE]: session.refreshToken,
+    }));
+    // duplex is required by Node when the copied request has a streaming body.
+    const init = { headers, duplex: 'half' } as RequestInit;
+    return { request: new Request(request, init), setCookies: sessionSetCookies(session, secure) };
+  } catch (err) {
+    if (err instanceof FotoaiAuthError) {
+      return {
+        request,
+        setCookies: [clearSessionCookie(FOTOAI_SESSION_COOKIE, secure), clearSessionCookie(FOTOAI_REFRESH_COOKIE, secure)],
+      };
+    }
+    return { request, setCookies: [] };
+  }
+}
+
+/** Adds Set-Cookie values to a response, copying it when its headers are immutable. */
+export function appendSetCookies(response: Response, setCookies: string[]): Response {
+  if (setCookies.length === 0) return response;
+  try {
+    for (const c of setCookies) response.headers.append('Set-Cookie', c);
+    return response;
+  } catch {
+    const headers = new Headers(response.headers);
+    for (const c of setCookies) headers.append('Set-Cookie', c);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
+}

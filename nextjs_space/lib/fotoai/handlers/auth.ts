@@ -174,7 +174,7 @@ export function createAuthHandlers(provider: DepsProvider) {
       const session = await deps.client.signInWithPassword(email, password);
       await seedAccountDefaults(deps, session);
       return json({ success: true, userId: session.userId }, { headers: sessionHeaders(session, deps.env.cookieSecure) });
-    }),
+    }, { refreshSession: false }),
 
     /** POST /api/fotoai/auth/logout */
     logout: withFotoai(provider, async (request, deps) => {
@@ -188,7 +188,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         }
       }
       return json({ success: true }, { headers: clearedHeaders(deps.env.cookieSecure) });
-    }),
+    }, { refreshSession: false }),
 
     /** GET /api/fotoai/auth/me */
     me: withFotoai(provider, async (request, deps) => {
@@ -224,7 +224,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         status: 201,
         headers: sessionHeaders(session, deps.env.cookieSecure),
       });
-    }),
+    }, { refreshSession: false }),
 
     /** POST /api/fotoai/auth/forgot-password {email} -> always the same 200. */
     forgotPassword: withFotoai(provider, async (request, deps) => {
@@ -236,7 +236,7 @@ export function createAuthHandlers(provider: DepsProvider) {
       const redirectTo = `${authRedirectOrigin(request)}${FOTOAI_RESET_PATH}`;
       sendInBackground(deps, 'Password recovery request', () => deps.client.requestPasswordRecovery(email, redirectTo));
       return json({ success: true, message: GENERIC_RESET_MESSAGE });
-    }),
+    }, { refreshSession: false }),
 
     /**
      * POST /api/fotoai/auth/reset-password {accessToken | tokenHash, password}
@@ -265,7 +265,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         deps.log?.('warn', 'Recovery session sign-out failed', { status: err instanceof FotoaiUpstreamError ? err.upstreamStatus : undefined });
       }
       return json({ success: true, message: 'Password has been reset successfully.' }, { headers: clearedHeaders(deps.env.cookieSecure) });
-    }),
+    }, { refreshSession: false }),
 
     /**
      * POST /api/fotoai/auth/verify-email
@@ -293,7 +293,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         if (!isUuid(session.userId)) throw new FotoaiAuthError('Link is invalid or has expired');
       }
       return json({ verified: true });
-    }),
+    }, { refreshSession: false }),
 
     /** POST /api/fotoai/auth/resend-verification {email} -> always the same 200. */
     resendVerification: withFotoai(provider, async (request, deps) => {
@@ -305,6 +305,6 @@ export function createAuthHandlers(provider: DepsProvider) {
       const redirectTo = `${authRedirectOrigin(request)}${FOTOAI_CONFIRM_PATH}`;
       sendInBackground(deps, 'Confirmation resend', () => deps.client.resendSignupConfirmation(email, redirectTo));
       return json({ success: true, message: GENERIC_RESEND_MESSAGE });
-    }),
+    }, { refreshSession: false }),
   };
 }
