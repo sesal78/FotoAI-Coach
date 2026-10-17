@@ -32,6 +32,16 @@ export interface FotoaiSupabaseClient extends IdentityVerifier {
   signInWithPassword(email: string, password: string): Promise<PasswordSession>;
   signUp(email: string, password: string, name: string): Promise<{ userId: string | null; session: PasswordSession | null }>;
   signOut(accessToken: string): Promise<void>;
+  /** Sign-up that tells GoTrue where the confirmation link should land (redirect_to). */
+  signUpWithRedirect(email: string, password: string, name: string, redirectTo: string): Promise<{ userId: string | null; session: PasswordSession | null }>;
+  /** POST /auth/v1/recover. Sends the reset email. Errors never carry the email or body. */
+  requestPasswordRecovery(email: string, redirectTo: string): Promise<void>;
+  /** POST /auth/v1/resend {type:'signup'}. Errors never carry the email or body. */
+  resendSignupConfirmation(email: string, redirectTo: string): Promise<void>;
+  /** POST /auth/v1/verify {type, token_hash}. Rejected or expired hash -> 401. */
+  verifyTokenHash(type: FotoaiOtpType, tokenHash: string): Promise<PasswordSession>;
+  /** PUT /auth/v1/user {password} with the user's token. Bad token -> 401, rejected password -> 400. */
+  updateUserPassword(accessToken: string, password: string): Promise<void>;
 
   restSelect<T = Record<string, unknown>>(table: string, query: Record<string, string>, accessToken: string): Promise<T[]>;
   restInsert<T = Record<string, unknown>>(table: string, row: Record<string, unknown>, accessToken: string): Promise<T>;
@@ -61,6 +71,8 @@ export interface FotoaiSupabaseClient extends IdentityVerifier {
   /** Cron only: one page of auth users (id, email, name). */
   adminListUsers(page: number, perPage: number): Promise<VerifiedUser[]>;
 }
+
+export type FotoaiOtpType = 'signup' | 'email' | 'recovery';
 
 export const FOTOAI_SERVICE_RPCS = ['fotoai_award_skill_xp'] as const;
 export type FotoaiServiceRpc = (typeof FOTOAI_SERVICE_RPCS)[number];
@@ -171,6 +183,90 @@ export function createFotoaiSupabaseClient(env: FotoaiEnv, fetchImpl: FetchLike 
       if (!res.ok && ![401, 403, 404].includes(res.status)) {
         throw new FotoaiUpstreamError(res.status, `Sign-out failed: ${await readError(res)}`);
       }
+    },
+
+    async signUpWithRedirect(email, password, name, redirectTo) {
+      const res = await fetchImpl(`${base}/auth/v1/signup?${toQuery({ redirect_to: redirectTo })}`, {
+        method: 'POST',
+        headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, data: { name } }),
+      });
+      if (res.status === 400 || res.status === 422) {
+        throw new FotoaiValidationError(`Sign-up rejected: ${await readError(res)}`);
+      }
+      if (!res.ok) throw new FotoaiUpstreamError(res.status, `Sign-up failed: ${await readError(res)}`);
+      const body = (await res.json()) as {
+        id?: string; access_token?: string; refresh_token?: string; expires_in?: number; user?: { id?: string };
+      };
+      const userId = body.user?.id ?? body.id ?? null;
+      const session = body.access_token && body.refresh_token && userId
+        ? { userId, accessToken: body.access_token, refreshToken: body.refresh_token, expiresIn: body.expires_in ?? 3600 }
+        : null;
+      return { userId, session };
+    },
+
+    async requestPasswordRecovery(email, redirectTo) {
+      const res = await fetchImpl(`${base}/auth/v1/recover?${toQuery({ redirect_to: redirectTo })}`, {
+        method: 'POST',
+        headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      // Status only: the body may echo the address.
+      if (!res.ok) throw new FotoaiUpstreamError(res.status, `Password recovery request failed (${res.status})`);
+    },
+
+    async resendSignupConfirmation(email, redirectTo) {
+      const res = await fetchImpl(`${base}/auth/v1/resend?${toQuery({ redirect_to: redirectTo })}`, {
+        method: 'POST',
+        headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'signup', email }),
+      });
+      if (!res.ok) throw new FotoaiUpstreamError(res.status, `Confirmation resend failed (${res.status})`);
+    },
+
+    async verifyTokenHash(type, tokenHash) {
+      const res = await fetchImpl(`${base}/auth/v1/verify`, {
+        method: 'POST',
+        headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, token_hash: tokenHash }),
+      });
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        throw new FotoaiAuthError('Link is invalid or has expired');
+      }
+      if (!res.ok) throw new FotoaiUpstreamError(res.status, `Token verification failed (${res.status})`);
+      const body = (await res.json()) as {
+        access_token?: string; refresh_token?: string; expires_in?: number; user?: { id?: string };
+      };
+      if (!body.access_token || !body.refresh_token || !body.user?.id) {
+        throw new FotoaiUpstreamError(res.status, 'Verification response lacked a session');
+      }
+      return {
+        userId: body.user.id,
+        accessToken: body.access_token,
+        refreshToken: body.refresh_token,
+        expiresIn: body.expires_in ?? 3600,
+      };
+    },
+
+    async updateUserPassword(accessToken, password) {
+      const res = await fetchImpl(`${base}/auth/v1/user`, {
+        method: 'PUT',
+        headers: userHeaders(accessToken, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ password }),
+      });
+      if (res.status === 401 || res.status === 403) throw new FotoaiAuthError('Link is invalid or has expired');
+      if (res.status === 400 || res.status === 422) {
+        let code = '';
+        try {
+          code = String(((await res.json()) as { error_code?: unknown }).error_code ?? '');
+        } catch {
+          // keep the generic message
+        }
+        if (code === 'same_password') throw new FotoaiValidationError('New password must be different from the old password');
+        if (code === 'weak_password') throw new FotoaiValidationError('Password is too weak');
+        throw new FotoaiValidationError('Password was rejected');
+      }
+      if (!res.ok) throw new FotoaiUpstreamError(res.status, `Password update failed (${res.status})`);
     },
 
     async restSelect(table, query, accessToken) {

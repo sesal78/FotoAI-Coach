@@ -1,45 +1,57 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { FotoaiClientError } from '@/lib/fotoai/client';
+import { parseFotoaiLinkToken, verifyFotoaiEmail } from '@/lib/fotoai/client-auth-flows';
+
+const EXPIRED_MESSAGE = 'Invalid or expired verification link. Please request a new one.';
 
 function ConfirmContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const userId = searchParams.get('userId') || '';
-  const secret = searchParams.get('secret') || '';
-
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
+  const started = useRef(false);
 
   useEffect(() => {
-    if (!userId || !secret) {
+    // GoTrue redirects here with the new session in the URL fragment
+    // (#access_token=...&refresh_token=...&type=signup); a custom template may
+    // send ?token_hash=...&type=email instead. Read it once, then drop it from
+    // the address bar so it never lands in history or a Referer header.
+    if (started.current) return;
+    started.current = true;
+    const parsed = parseFotoaiLinkToken(window.location.hash, window.location.search);
+    if (window.location.hash || window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    let token: Parameters<typeof verifyFotoaiEmail>[0] | null = null;
+    if (parsed.kind === 'session' && parsed.refreshToken && (parsed.type === null || parsed.type === 'signup' || parsed.type === 'email')) {
+      const expiresIn = parsed.expiresIn && /^\d+$/.test(parsed.expiresIn) ? Number(parsed.expiresIn) : undefined;
+      token = { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken, expiresIn };
+    } else if (parsed.kind === 'hash' && (parsed.type === null || parsed.type === 'signup' || parsed.type === 'email')) {
+      token = { tokenHash: parsed.tokenHash, type: parsed.type ?? undefined };
+    }
+
+    if (!token) {
       setStatus('error');
-      setErrorMsg('Invalid or expired verification link. Please request a new one.');
+      setErrorMsg(EXPIRED_MESSAGE);
       return;
     }
 
-    async function verify() {
-      try {
-        const res = await fetch('/api/auth/verify-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, secret }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
+    verifyFotoaiEmail(token)
+      .then(() => {
         setStatus('success');
-        setTimeout(() => router.replace('/dashboard'), 2500);
-      } catch (err: any) {
+        // Full navigation so the auth context reads the new session cookie.
+        setTimeout(() => window.location.replace('/onboarding'), 2500);
+      })
+      .catch((err) => {
         setStatus('error');
-        setErrorMsg(err.message || 'Verification failed. The link may have expired.');
-      }
-    }
-
-    verify();
-  }, [userId, secret, router]);
+        setErrorMsg(err instanceof FotoaiClientError && (err.status === 400 || err.status === 401)
+          ? EXPIRED_MESSAGE
+          : 'Verification failed. Please try again.');
+      });
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
@@ -68,7 +80,7 @@ function ConfirmContent() {
               Email verified!
             </h1>
             <p className="text-muted-foreground">
-              Your account is confirmed. Redirecting you to the dashboard…
+              Your account is confirmed. Redirecting you to set up your profile…
             </p>
           </>
         )}

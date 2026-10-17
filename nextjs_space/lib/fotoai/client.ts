@@ -33,6 +33,27 @@ export interface FotoaiPreferences {
   currentLocation: string | null;
 }
 
+export type FotoaiWorkDay = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+export type FotoaiPhotoDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+
+/** Every editable preference column (GET/PUT /api/fotoai/preferences?view=full). */
+export interface FotoaiFullPreferences extends FotoaiPreferences {
+  avoidsStyles: string[];
+  workDays: FotoaiWorkDay[];
+  workStartTime: string;
+  workEndTime: string;
+  lunchStartTime: string;
+  lunchEndTime: string;
+  primaryPhotoDay: FotoaiPhotoDay;
+  secondaryPhotoDays: FotoaiPhotoDay[];
+  lunchBreakPhotography: boolean;
+  eveningPhotography: boolean;
+  wfhFlexibility: boolean;
+  adaptToWeather: boolean;
+  adaptToCalendar: boolean;
+  officeLocation: string | null;
+}
+
 export interface FotoaiGear {
   id: string;
   category: FotoaiGearCategory;
@@ -150,6 +171,39 @@ function mapPreferences(value: unknown): FotoaiPreferences {
   };
 }
 
+const WORK_DAYS: FotoaiWorkDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const PHOTO_DAYS: FotoaiPhotoDay[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+function mapFullPreferences(value: unknown): FotoaiFullPreferences {
+  const row = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const time = (item: unknown, fallback: string) =>
+    typeof item === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(item) ? item : fallback;
+  const flag = (item: unknown) => typeof item === 'boolean' ? item : true;
+  const days = <T extends string>(item: unknown, allowed: T[], fallback: T[]): T[] =>
+    Array.isArray(item) ? allowed.filter((day) => item.includes(day)) : fallback;
+  return {
+    ...mapPreferences(value),
+    avoidsStyles: strings(row.avoidsStyles),
+    workDays: days(row.workDays, WORK_DAYS, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']),
+    workStartTime: time(row.workStartTime, '09:00'),
+    workEndTime: time(row.workEndTime, '17:00'),
+    lunchStartTime: time(row.lunchStartTime, '12:00'),
+    lunchEndTime: time(row.lunchEndTime, '13:00'),
+    primaryPhotoDay: PHOTO_DAYS.includes(row.primaryPhotoDay as FotoaiPhotoDay)
+      ? row.primaryPhotoDay as FotoaiPhotoDay
+      : 'Saturday',
+    secondaryPhotoDays: days(row.secondaryPhotoDays, PHOTO_DAYS, ['Sunday']),
+    lunchBreakPhotography: flag(row.lunchBreakPhotography),
+    eveningPhotography: flag(row.eveningPhotography),
+    wfhFlexibility: flag(row.wfhFlexibility),
+    adaptToWeather: flag(row.adaptToWeather),
+    adaptToCalendar: flag(row.adaptToCalendar),
+    officeLocation: typeof row.officeLocation === 'string' ? row.officeLocation : null,
+  };
+}
+
 function mapGear(value: unknown): FotoaiGear {
   const row = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -218,6 +272,22 @@ export async function saveFotoaiPreferences(
     ...jsonBody(input as Record<string, unknown>),
   }, fetcher);
   return mapPreferences(result.preferences);
+}
+
+export async function getFotoaiFullPreferences(fetcher: FotoaiFetch = fetch): Promise<FotoaiFullPreferences> {
+  const result = await requestJson<{ preferences?: unknown }>('/api/fotoai/preferences?view=full', {}, fetcher);
+  return mapFullPreferences(result.preferences);
+}
+
+export async function saveFotoaiFullPreferences(
+  input: Partial<FotoaiFullPreferences>,
+  fetcher: FotoaiFetch = fetch,
+): Promise<FotoaiFullPreferences> {
+  const result = await requestJson<{ preferences?: unknown }>('/api/fotoai/preferences?view=full', {
+    method: 'PUT',
+    ...jsonBody(input as Record<string, unknown>),
+  }, fetcher);
+  return mapFullPreferences(result.preferences);
 }
 
 export async function listFotoaiGear(fetcher: FotoaiFetch = fetch): Promise<FotoaiGear[]> {

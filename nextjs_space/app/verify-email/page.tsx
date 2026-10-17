@@ -4,10 +4,13 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Mail, RefreshCw, CheckCircle } from 'lucide-react';
+import { FotoaiClientError } from '@/lib/fotoai/client';
+import { resendFotoaiVerification } from '@/lib/fotoai/client-auth-flows';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
+  const [emailInput, setEmailInput] = useState(email);
 
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
@@ -25,13 +28,13 @@ function VerifyEmailContent() {
     setResent(false);
     setError('');
     try {
-      const res = await fetch('/api/auth/resend-verification', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      await resendFotoaiVerification(emailInput.trim());
       setResent(true);
       setCooldown(60);
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend email');
+    } catch (err) {
+      setError(err instanceof FotoaiClientError && err.status === 400
+        ? 'Please enter a valid email address.'
+        : 'Failed to resend email');
     } finally {
       setResending(false);
     }
@@ -64,6 +67,23 @@ function VerifyEmailContent() {
           Check your spam folder if you don't see it within a few minutes.
         </p>
 
+        {!email && (
+          <div className="mb-4 text-left space-y-1.5">
+            <label htmlFor="email" className="block text-sm font-medium tracking-wide">
+              Email address
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full px-4 py-3 bg-transparent border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors text-sm"
+            />
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 px-4 py-3 bg-destructive/10 border border-destructive/30 text-destructive text-sm">
             {error}
@@ -79,7 +99,7 @@ function VerifyEmailContent() {
 
         <button
           onClick={handleResend}
-          disabled={resending || cooldown > 0}
+          disabled={resending || cooldown > 0 || !emailInput.trim()}
           className="w-full flex items-center justify-center gap-2 px-6 py-3.5 border border-border text-foreground text-sm font-medium tracking-wide transition-all duration-300 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed mb-6"
         >
           <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />

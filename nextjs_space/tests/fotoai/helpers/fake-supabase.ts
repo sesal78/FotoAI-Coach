@@ -115,6 +115,29 @@ export function createFakeSupabase(): FakeSupabase {
       /* noop */
     },
 
+    async signUpWithRedirect() {
+      return { userId: null, session: null };
+    },
+
+    async requestPasswordRecovery() {
+      /* GoTrue answers 200 for known and unknown addresses alike */
+    },
+
+    async resendSignupConfirmation() {
+      /* noop */
+    },
+
+    // 'hash-alice' / 'hash-bob' are valid one-time hashes; anything else is expired.
+    async verifyTokenHash(_type, tokenHash): Promise<PasswordSession> {
+      if (tokenHash === 'hash-alice') return { userId: ALICE, accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: 3600 };
+      if (tokenHash === 'hash-bob') return { userId: BOB, accessToken: TOKEN_BOB, refreshToken: 'ref-bob', expiresIn: 3600 };
+      throw new FotoaiAuthError('Link is invalid or has expired');
+    },
+
+    async updateUserPassword(token) {
+      uidForToken(token);
+    },
+
     async restSelect(table, query, token) {
       return visible(table, query, token) as any[];
     },
