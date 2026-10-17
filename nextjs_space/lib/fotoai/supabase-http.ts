@@ -92,6 +92,33 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
+/** Generic on purpose: GoTrue's text ("User already registered") would reveal which emails have accounts. */
+export const SIGN_UP_REJECTED_MESSAGE = 'Sign-up could not be completed. Check your details and try again.';
+
+/** A 400/422 from GoTrue sign-up. `detail` is for server logs only and never carries the email. */
+export class FotoaiSignUpRejectedError extends FotoaiValidationError {
+  readonly detail: { status: number; code: string };
+
+  constructor(message: string, detail: { status: number; code: string }) {
+    super(message);
+    this.name = 'FotoaiSignUpRejectedError';
+    this.detail = detail;
+  }
+}
+
+async function signUpRejected(res: Response): Promise<FotoaiSignUpRejectedError> {
+  let code = '';
+  try {
+    const body = (await res.json()) as { error_code?: unknown };
+    code = typeof body.error_code === 'string' ? body.error_code.slice(0, 60) : '';
+  } catch {
+    // keep the generic message
+  }
+  // A weak password says nothing about whether the account exists.
+  const message = code === 'weak_password' ? 'Password is too weak' : SIGN_UP_REJECTED_MESSAGE;
+  return new FotoaiSignUpRejectedError(message, { status: res.status, code });
+}
+
 function mapStatus(res: Response, detail: string): never {
   if (res.status === 401) throw new FotoaiAuthError('Supabase rejected the session');
   if (res.status === 403) throw new FotoaiForbiddenError('Supabase denied the operation');
@@ -162,9 +189,7 @@ export function createFotoaiSupabaseClient(env: FotoaiEnv, fetchImpl: FetchLike 
         headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, data: { name } }),
       });
-      if (res.status === 400 || res.status === 422) {
-        throw new FotoaiValidationError(`Sign-up rejected: ${await readError(res)}`);
-      }
+      if (res.status === 400 || res.status === 422) throw await signUpRejected(res);
       if (!res.ok) throw new FotoaiUpstreamError(res.status, `Sign-up failed: ${await readError(res)}`);
       const body = (await res.json()) as {
         id?: string; access_token?: string; refresh_token?: string; expires_in?: number; user?: { id?: string };
@@ -191,9 +216,7 @@ export function createFotoaiSupabaseClient(env: FotoaiEnv, fetchImpl: FetchLike 
         headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, data: { name } }),
       });
-      if (res.status === 400 || res.status === 422) {
-        throw new FotoaiValidationError(`Sign-up rejected: ${await readError(res)}`);
-      }
+      if (res.status === 400 || res.status === 422) throw await signUpRejected(res);
       if (!res.ok) throw new FotoaiUpstreamError(res.status, `Sign-up failed: ${await readError(res)}`);
       const body = (await res.json()) as {
         id?: string; access_token?: string; refresh_token?: string; expires_in?: number; user?: { id?: string };

@@ -241,7 +241,7 @@ export async function getFotoaiSession(fetcher: FotoaiFetch = fetch): Promise<Fo
 }
 
 export async function logoutFotoai(fetcher: FotoaiFetch = fetch): Promise<void> {
-  await requestJson('/api/fotoai/auth/logout', { method: 'POST' }, fetcher);
+  await requestJson('/api/fotoai/auth/logout', { method: 'POST', ...jsonBody({}) }, fetcher);
 }
 
 export async function registerFotoai(

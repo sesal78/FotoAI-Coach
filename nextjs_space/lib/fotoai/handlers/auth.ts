@@ -7,9 +7,19 @@
 // session returns 401 and the client signs in again. See the build report.
 //
 // Email links: GoTrue's /verify endpoint redirects to our page with the session
-// in the URL fragment. The page reads it in the browser and POSTs it here. A
-// `tokenHash` form (POST /auth/v1/verify) is also accepted for custom templates.
+// in the URL fragment. The page reads it in the browser and POSTs the access
+// token here. A `tokenHash` form (POST /auth/v1/verify) is also accepted for
+// custom templates. verify-email only CONFIRMS the link; it never sets session
+// cookies (a link carrying an attacker's token must not sign the victim in as
+// the attacker). The user then signs in with their password.
 // Tokens are never logged and never echoed back.
+//
+// CSRF: every state-changing route requires Content-Type: application/json,
+// which a cross-site HTML form cannot send without a CORS preflight.
+//
+// Default rows (preferences + progress) are seeded at a successful login (and
+// at register when GoTrue returns a session at once). Idempotent, never
+// overwrites, failures are logged and never block the sign-in.
 
 import { FotoaiAuthError, FotoaiUpstreamError, FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
@@ -22,7 +32,7 @@ import {
   readCookieValue,
   serializeSessionCookie,
 } from '../session-cookie.ts';
-import type { FotoaiOtpType, PasswordSession } from '../supabase-http.ts';
+import { FotoaiSignUpRejectedError, type FotoaiOtpType, type PasswordSession } from '../supabase-http.ts';
 import { type DepsProvider, type FotoaiDeps, json, readJsonBody, requirePrincipal, withFotoai } from './shared.ts';
 
 const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
@@ -30,15 +40,13 @@ const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 /**
  * Origins the auth emails may link back to. The request origin is used when it
  * is listed; anything else (proxy-internal host, spoofed Host header) falls
- * back to the first entry, the production site. GoTrue's own redirect
+ * back to the first entry, the production site. The local dev origins are
+ * honoured only when NODE_ENV is not 'production'. GoTrue's own redirect
  * allow-list must contain the same `<origin>/reset-password` and
  * `<origin>/verify-email/confirm` URLs.
  */
-export const FOTOAI_AUTH_REDIRECT_ORIGINS = [
-  'https://myfoto.topues.com',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-] as const;
+export const FOTOAI_AUTH_REDIRECT_ORIGINS = ['https://myfoto.topues.com'] as const;
+export const FOTOAI_DEV_AUTH_REDIRECT_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'] as const;
 
 export const FOTOAI_RESET_PATH = '/reset-password';
 export const FOTOAI_CONFIRM_PATH = '/verify-email/confirm';
@@ -49,14 +57,17 @@ const MAX_TOKEN_LENGTH = 8192;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFY_TYPES = new Set<FotoaiOtpType>(['signup', 'email']);
 
-export function authRedirectOrigin(request: Request): string {
+/** `nodeEnv` is read at call time (default process.env.NODE_ENV); tests inject it. */
+export function authRedirectOrigin(request: Request, nodeEnv: string | undefined = process.env.NODE_ENV): string {
   let origin = '';
   try {
     origin = new URL(request.url).origin;
   } catch {
     // fall back below
   }
-  const allowed: readonly string[] = FOTOAI_AUTH_REDIRECT_ORIGINS;
+  const allowed: readonly string[] = nodeEnv === 'production'
+    ? FOTOAI_AUTH_REDIRECT_ORIGINS
+    : [...FOTOAI_AUTH_REDIRECT_ORIGINS, ...FOTOAI_DEV_AUTH_REDIRECT_ORIGINS];
   return allowed.includes(origin) ? origin : FOTOAI_AUTH_REDIRECT_ORIGINS[0];
 }
 
@@ -99,13 +110,6 @@ function requireNewPassword(value: unknown): string {
   // GoTrue (bcrypt) rejects passwords over 72 bytes.
   if (new TextEncoder().encode(value).byteLength > 72) throw new FotoaiValidationError('Password must be at most 72 bytes');
   return value;
-}
-
-function clampExpiresIn(value: unknown): number {
-  if (value === undefined || value === null) return 3600;
-  const n = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
-  if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0) throw new FotoaiValidationError('expiresIn is malformed');
-  return Math.min(Math.max(n, 60), 60 * 60 * 24);
 }
 
 /** Proves an access token from an email link and returns its owner id. */
@@ -163,15 +167,18 @@ export function createAuthHandlers(provider: DepsProvider) {
   return {
     /** POST /api/fotoai/auth/login */
     login: withFotoai(provider, async (request, deps) => {
+      requireJsonContentType(request);
       const body = await readJsonBody(request);
       assertNoBrowserIdentity(body);
       const { email, password } = requireCredentials(body);
       const session = await deps.client.signInWithPassword(email, password);
+      await seedAccountDefaults(deps, session);
       return json({ success: true, userId: session.userId }, { headers: sessionHeaders(session, deps.env.cookieSecure) });
     }),
 
     /** POST /api/fotoai/auth/logout */
     logout: withFotoai(provider, async (request, deps) => {
+      requireJsonContentType(request);
       const token = readCookieValue(request.headers.get('cookie'), FOTOAI_SESSION_COOKIE);
       if (token) {
         try {
@@ -191,6 +198,7 @@ export function createAuthHandlers(provider: DepsProvider) {
 
     /** POST /api/fotoai/auth/register */
     register: withFotoai(provider, async (request, deps) => {
+      requireJsonContentType(request);
       const body = await readJsonBody(request);
       assertNoBrowserIdentity(body);
       const { email, password } = requireCredentials(body);
@@ -198,9 +206,17 @@ export function createAuthHandlers(provider: DepsProvider) {
       if (!name) throw new FotoaiValidationError('Name is required');
 
       const redirectTo = `${authRedirectOrigin(request)}${FOTOAI_CONFIRM_PATH}`;
-      const { userId, session } = await deps.client.signUpWithRedirect(email, password, name, redirectTo);
+      let signUp: Awaited<ReturnType<FotoaiDeps['client']['signUpWithRedirect']>>;
+      try {
+        signUp = await deps.client.signUpWithRedirect(email, password, name, redirectTo);
+      } catch (err) {
+        // The client sees a generic message; the reason goes to the server log only (no email).
+        if (err instanceof FotoaiSignUpRejectedError) deps.log?.('warn', 'Sign-up rejected', err.detail);
+        throw err;
+      }
+      const { userId, session } = signUp;
       if (!session) {
-        // Shared Auth may require email confirmation. No session yet; rows are seeded at verify-email.
+        // Shared Auth may require email confirmation. No session yet; rows are seeded at first login.
         return json({ success: true, userId, confirmationRequired: true }, { status: 202 });
       }
       await seedAccountDefaults(deps, session);
@@ -253,40 +269,30 @@ export function createAuthHandlers(provider: DepsProvider) {
 
     /**
      * POST /api/fotoai/auth/verify-email
-     *   {accessToken, refreshToken, expiresIn?}   (fragment from GoTrue's redirect)
+     *   {accessToken}                             (fragment from GoTrue's redirect)
      *   {tokenHash, type?: 'signup' | 'email'}    (custom template)
-     * Sets the FotoAI session cookies exactly like login and seeds default rows.
+     * Confirms the link and answers {verified: true}. Never sets cookies and
+     * never seeds rows: the page sends the user to /login?verified=1.
      */
     verifyEmail: withFotoai(provider, async (request, deps) => {
       requireJsonContentType(request);
       const body = await readJsonBody(request);
       assertNoBrowserIdentity(body);
-      assertFields(body, ['accessToken', 'refreshToken', 'expiresIn', 'tokenHash', 'type']);
+      assertFields(body, ['accessToken', 'tokenHash', 'type']);
       const link = requireLinkToken(body);
 
-      let session: PasswordSession;
       if ('accessToken' in link) {
         if (body.type !== undefined) throw new FotoaiValidationError('type is only used with tokenHash');
-        const refreshToken = optionalToken(body.refreshToken, 'refreshToken');
-        if (!refreshToken) throw new FotoaiValidationError('refreshToken is required with accessToken');
-        const expiresIn = clampExpiresIn(body.expiresIn);
-        const userId = await verifiedUserId(deps, link.accessToken);
-        session = { userId, accessToken: link.accessToken, refreshToken, expiresIn };
+        await verifiedUserId(deps, link.accessToken);
       } else {
-        if (body.refreshToken !== undefined || body.expiresIn !== undefined) {
-          throw new FotoaiValidationError('refreshToken and expiresIn are only used with accessToken');
-        }
         const type = body.type === undefined ? 'email' : body.type;
         if (typeof type !== 'string' || !VERIFY_TYPES.has(type as FotoaiOtpType)) {
           throw new FotoaiValidationError('type must be "signup" or "email"');
         }
-        session = await deps.client.verifyTokenHash(type as FotoaiOtpType, link.tokenHash);
+        const session = await deps.client.verifyTokenHash(type as FotoaiOtpType, link.tokenHash);
         if (!isUuid(session.userId)) throw new FotoaiAuthError('Link is invalid or has expired');
-        session = { ...session, userId: session.userId.toLowerCase() };
       }
-
-      await seedAccountDefaults(deps, session);
-      return json({ success: true, userId: session.userId }, { headers: sessionHeaders(session, deps.env.cookieSecure) });
+      return json({ verified: true });
     }),
 
     /** POST /api/fotoai/auth/resend-verification {email} -> always the same 200. */

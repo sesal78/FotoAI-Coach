@@ -3,7 +3,9 @@
 // Cron is the only FotoAI code that reads and writes across users with the
 // service role, so RLS does not protect it. This module puts the owner rule
 // back in code. Every job works through a UserServiceAccess bound to ONE
-// user id taken from the auth user listing (never from a request):
+// user id taken from the auth user listing (never from a request). The
+// submission follow-ups (submission-followups.ts) also use it, bound to the
+// verified session user, for writes that must survive token expiry:
 //   * select  -> always filters user_id = eq.<bound id>; a different user_id filter throws
 //   * insert  -> always writes user_id = <bound id>; a different user_id throws
 //   * update  -> always filters BOTH id and user_id; changing user_id throws
@@ -34,6 +36,8 @@ export interface CronScope {
 }
 
 export const T_AGENT_ACTIONS = 'fotoai_agent_actions';
+const T_MEMBER_PREFERENCES = 'fotoai_user_preferences';
+const T_MEMBER_PROGRESS = 'fotoai_user_progress';
 export const USERS_PAGE_SIZE = 100;
 /** Hard stop so a listing that ignores `page` cannot loop forever (100k users). */
 export const MAX_USER_PAGES = 1000;
@@ -124,6 +128,18 @@ export function bindServiceToUser(client: CronServiceClient, userId: string): Us
     },
   };
   return access;
+}
+
+/**
+ * FotoAI membership for cron. The Supabase Auth is shared with other apps, so
+ * an auth user is a FotoAI member only when they own a fotoai_user_preferences
+ * OR a fotoai_user_progress row. Every cron job checks this first.
+ */
+export async function isFotoaiMember(access: UserServiceAccess): Promise<boolean> {
+  const [prefs] = await access.select(T_MEMBER_PREFERENCES, { select: 'id', limit: '1' });
+  if (prefs) return true;
+  const [progress] = await access.select(T_MEMBER_PROGRESS, { select: 'id', limit: '1' });
+  return Boolean(progress);
 }
 
 /**

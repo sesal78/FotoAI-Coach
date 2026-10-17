@@ -105,6 +105,32 @@ test('auth redirects: only allow-listed origins are used; anything else falls ba
   assert.equal(calls('requestPasswordRecovery')[0].args[1], 'https://myfoto.topues.com/reset-password');
 });
 
+test('auth redirects: localhost origins are allowed only outside production (NODE_ENV read per call)', async () => {
+  for (const origin of ['http://localhost:3000', 'http://127.0.0.1:3000']) {
+    const req = new Request(`${origin}/api/fotoai/auth/forgot-password`);
+    assert.equal(authRedirectOrigin(req, 'production'), 'https://myfoto.topues.com', `${origin} in production`);
+    assert.equal(authRedirectOrigin(req, 'development'), origin);
+    assert.equal(authRedirectOrigin(req, 'test'), origin);
+    assert.equal(authRedirectOrigin(req, undefined), origin);
+  }
+  assert.equal(authRedirectOrigin(new Request('https://myfoto.topues.com/x'), 'production'), 'https://myfoto.topues.com');
+
+  const saved = process.env.NODE_ENV;
+  const env = process.env as Record<string, string | undefined>;
+  try {
+    env.NODE_ENV = 'production';
+    await auth.forgotPassword(post('/api/fotoai/auth/forgot-password', { email: 'alice@test.invalid' }));
+    env.NODE_ENV = 'development';
+    await auth.forgotPassword(post('/api/fotoai/auth/forgot-password', { email: 'alice@test.invalid' }));
+  } finally {
+    if (saved === undefined) delete env.NODE_ENV; else env.NODE_ENV = saved;
+  }
+  assert.deepEqual(calls('requestPasswordRecovery').map((call) => call.args[1]), [
+    'https://myfoto.topues.com/reset-password',
+    'http://localhost:3000/reset-password',
+  ]);
+});
+
 // ----- resend-verification ---------------------------------------------
 
 test('resend-verification: generic 200 for any address, link goes to /verify-email/confirm, failures stay hidden', async () => {
@@ -192,14 +218,93 @@ test('reset-password: a password GoTrue rejects is 400 with a safe message', asy
 
 // ----- verify-email -----------------------------------------------------
 
-test('verify-email: fragment tokens set the FotoAI session cookies like login and seed default rows once', async () => {
-  const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: 3600 }));
+test('verify-email: never sets session cookies; an attacker access token in the link signs nobody in', async () => {
+  // Login CSRF: /verify-email/confirm#access_token=<attacker token> must not log the victim in as the attacker.
+  const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_BOB }));
   assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));
-  assert.deepEqual(await response.json(), { success: true, userId: ALICE });
-  const cookies = setCookies(response);
-  assert.ok(cookies.some((cookie) => cookie.startsWith(`fotoai_session=${TOKEN_ALICE};`) && /HttpOnly/.test(cookie) && /Max-Age=3600/.test(cookie) && /SameSite=Lax/.test(cookie)));
-  assert.ok(cookies.some((cookie) => cookie.startsWith('fotoai_refresh=ref-alice;') && /HttpOnly/.test(cookie)));
+  assert.deepEqual(await response.json(), { verified: true });
+  assert.deepEqual(setCookies(response), [], 'no session cookie');
+  assert.deepEqual(calls('getUser').map((call) => call.args), [[TOKEN_BOB]], 'the token is only checked');
+  assert.equal((deps.client.tables.get('fotoai_user_preferences') ?? []).length, 0, 'no rows seeded at verify');
+  assert.equal((deps.client.tables.get('fotoai_user_progress') ?? []).length, 0);
+});
 
+test('verify-email: token_hash form verifies with GoTrue and also sets no cookie', async () => {
+  const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { tokenHash: 'hash-bob', type: 'signup' }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { verified: true });
+  assert.deepEqual(calls('verifyTokenHash').map((call) => call.args), [['signup', 'hash-bob']]);
+  assert.deepEqual(setCookies(response), []);
+  const defaultType = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { tokenHash: 'hash-alice' }));
+  assert.equal(defaultType.status, 200);
+  assert.deepEqual(setCookies(defaultType), []);
+  assert.deepEqual(calls('verifyTokenHash')[1].args, ['email', 'hash-alice']);
+  assert.equal((deps.client.tables.get('fotoai_user_preferences') ?? []).length, 0);
+});
+
+test('verify-email: bad token or expired hash is 401 and sets no cookie or row', async () => {
+  for (const body of [{ accessToken: 'bogus-token' }, { tokenHash: 'expired-hash' }]) {
+    const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', body));
+    assert.equal(response.status, 401, JSON.stringify(body));
+    assert.deepEqual(setCookies(response), []);
+  }
+  assert.equal((deps.client.tables.get('fotoai_user_preferences') ?? []).length, 0);
+});
+
+test('verify-email: malformed bodies (including refresh tokens, which are no longer accepted) are 400 with no cookie', async () => {
+  const bodies: unknown[] = [
+    {},
+    { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice' },
+    { accessToken: TOKEN_ALICE, expiresIn: 3600 },
+    { accessToken: TOKEN_ALICE, type: 'signup' },
+    { tokenHash: 'hash-alice', type: 'recovery' },
+    { tokenHash: 'hash-alice', type: 'magiclink' },
+    { tokenHash: 'hash-alice', refreshToken: 'ref-alice' },
+    { accessToken: TOKEN_ALICE, tokenHash: 'hash-alice' },
+    { accessToken: TOKEN_ALICE, userId: ALICE },
+    { accessToken: TOKEN_ALICE, redirect: '/admin' },
+  ];
+  for (const body of bodies) {
+    const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', body));
+    assert.equal(response.status, 400, JSON.stringify(body));
+    assert.deepEqual(setCookies(response), []);
+  }
+  const textPlain = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE }, { contentType: 'text/plain' }));
+  assert.equal(textPlain.status, 400);
+});
+
+// ----- login / register / logout: CSRF and seeding ----------------------
+
+test('login CSRF: login, register and logout require application/json; a cross-site text/plain form changes nothing', async () => {
+  const creds = { email: 'alice@test.invalid', password: 'correct-horse' };
+  for (const contentType of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', '']) {
+    const login = await auth.login(post('/api/fotoai/auth/login', creds, { contentType }));
+    assert.equal(login.status, 400, `login ${contentType}`);
+    assert.deepEqual(setCookies(login), [], `login ${contentType} sets no cookie`);
+
+    const register = await auth.register(post('/api/fotoai/auth/register', { ...creds, name: 'Mallory' }, { contentType }));
+    assert.equal(register.status, 400, `register ${contentType}`);
+    assert.deepEqual(setCookies(register), []);
+
+    const logout = await auth.logout(post('/api/fotoai/auth/logout', {}, { contentType, cookie: cookieFor(TOKEN_ALICE) }));
+    assert.equal(logout.status, 400, `logout ${contentType}`);
+    assert.deepEqual(setCookies(logout), [], 'logout did not clear the victim cookies');
+  }
+  assert.equal(calls('signUpWithRedirect').length, 0);
+  assert.equal(calls('signOut').length, 0);
+  assert.equal((deps.client.tables.get('fotoai_user_preferences') ?? []).length, 0);
+
+  const ok = await auth.login(post('/api/fotoai/auth/login', creds, { contentType: 'application/json; charset=utf-8' }));
+  assert.equal(ok.status, 200);
+  assert.ok(setCookies(ok).some((cookie) => cookie.startsWith(`fotoai_session=${TOKEN_ALICE};`)));
+  const out = await auth.logout(post('/api/fotoai/auth/logout', {}, { cookie: cookieFor(TOKEN_ALICE) }));
+  assert.equal(out.status, 200);
+});
+
+test('login: seeds the default rows once with the user token and never overwrites them', async () => {
+  const creds = { email: 'alice@test.invalid', password: 'correct-horse' };
+  const response = await auth.login(post('/api/fotoai/auth/login', creds));
+  assert.equal(response.status, 200);
   const prefs = deps.client.tables.get('fotoai_user_preferences')!;
   assert.equal(prefs.length, 1);
   assert.equal(prefs[0].user_id, ALICE);
@@ -210,71 +315,21 @@ test('verify-email: fragment tokens set the FotoAI session cookies like login an
   assert.equal(progress.length, 1);
   assert.equal(progress[0].user_id, ALICE);
 
-  // A second verify (or a returning user) never overwrites or duplicates rows.
   prefs[0].skill_level = 'professional';
-  const again = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice' }));
-  assert.equal(again.status, 200);
+  assert.equal((await auth.login(post('/api/fotoai/auth/login', creds))).status, 200);
   assert.equal(deps.client.tables.get('fotoai_user_preferences')!.length, 1);
   assert.equal(deps.client.tables.get('fotoai_user_preferences')![0].skill_level, 'professional');
   assert.equal(deps.client.tables.get('fotoai_user_progress')!.length, 1);
   assert.equal(deps.client.serviceCalls.length, 0, 'seeding uses the user token only');
 });
 
-test('verify-email: token_hash form verifies with GoTrue and sets that user cookie', async () => {
-  const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { tokenHash: 'hash-bob', type: 'signup' }));
-  assert.equal(response.status, 200);
-  assert.deepEqual(calls('verifyTokenHash').map((call) => call.args), [['signup', 'hash-bob']]);
-  assert.ok(setCookies(response).some((cookie) => cookie.startsWith(`fotoai_session=${TOKEN_BOB};`)));
-  const defaultType = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { tokenHash: 'hash-alice' }));
-  assert.equal(defaultType.status, 200);
-  assert.deepEqual(calls('verifyTokenHash')[1].args, ['email', 'hash-alice']);
-});
-
-test('verify-email: bad token or expired hash is 401 and sets no cookie or row', async () => {
-  for (const body of [{ accessToken: 'bogus-token', refreshToken: 'ref-x' }, { tokenHash: 'expired-hash' }]) {
-    const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', body));
-    assert.equal(response.status, 401, JSON.stringify(body));
-    assert.deepEqual(setCookies(response), []);
-  }
-  assert.equal((deps.client.tables.get('fotoai_user_preferences') ?? []).length, 0);
-});
-
-test('verify-email: malformed bodies are 400 with no cookie', async () => {
-  const bodies: unknown[] = [
-    {},
-    { accessToken: TOKEN_ALICE },
-    { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', type: 'signup' },
-    { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: -5 },
-    { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: 'soon' },
-    { tokenHash: 'hash-alice', type: 'recovery' },
-    { tokenHash: 'hash-alice', type: 'magiclink' },
-    { tokenHash: 'hash-alice', refreshToken: 'ref-alice' },
-    { accessToken: TOKEN_ALICE, tokenHash: 'hash-alice', refreshToken: 'ref-alice' },
-    { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', userId: ALICE },
-    { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', redirect: '/admin' },
-  ];
-  for (const body of bodies) {
-    const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', body));
-    assert.equal(response.status, 400, JSON.stringify(body));
-    assert.deepEqual(setCookies(response), []);
-  }
-  const textPlain = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice' }, { contentType: 'text/plain' }));
-  assert.equal(textPlain.status, 400);
-});
-
-test('verify-email: a client expiresIn is clamped to 1 minute .. 1 day for the cookie', async () => {
-  const long = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: 999999999 }));
-  assert.ok(setCookies(long).some((cookie) => cookie.startsWith('fotoai_session=') && /Max-Age=86400/.test(cookie)));
-  const short = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: '5' }));
-  assert.ok(setCookies(short).some((cookie) => cookie.startsWith('fotoai_session=') && /Max-Age=60/.test(cookie)));
-});
-
-test('verify-email: a seeding failure is logged without detail but still signs the user in', async () => {
+test('login: a seeding failure is logged without detail and never blocks the login', async () => {
   deps.client.restInsert = async () => { throw new FotoaiUpstreamError(500, `insert failed for ${TOKEN_ALICE}`); };
-  const response = await auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice' }));
+  const response = await auth.login(post('/api/fotoai/auth/login', { email: 'alice@test.invalid', password: 'correct-horse' }));
   assert.equal(response.status, 200);
   assert.ok(setCookies(response).some((cookie) => cookie.startsWith(`fotoai_session=${TOKEN_ALICE};`)));
   assert.deepEqual(logged.map((entry) => [entry.level, entry.message, entry.meta?.code]), [['warn', 'Account default rows could not be created', 'upstream']]);
+  assert.ok(!JSON.stringify(logged).includes(TOKEN_ALICE));
 });
 
 test('auth flows: link tokens and new passwords never appear in logs or response bodies', async () => {
@@ -288,8 +343,8 @@ test('auth flows: link tokens and new passwords never appear in logs or response
   try {
     deps.client.signOut = async () => { throw new FotoaiUpstreamError(500, 'Sign-out failed: upstream'); };
     const responses = await Promise.all([
-      auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE, refreshToken: 'ref-alice' })),
-      auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: 'bogus-token', refreshToken: 'ref-alice' })),
+      auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: TOKEN_ALICE })),
+      auth.verifyEmail(post('/api/fotoai/auth/verify-email', { accessToken: 'bogus-token' })),
       auth.verifyEmail(post('/api/fotoai/auth/verify-email', { tokenHash: 'hash-alice' })),
       auth.verifyEmail(post('/api/fotoai/auth/verify-email', { tokenHash: 'expired-hash' })),
       auth.resetPassword(post('/api/fotoai/auth/reset-password', { accessToken: TOKEN_ALICE, password: 'new-horse-battery' })),
@@ -324,9 +379,37 @@ test('register: asks GoTrue to send the confirmation link to /verify-email/confi
   assert.equal(deps.client.tables.get('fotoai_user_preferences')![0].user_id, ALICE);
   assert.equal(deps.client.tables.get('fotoai_user_progress')![0].user_id, ALICE);
 
-  // The session cookie from verify works for the normal session routes.
+  // The session cookie from register works for the normal session routes.
   const me = await auth.me(new Request('http://localhost:3000/api/fotoai/auth/me', { headers: { cookie: cookieFor(TOKEN_ALICE) } }));
   assert.equal((await me.json()).id, ALICE);
+});
+
+test('register: a GoTrue sign-up rejection is a generic 400 (no account enumeration); details only in the server log, no email', async () => {
+  const gotrueReply = { code: 422, error_code: 'user_already_exists', msg: 'User already registered: taken@test.invalid' };
+  for (const status of [400, 422]) {
+    const real = createFotoaiSupabaseClient(TEST_ENV, async () => Response.json(gotrueReply, { status }));
+    for (const call of [
+      () => real.signUp('taken@test.invalid', 'long-enough', 'T'),
+      () => real.signUpWithRedirect('taken@test.invalid', 'long-enough', 'T', 'https://myfoto.topues.com/verify-email/confirm'),
+    ]) {
+      await assert.rejects(call(), (err: any) => {
+        assert.equal(err.status, 400);
+        assert.doesNotMatch(err.message, /already|registered|taken@/i);
+        return true;
+      });
+    }
+    deps.client.signUpWithRedirect = real.signUpWithRedirect;
+    logged.length = 0;
+    const response = await auth.register(post('/api/fotoai/auth/register', { email: 'taken@test.invalid', password: 'long-enough', name: 'T' }));
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error, 'Sign-up could not be completed. Check your details and try again.');
+    assert.ok(logged.some((entry) => entry.message === 'Sign-up rejected' && entry.meta?.code === 'user_already_exists' && entry.meta?.status === status));
+    assert.ok(!JSON.stringify(logged).includes('taken@test.invalid'), 'no email in logs');
+  }
+  // A weak password is not an account-existence signal and keeps a useful message.
+  const weak = createFotoaiSupabaseClient(TEST_ENV, async () => Response.json({ error_code: 'weak_password', msg: 'Password should be at least 6 characters' }, { status: 422 }));
+  await assert.rejects(weak.signUpWithRedirect('a@test.invalid', 'x', 'A', 'r'), (err: any) => err.status === 400 && err.message === 'Password is too weak');
 });
 
 // ----- browser link parsing -------------------------------------------

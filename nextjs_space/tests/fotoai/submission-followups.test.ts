@@ -4,6 +4,7 @@
 import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { FotoaiAuthError } from '../../lib/fotoai/errors.ts';
 import { createSubmissionHandlers } from '../../lib/fotoai/handlers/submissions.ts';
 import { backgroundScheduler, FALLBACK_FEEDBACK, type SubmissionFollowupResult } from '../../lib/fotoai/submission-followups.ts';
 import { ALICE, BOB, TOKEN_ALICE, TOKEN_BOB } from './helpers/fake-supabase.ts';
@@ -264,4 +265,49 @@ test('followups: default background scheduler logs a crashing task instead of an
   } finally {
     process.off('unhandledRejection', onUnhandled);
   }
+});
+
+test('followups: the user token expiring after the response does not leave feedback pending (writes use the user-bound service role)', async () => {
+  const pending: Array<() => Promise<unknown>> = [];
+  const deferred = createSubmissionHandlers(() => deps, { scheduleFollowups: (task) => { pending.push(task); } });
+  const send = (notes: string) => deferred.create(request('/api/fotoai/submissions', {
+    method: 'POST', cookie: cookieFor(TOKEN_ALICE), ...multipart({ challengeId: aliceChallenge.id, notes }),
+  }));
+  const bobSub = deps.client.seed(T_SUBS, { user_id: BOB, challenge_id: bobChallenge.id, notes: '', feedback: null, feedback_status: 'pending', submitted_at: '2026-10-01T00:00:00Z' });
+
+  const first = (await (await send('one')).json()).submission;
+  const second = (await (await send('two')).json()).submission;
+  assert.equal(first.feedback_status, 'pending');
+
+  // The session expires while the follow-ups run: every user-token call is now 401.
+  const client = deps.client as unknown as Record<string, (...args: any[]) => Promise<unknown>>;
+  for (const op of ['restSelect', 'restInsert', 'restUpsert', 'restUpdate', 'restDelete']) {
+    const original = client[op].bind(deps.client);
+    client[op] = async (...args: any[]) => {
+      if (args[args.length - 1] === TOKEN_ALICE) throw new FotoaiAuthError('JWT expired');
+      return original(...args);
+    };
+  }
+  let llm = 0;
+  deps.fakes.generateFeedback = () => { llm += 1; if (llm === 2) throw new Error('llm down'); return 'Lovely reflections.'; };
+  const serviceUpdates: Array<{ table: string; query: Record<string, string> }> = [];
+  const serviceUpdate = deps.client.serviceUpdate.bind(deps.client);
+  deps.client.serviceUpdate = (async (table: string, query: Record<string, string>, patch: Record<string, unknown>) => {
+    serviceUpdates.push({ table, query: { ...query } });
+    return serviceUpdate(table, query, patch);
+  }) as typeof deps.client.serviceUpdate;
+
+  const results = await Promise.all(pending.map((task) => task())) as SubmissionFollowupResult[];
+  assert.deepEqual(results.map((r) => r.feedback), ['generated', 'fallback']);
+  const one = rows(T_SUBS).find((r) => r.id === first.id)!;
+  assert.equal(one.feedback, 'Lovely reflections.');
+  assert.equal(one.feedback_status, 'ready');
+  const two = rows(T_SUBS).find((r) => r.id === second.id)!;
+  assert.equal(two.feedback_status, 'ready', 'fallback also no longer stuck on pending');
+  assert.equal(bobSub.feedback_status, 'pending', 'Bob untouched');
+
+  assert.deepEqual(serviceUpdates, [
+    { table: T_SUBS, query: { id: `eq.${first.id}`, user_id: `eq.${ALICE}` } },
+    { table: T_SUBS, query: { id: `eq.${second.id}`, user_id: `eq.${ALICE}` } },
+  ], 'each write filters id AND user_id');
 });

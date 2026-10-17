@@ -202,10 +202,12 @@ test('users: pages through adminListUsers(page, 100) until a short page (250 use
   assert.equal(res.status, 200);
   assert.deepEqual(pagesRequested, [1, 2, 3]);
   const body = await res.json();
-  assert.deepEqual(body.results, [{ userId: late, status: 'streak_reset', previousStreak: 4 }]);
+  assert.equal(body.results.length, 250, 'every listed user was visited once');
+  assert.deepEqual(body.results.filter((r: any) => r.status !== 'skipped'), [{ userId: late, status: 'streak_reset', previousStreak: 4 }]);
+  assert.ok(body.results.every((r: any) => r.userId === late || r.reason === 'not a FotoAI user'), 'the other 249 have no FotoAI rows');
   assert.equal(rowsOf(T_PROGRESS, late)[0].current_streak, 0);
-  const progressReads = svc.filter((c) => c.op === 'select' && c.table === T_PROGRESS);
-  assert.equal(progressReads.length, 250, 'every listed user was visited once');
+  const visited = new Set(svc.filter((c) => c.op === 'select' && c.table === T_PROGRESS).map((c) => c.query!.user_id));
+  assert.equal(visited.size, 250, 'every listed user was visited');
 });
 
 test('users: an exact multiple of 100 stops at the first empty page', async () => {
@@ -266,7 +268,7 @@ test('daily-challenge: one challenge per user with preferences, own progress, ow
 
   const emails = callsOf('sendChallengeEmail');
   assert.deepEqual(emails.map((c) => c.args[0]), ['alice@test.invalid', 'bob@test.invalid']);
-  assert.equal((emails[0].args[2] as any).challengeText, 'Shoot breflections/b', 'angle brackets stripped before HTML email');
+  assert.equal((emails[0].args[2] as any).challengeText, 'Shoot <b>reflections</b>', 'passed as is: lib/email.ts escapes HTML');
   assert.ok(!JSON.stringify(body).includes('@'), 'no emails in the response');
   assert.ok(!JSON.stringify(deps.logs).includes('@'), 'no emails in the logs');
   assertEveryServiceCallScoped();
@@ -280,7 +282,7 @@ test('daily-challenge: one challenge per user with preferences, own progress, ow
   assert.equal(callsOf('sendChallengeEmail').length, 2);
 });
 
-test('daily-challenge: users without preferences are skipped silently; Saturday is WEEKEND_DEEP_DIVE', async () => {
+test('daily-challenge: non-members are skipped as not a FotoAI user; Saturday is WEEKEND_DEEP_DIVE', async () => {
   seedPrefs(BOB);
   deps.fakes.getWeather = () => null;
   deps.fakes.generateChallenge = () => ({ ...LLM_CHALLENGE });
@@ -290,7 +292,7 @@ test('daily-challenge: users without preferences are skipped silently; Saturday 
   });
   const res = await saturday.dailyChallenge(request(ROUTES.dailyChallenge, { headers: { authorization: `Bearer ${SECRET}` } }));
   const body = await res.json();
-  assert.deepEqual(body.results.map((r: any) => [r.userId, r.status]), [[BOB, 'success']]);
+  assert.deepEqual(body.results.map((r: any) => [r.userId, r.status, r.reason]), [[ALICE, 'skipped', 'not a FotoAI user'], [BOB, 'success', undefined]]);
   assert.equal(rowsOf(T_CH, BOB)[0].challenge_type, 'WEEKEND_DEEP_DIVE');
   assert.equal(rowsOf(T_CH, ALICE).length, 0);
 });
@@ -424,7 +426,9 @@ function seedWeeklyData() {
   deps.client.seed('fotoai_photo_critiques', { user_id: ALICE, overall_score: 80, technical_score: 70, composition_score: 90, creative_score: 60, critique_date: daysAgo(1) });
   deps.client.seed('fotoai_photo_critiques', { user_id: ALICE, overall_score: 90, technical_score: 80, composition_score: 80, creative_score: 70, critique_date: daysAgo(2) });
   deps.client.seed('fotoai_photo_critiques', { user_id: ALICE, overall_score: 60, technical_score: 60, composition_score: 60, creative_score: 60, critique_date: daysAgo(8) });
-  // Bob: lots of activity that must never leak into Alice's numbers.
+  // Bob: lots of activity that must never leak into Alice's numbers. His
+  // preferences row makes him a FotoAI member (no progress row).
+  seedPrefs(BOB);
   for (let i = 0; i < 5; i += 1) {
     deps.client.seed(T_CH, { user_id: BOB, status: 'completed', category: 'portrait', issued_date: daysAgo(1), challenge_type: 'AFTER_WORK', challenge_text: 'x' });
     deps.client.seed('fotoai_photo_critiques', { user_id: BOB, overall_score: 10, technical_score: 10, composition_score: 10, creative_score: 10, critique_date: daysAgo(1) });
@@ -517,6 +521,46 @@ test('weekly-report: one user\'s insights failure does not stop the others and s
   assert.equal(body.results[1].status, 'success');
   assert.equal(rowsOf(T_WEEKLY, ALICE).length, 0);
   assert.equal(rowsOf(T_WEEKLY, BOB).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Membership: the shared Supabase Auth also lists other apps' users
+// ---------------------------------------------------------------------------
+
+test('membership: a shared-Auth user with no FotoAI preferences or progress row is skipped by every job before any LLM, email or write', async () => {
+  const OTHER = '33333333-3333-4333-8333-333333333333';
+  setUsers([{ id: OTHER, email: 'other-app@test.invalid', name: 'Other' }]);
+  // Rows in other FotoAI tables do not make someone a member.
+  deps.client.seed(T_CH, { user_id: OTHER, status: 'completed', category: 'street', issued_date: daysAgo(1), challenge_type: 'LUNCH_BREAK', challenge_text: 'x' });
+  for (const name of ['getWeather', 'generateChallenge', 'generateWeeklyInsights', 'sendChallengeEmail', 'sendWeeklyReport', 'sendWeatherAlert', 'analyzeWeatherForPhotography']) {
+    deps.fakes[name] = () => { throw new Error(`${name} must not be called for a non-member`); };
+  }
+
+  for (const job of Object.keys(ROUTES) as Job[]) {
+    svc.length = 0;
+    const res = await cron(job);
+    assert.equal(res.status, 200, job);
+    assert.deepEqual((await res.json()).results, [{ userId: OTHER, status: 'skipped', reason: 'not a FotoAI user' }], job);
+    assert.ok(svc.length > 0, `${job} read membership`);
+    for (const call of svc) {
+      assert.equal(call.op, 'select', `${job}: only the membership read, got ${call.op} on ${call.table}`);
+      assert.ok([T_PREFS, T_PROGRESS].includes(call.table), `${job}: membership read only, got ${call.table}`);
+      assert.equal(call.query!.user_id, `eq.${OTHER}`);
+    }
+  }
+  assert.deepEqual(deps.calls, [], 'no LLM, weather or email call');
+  assert.equal(rowsOf(T_WEEKLY, OTHER).length, 0);
+  assert.equal(rowsOf(T_ACTIONS, OTHER).length, 0);
+  assert.equal(rowsOf(T_PROGRESS, OTHER).length, 0, 'no progress row created');
+});
+
+test('membership: a progress row alone (no preferences) makes a user a member', async () => {
+  deps.client.seed(T_PROGRESS, { user_id: ALICE, current_streak: 5, last_completion_date: daysAgo(3) });
+  const body = await (await cron('streakManager')).json();
+  assert.deepEqual(body.results, [
+    { userId: ALICE, status: 'streak_reset', previousStreak: 5 },
+    { userId: BOB, status: 'skipped', reason: 'not a FotoAI user' },
+  ]);
 });
 
 // ---------------------------------------------------------------------------

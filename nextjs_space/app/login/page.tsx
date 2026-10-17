@@ -10,6 +10,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/dashboard';
+  const verified = searchParams.get('verified') === '1';
   const { signIn, status } = useAppwriteAuth();
 
   const [email, setEmail] = useState('');
@@ -87,6 +88,13 @@ function LoginForm() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email confirmed (from /verify-email/confirm) */}
+            {verified && !error && (
+              <div role="status" className="px-4 py-3 bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-sm">
+                Email verified, please log in.
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <div className="px-4 py-3 bg-destructive/10 border border-destructive/30 text-destructive text-sm">

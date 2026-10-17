@@ -244,7 +244,7 @@ test('generateChallengeFor: accepts an injected data access (cron-style scope wi
 // Email
 // ---------------------------------------------------------------------------
 
-test('email: sends to the session user\'s own address with bounded, cleaned fields', async () => {
+test('email: sends to the session user\'s own address with bounded, trimmed fields (lib/email.ts escapes HTML)', async () => {
   deps.fakes.sendChallengeEmail = () => true;
   const res = await email.send(jsonRequest(EMAIL_URL, {
     challengeText: 'Shoot <b>reflections</b>', category: 'street', recommendedGear: ['X-T5'], location: 'Fitzroy',
@@ -255,7 +255,7 @@ test('email: sends to the session user\'s own address with bounded, cleaned fiel
   assert.equal(call.args[0], 'alice@test.invalid');
   assert.equal(call.args[1], 'Photographer');
   const sent = call.args[2] as any;
-  assert.equal(sent.challengeText, 'Shoot breflections/b');
+  assert.equal(sent.challengeText, 'Shoot <b>reflections</b>');
   assert.equal(sent.difficulty, 'intermediate');
   assert.equal(sent.duration, '30 mins');
   assert.deepEqual(sent.recommendedGear, ['X-T5']);

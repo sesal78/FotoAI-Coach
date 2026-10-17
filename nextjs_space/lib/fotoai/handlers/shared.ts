@@ -1,6 +1,7 @@
 // Shared pieces for FotoAI route handlers. Uses only the Web Request/Response
 // API so handlers run in Next.js Route Handlers AND in plain Node tests.
 
+import { MAX_JSON_BODY_BYTES, readBoundedText } from '../bounded-body.ts';
 import type { FotoaiEnv } from '../env.ts';
 import { FotoaiError, FotoaiUpstreamError, isFotoaiError } from '../errors.ts';
 import { resolvePrincipal, type FotoaiPrincipal } from '../membership.ts';
@@ -78,9 +79,11 @@ export function withFotoai(
   };
 }
 
-export async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+/** Parses a JSON object body of at most `maxBytes` (413 above, 400 if not a JSON object). */
+export async function readJsonBody(request: Request, maxBytes = MAX_JSON_BODY_BYTES): Promise<Record<string, unknown>> {
+  const text = await readBoundedText(request, maxBytes);
   try {
-    const parsed = await request.json();
+    const parsed = JSON.parse(text);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
   } catch {
     // fall through

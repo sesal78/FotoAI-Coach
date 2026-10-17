@@ -14,7 +14,7 @@
 import { MAX_UPLOAD_REQUEST_BYTES, readBoundedFormData } from '../bounded-body.ts';
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
-import type { IncomingPhoto } from '../photos.ts';
+import { type IncomingPhoto, MAX_SIGNED_URL_TTL_SECONDS } from '../photos.ts';
 import { backgroundScheduler, type FollowupScheduler, runSubmissionFollowups } from '../submission-followups.ts';
 import { defaultLog, type DepsProvider, json, requirePrincipal, withFotoai } from './shared.ts';
 
@@ -28,6 +28,15 @@ function toIncomingPhoto(value: FormDataEntryValue | null): IncomingPhoto | null
     size: file.size,
     bytes: async () => new Uint8Array(await file.arrayBuffer()),
   };
+}
+
+/** ?ttl= must be a plain integer 1..MAX_SIGNED_URL_TTL_SECONDS; anything else is 400, never NaN to Storage. */
+function parseTtl(raw: string | null): number {
+  const ttl = raw !== null && /^\d{1,3}$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isInteger(ttl) || ttl < 1 || ttl > MAX_SIGNED_URL_TTL_SECONDS) {
+    throw new FotoaiValidationError(`ttl must be an integer from 1 to ${MAX_SIGNED_URL_TTL_SECONDS}`);
+  }
+  return ttl;
 }
 
 export interface SubmissionHandlerOptions {
@@ -122,7 +131,7 @@ export function createSubmissionHandlers(provider: DepsProvider, options: Submis
       const principal = await requirePrincipal(request, deps);
       const search = new URL(request.url).searchParams;
       assertNoBrowserIdentity(search);
-      const ttl = search.has('ttl') ? Number(search.get('ttl')) : undefined;
+      const ttl = search.has('ttl') ? parseTtl(search.get('ttl')) : undefined;
       const signed = await deps.photos.signSubmissionPhoto(principal, params.id, ttl);
       return json({ url: signed.url, expiresIn: signed.expiresIn });
     }),

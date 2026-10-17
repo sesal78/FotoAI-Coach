@@ -11,9 +11,12 @@
 // per-request targeting: each job pages through every auth user itself.
 //
 // Each user runs inside its own try/catch, so one failure is recorded as
-// {userId, status: 'error', error} and the loop goes on. Users the legacy job
-// skipped silently (no preferences / no progress row) are omitted from
-// `results`, as before. Emails never appear in responses or logs.
+// {userId, status: 'error', error} and the loop goes on. The Auth is shared
+// with other apps: a listed user who owns neither a preferences nor a progress
+// row is not a FotoAI member and is reported as {status: 'skipped', reason:
+// 'not a FotoAI user'} before any LLM, email or write (isFotoaiMember). Members
+// a job's own rule skips (e.g. no location) are omitted from `results`, as
+// before. Emails never appear in responses or logs.
 //
 // All data access goes through cron-data-access.ts (service role bound to one
 // user: every read filters user_id, every write filters id AND user_id).
@@ -27,6 +30,7 @@ import { assertCronRequest, type CronSecretSource } from '../cron-auth.ts';
 import {
   bindServiceToUser,
   createCronGenerationDataAccess,
+  isFotoaiMember,
   listAllUsers,
   type CronScope,
 } from '../cron-data-access.ts';
@@ -46,6 +50,7 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 /** Newest rows read per user per table for the weekly window (two weeks). */
 export const WEEKLY_ROW_LIMIT = 500;
 export const WEATHER_ALERT_MIN_SCORE = 80;
+const NOT_A_MEMBER = 'not a FotoAI user';
 
 type Row = Record<string, unknown>;
 
@@ -85,6 +90,11 @@ function cronRoute(provider: DepsProvider, opts: ScheduledOptions, name: string,
       const results: UserResult[] = [];
       for (const user of users) {
         try {
+          // Shared Auth lists other apps' users too: no LLM, email or write for them.
+          if (!(await isFotoaiMember(bindServiceToUser(deps.client, user.id)))) {
+            results.push({ userId: user.id, status: 'skipped', reason: NOT_A_MEMBER });
+            continue;
+          }
           const outcome = await job(deps, user, now);
           if (outcome) results.push({ userId: user.id, ...outcome });
         } catch (err) {
@@ -126,10 +136,6 @@ function time(value: unknown): number {
   return Number.isNaN(t) ? NaN : t;
 }
 
-function noAngles(value: string): string {
-  return value.replace(/[<>]/g, '').trim();
-}
-
 // ---------------------------------------------------------------------------
 // daily-challenge
 // ---------------------------------------------------------------------------
@@ -167,15 +173,16 @@ const dailyChallengeJob: UserJob = async (deps, user, now) => {
     return { status: 'skipped', reason: 'Challenge already exists for today', challengeId: result.challenge.id };
   }
 
+  // lib/email.ts HTML-escapes every value, so LLM text is passed as is.
   const dto = toChallengeDto(result.challenge);
   const emailSent = await sendSafely(deps, 'Challenge email', user, (email, name) =>
     deps.services.mail.sendChallengeEmail(email, name, {
-      challengeText: noAngles(dto.challengeText),
-      difficulty: noAngles(dto.difficulty),
-      category: noAngles(dto.category),
-      duration: noAngles(dto.duration),
-      tips: noAngles(dto.tips),
-      recommendedGear: dto.recommendedGear.map(noAngles),
+      challengeText: dto.challengeText,
+      difficulty: dto.difficulty,
+      category: dto.category,
+      duration: dto.duration,
+      tips: dto.tips,
+      recommendedGear: dto.recommendedGear,
     }));
   return { status: 'success', challengeId: result.challenge.id, emailSent };
 };

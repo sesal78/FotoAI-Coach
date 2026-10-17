@@ -154,3 +154,43 @@ test('portfolio client: session-only URLs, photo_N fields only', async () => {
   assert.deepEqual(calls.map((c) => c.url), ['/api/fotoai/portfolio?limit=10', '/api/fotoai/portfolio']);
   assert.deepEqual(formKeys(calls[1].init), ['photo_0', 'photo_1', 'photo_2']);
 });
+
+test('portfolio rate limit is reserve-first: 6 parallel POSTs -> at most 3 succeed, LLM only for those, no reservation left behind', async () => {
+  const results = await Promise.all(Array.from({ length: 6 }, () => post(photos(3))));
+  const statuses = results.map((r) => r.status);
+  const ok = statuses.filter((s) => s === 201).length;
+  assert.ok(ok <= 3, `at most 3 analyses succeed, got ${statuses.join(',')}`);
+  assert.ok(statuses.every((s) => s === 201 || s === 429), statuses.join(','));
+  // Every LLM call belongs to a successful analysis: one meta call per success, 3 assessments each.
+  assert.equal(deps.calls.filter((c) => c.name === 'analyzePortfolioMeta').length, ok);
+  assert.equal(deps.calls.filter((c) => c.name === 'assessPortfolioPhoto').length, ok * 3);
+  const rows = deps.client.tables.get(T) ?? [];
+  assert.equal(rows.length, ok, 'one final row per success');
+  assert.ok(rows.every((r) => r.user_id === ALICE && r.analysis.status !== 'pending' && r.photo_count === 3));
+
+  // Sequentially afterwards the day still allows exactly 3 in total.
+  for (let i = ok; i < 3; i++) assert.equal((await post(photos(3))).status, 201);
+  assert.equal((await post(photos(3))).status, 429);
+  assert.equal((deps.client.tables.get(T) ?? []).length, 3);
+});
+
+test('portfolio: the reservation is inserted before any LLM call and removed when the LLM fails', async () => {
+  const seenAtLlm: Array<Record<string, any>[]> = [];
+  deps.fakes.assessPortfolioPhoto = (input: { index: number }) => {
+    seenAtLlm.push((deps.client.tables.get(T) ?? []).map((r) => ({ ...r })));
+    return { index: input.index, score: 70, styleTags: [], strength: 's', weakness: 'w' };
+  };
+  deps.fakes.analyzePortfolioMeta = () => { throw new Error('model down'); };
+  assert.equal((await post(photos(4))).status, 502);
+  assert.ok(seenAtLlm.length > 0);
+  const [reservation] = seenAtLlm[0];
+  assert.equal(reservation.user_id, ALICE);
+  assert.equal(reservation.photo_count, 4);
+  assert.deepEqual(reservation.analysis, { status: 'pending' });
+  assert.equal((deps.client.tables.get(T) ?? []).length, 0, 'reservation deleted on failure');
+
+  // GET never shows a pending reservation.
+  deps.client.seed(T, { user_id: ALICE, photo_count: 3, analysis: { status: 'pending' }, analysis_date: new Date().toISOString() });
+  const list = await h.list(request(URL_, { cookie: ALICE_COOKIE }));
+  assert.deepEqual((await list.json()).analyses, []);
+});

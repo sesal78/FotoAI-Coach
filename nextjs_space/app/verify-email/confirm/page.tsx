@@ -18,6 +18,8 @@ function ConfirmContent() {
     // (#access_token=...&refresh_token=...&type=signup); a custom template may
     // send ?token_hash=...&type=email instead. Read it once, then drop it from
     // the address bar so it never lands in history or a Referer header.
+    // Only the access token is sent, to confirm the link: this page never
+    // signs anyone in (a link could carry someone else's session).
     if (started.current) return;
     started.current = true;
     const parsed = parseFotoaiLinkToken(window.location.hash, window.location.search);
@@ -26,9 +28,8 @@ function ConfirmContent() {
     }
 
     let token: Parameters<typeof verifyFotoaiEmail>[0] | null = null;
-    if (parsed.kind === 'session' && parsed.refreshToken && (parsed.type === null || parsed.type === 'signup' || parsed.type === 'email')) {
-      const expiresIn = parsed.expiresIn && /^\d+$/.test(parsed.expiresIn) ? Number(parsed.expiresIn) : undefined;
-      token = { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken, expiresIn };
+    if (parsed.kind === 'session' && (parsed.type === null || parsed.type === 'signup' || parsed.type === 'email')) {
+      token = { accessToken: parsed.accessToken };
     } else if (parsed.kind === 'hash' && (parsed.type === null || parsed.type === 'signup' || parsed.type === 'email')) {
       token = { tokenHash: parsed.tokenHash, type: parsed.type ?? undefined };
     }
@@ -42,8 +43,7 @@ function ConfirmContent() {
     verifyFotoaiEmail(token)
       .then(() => {
         setStatus('success');
-        // Full navigation so the auth context reads the new session cookie.
-        setTimeout(() => window.location.replace('/onboarding'), 2500);
+        setTimeout(() => window.location.replace('/login?verified=1'), 2500);
       })
       .catch((err) => {
         setStatus('error');
@@ -80,7 +80,7 @@ function ConfirmContent() {
               Email verified!
             </h1>
             <p className="text-muted-foreground">
-              Your account is confirmed. Redirecting you to set up your profile…
+              Your account is confirmed. Redirecting you to sign in…
             </p>
           </>
         )}

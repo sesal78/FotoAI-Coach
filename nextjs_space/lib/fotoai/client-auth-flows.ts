@@ -71,9 +71,10 @@ export async function resetFotoaiPassword(
   await postJson('/api/fotoai/auth/reset-password', { ...token, password }, fetcher);
 }
 
+/** Confirms the email link only. No session is created: the user signs in next. */
 export async function verifyFotoaiEmail(
   token:
-    | { accessToken: string; refreshToken: string; expiresIn?: number }
+    | { accessToken: string }
     | { tokenHash: string; type?: 'signup' | 'email' },
   fetcher: FotoaiFetch = fetch,
 ): Promise<void> {

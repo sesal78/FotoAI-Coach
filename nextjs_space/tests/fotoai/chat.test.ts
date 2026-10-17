@@ -121,3 +121,21 @@ test('chat: bounds messages (count, length, roles) and rejects userId', async ()
   assert.equal(res.status, 400);
   assert.equal(deps.calls.length, 0);
 });
+
+test('chat: its JSON body cap fits the 40,000-character message limit even with worst-case escaping, and refuses more', async () => {
+  const { MAX_CHAT_BODY_BYTES, MAX_CHAT_TOTAL_LENGTH, MAX_CHAT_MESSAGE_LENGTH } = await import('../../lib/fotoai/handlers/chat.ts');
+  deps.fakes.callLLM = () => ({ content: 'ok', model: 'fake' });
+  // \u0001 is escaped as 6 bytes in JSON: the largest legal body.
+  const count = MAX_CHAT_TOTAL_LENGTH / MAX_CHAT_MESSAGE_LENGTH;
+  const messages = Array.from({ length: count }, () => ({ role: 'user', content: 'a' + '\u0001'.repeat(MAX_CHAT_MESSAGE_LENGTH - 1) }));
+  const body = JSON.stringify({ messages });
+  const bytes = new TextEncoder().encode(body).byteLength;
+  assert.ok(bytes > 64 * 1024, `bigger than the default cap (${bytes})`);
+  assert.ok(bytes <= MAX_CHAT_BODY_BYTES, `${bytes} fits ${MAX_CHAT_BODY_BYTES}`);
+  const ok = await chat.send(jsonRequest(URL_CHAT, { messages }, { cookie: aliceCookie }));
+  assert.equal(ok.status, 200, JSON.stringify(await ok.clone().json()));
+
+  const tooBig = await chat.send(jsonRequest(URL_CHAT, { messages, pad: 'x'.repeat(MAX_CHAT_BODY_BYTES) }, { cookie: aliceCookie }));
+  assert.equal(tooBig.status, 413);
+  assert.equal(deps.calls.length, 1, 'no LLM call for the oversized body');
+});

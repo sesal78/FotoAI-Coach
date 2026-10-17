@@ -137,20 +137,38 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 }
 
 /**
- * Send daily challenge notification
+ * Escapes a value for HTML text or a quoted attribute. Every value placed in
+ * an email's HTML goes through this (user names, challenge text, LLM output).
+ * Plain-text parts are not escaped.
  */
-export async function sendChallengeEmail(
-  userEmail: string,
-  userName: string,
-  challenge: {
-    challengeText: string;
-    difficulty: string;
-    category: string;
-    duration: string;
-    tips: string;
-    recommendedGear: string[];
-  }
-): Promise<boolean> {
+export function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export interface ChallengeEmailContent {
+  challengeText: string;
+  difficulty: string;
+  category: string;
+  duration: string;
+  tips: string;
+  recommendedGear: string[];
+}
+
+export interface BuiltEmail {
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+/**
+ * Daily challenge notification: subject, HTML and plain text.
+ */
+export function buildChallengeEmail(userName: string, challenge: ChallengeEmailContent): BuiltEmail {
   const html = `
 <!DOCTYPE html>
 <html>
@@ -171,25 +189,25 @@ export async function sendChallengeEmail(
   <div class="container">
     <div class="header">
       <h1 style="margin: 0;">Your Daily Photo Challenge</h1>
-      <p style="margin: 10px 0 0 0; opacity: 0.9;">Ready to create something amazing, ${userName}?</p>
+      <p style="margin: 10px 0 0 0; opacity: 0.9;">Ready to create something amazing, ${escapeHtml(userName)}?</p>
     </div>
     <div class="content">
       <div class="challenge-box">
         <div style="margin-bottom: 15px;">
-          <span class="badge">${challenge.category}</span>
-          <span class="badge">${challenge.difficulty}</span>
-          <span class="badge">${challenge.duration}</span>
+          <span class="badge">${escapeHtml(challenge.category)}</span>
+          <span class="badge">${escapeHtml(challenge.difficulty)}</span>
+          <span class="badge">${escapeHtml(challenge.duration)}</span>
         </div>
         <h2 style="color: #667eea; margin-top: 0;">Today's Challenge</h2>
-        <p style="font-size: 16px; line-height: 1.8;">${challenge.challengeText}</p>
+        <p style="font-size: 16px; line-height: 1.8;">${escapeHtml(challenge.challengeText)}</p>
 
         <h3 style="color: #764ba2;">Pro Tips</h3>
-        <p style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 3px solid #ffc107;">${challenge.tips}</p>
+        <p style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 3px solid #ffc107;">${escapeHtml(challenge.tips)}</p>
 
         ${challenge.recommendedGear.length > 0 ? `
         <h3 style="color: #764ba2;">Recommended Gear</h3>
         <ul class="gear-list">
-          ${challenge.recommendedGear.map(gear => `<li>${gear}</li>`).join('')}
+          ${challenge.recommendedGear.map(gear => `<li>${escapeHtml(gear)}</li>`).join('')}
         </ul>
         ` : ''}
       </div>
@@ -227,38 +245,42 @@ Keep shooting!
 - Foto AI
   `;
 
-  return await sendEmail({
-    to: userEmail,
-    subject: `Your ${challenge.category} challenge is ready!`,
-    text,
-    html,
-  });
+  return { subject: `Your ${challenge.category} challenge is ready!`, html, text };
 }
 
 /**
- * Send weekly progress report with AI-generated insights
+ * Send daily challenge notification
  */
-export async function sendWeeklyReport(
+export async function sendChallengeEmail(
   userEmail: string,
   userName: string,
-  report: {
-    challengesCompleted: number;
-    challengesCompletedLastWeek: number;
-    currentStreak: number;
-    longestStreak: number;
-    averageScore: number | null;
-    previousAverageScore: number | null;
-    completionRate: number;
-    favoriteSubjects: string[];
-    insights: {
-      summary: string;
-      highlights: string[];
-      skillBreakdown: string;
-      recommendation: string;
-      motivationalNote: string;
-    };
-  }
+  challenge: ChallengeEmailContent
 ): Promise<boolean> {
+  return await sendEmail({ to: userEmail, ...buildChallengeEmail(userName, challenge) });
+}
+
+export interface WeeklyReportContent {
+  challengesCompleted: number;
+  challengesCompletedLastWeek: number;
+  currentStreak: number;
+  longestStreak: number;
+  averageScore: number | null;
+  previousAverageScore: number | null;
+  completionRate: number;
+  favoriteSubjects: string[];
+  insights: {
+    summary: string;
+    highlights: string[];
+    skillBreakdown: string;
+    recommendation: string;
+    motivationalNote: string;
+  };
+}
+
+/**
+ * Weekly progress report with AI-generated insights: subject, HTML and plain text.
+ */
+export function buildWeeklyReportEmail(userName: string, report: WeeklyReportContent): BuiltEmail {
   const challengeTrendIcon = report.challengesCompleted > report.challengesCompletedLastWeek ? '&#9650;' : report.challengesCompleted < report.challengesCompletedLastWeek ? '&#9660;' : '&#9644;';
   const challengeTrendColor = report.challengesCompleted >= report.challengesCompletedLastWeek ? '#2e7d32' : '#c62828';
   const scoreTrendIcon = report.averageScore !== null && report.previousAverageScore !== null
@@ -299,27 +321,27 @@ export async function sendWeeklyReport(
   <div class="container">
     <div class="header">
       <h1>Your Weekly Insights</h1>
-      <p>${userName}, here's how your week in photography went</p>
+      <p>${escapeHtml(userName)}, here's how your week in photography went</p>
     </div>
 
     <div class="stats-row">
       <div class="stat">
-        <div class="stat-number">${report.challengesCompleted}</div>
+        <div class="stat-number">${escapeHtml(report.challengesCompleted)}</div>
         <div class="stat-label">Completed</div>
-        <div class="stat-trend" style="color: ${challengeTrendColor};">${challengeTrendIcon} vs last week (${report.challengesCompletedLastWeek})</div>
+        <div class="stat-trend" style="color: ${challengeTrendColor};">${challengeTrendIcon} vs last week (${escapeHtml(report.challengesCompletedLastWeek)})</div>
       </div>
       <div class="stat">
-        <div class="stat-number">${report.currentStreak}</div>
+        <div class="stat-number">${escapeHtml(report.currentStreak)}</div>
         <div class="stat-label">Day Streak</div>
-        <div class="stat-trend" style="color: #666;">Best: ${report.longestStreak}</div>
+        <div class="stat-trend" style="color: #666;">Best: ${escapeHtml(report.longestStreak)}</div>
       </div>
       <div class="stat">
-        <div class="stat-number">${report.averageScore !== null ? report.averageScore : '—'}</div>
+        <div class="stat-number">${report.averageScore !== null ? escapeHtml(report.averageScore) : '—'}</div>
         <div class="stat-label">Avg Score</div>
         ${report.averageScore !== null ? `<div class="stat-trend" style="color: ${scoreTrendColor};">${scoreTrendIcon} vs last week</div>` : '<div class="stat-trend" style="color: #666;">No critiques</div>'}
       </div>
       <div class="stat">
-        <div class="stat-number">${report.completionRate}%</div>
+        <div class="stat-number">${escapeHtml(report.completionRate)}%</div>
         <div class="stat-label">Completion</div>
       </div>
     </div>
@@ -327,14 +349,14 @@ export async function sendWeeklyReport(
     <div class="content">
       <div class="section">
         <h3>Summary</h3>
-        <p style="font-size: 15px; margin: 0;">${report.insights.summary}</p>
+        <p style="font-size: 15px; margin: 0;">${escapeHtml(report.insights.summary)}</p>
       </div>
 
       ${report.insights.highlights.length > 0 ? `
       <div class="section">
         <h3>Highlights</h3>
         <ul class="highlight-list">
-          ${report.insights.highlights.map(h => `<li>${h}</li>`).join('')}
+          ${report.insights.highlights.map(h => `<li>${escapeHtml(h)}</li>`).join('')}
         </ul>
       </div>
       ` : ''}
@@ -342,24 +364,24 @@ export async function sendWeeklyReport(
       ${report.insights.skillBreakdown ? `
       <div class="section">
         <h3>Skill Progress</h3>
-        <p style="font-size: 14px; margin: 0;">${report.insights.skillBreakdown}</p>
+        <p style="font-size: 14px; margin: 0;">${escapeHtml(report.insights.skillBreakdown)}</p>
       </div>
       ` : ''}
 
       ${report.favoriteSubjects.length > 0 ? `
       <div class="section">
         <h3>Top Categories</h3>
-        <p style="font-size: 14px; margin: 0;">${report.favoriteSubjects.join(' &bull; ')}</p>
+        <p style="font-size: 14px; margin: 0;">${report.favoriteSubjects.map(escapeHtml).join(' &bull; ')}</p>
       </div>
       ` : ''}
 
       <div class="section">
         <h3>Recommendation for Next Week</h3>
-        <div class="recommendation-box">${report.insights.recommendation}</div>
+        <div class="recommendation-box">${escapeHtml(report.insights.recommendation)}</div>
       </div>
 
       <div style="text-align: center; padding: 8px 0;">
-        <p style="font-style: italic; color: #555; font-size: 14px;">${report.insights.motivationalNote}</p>
+        <p style="font-style: italic; color: #555; font-size: 14px;">${escapeHtml(report.insights.motivationalNote)}</p>
         <a href="https://myfoto.topues.com/progress" class="cta-button">View Full Progress</a>
       </div>
     </div>
@@ -393,26 +415,30 @@ ${report.insights.motivationalNote}
 View your progress: https://myfoto.topues.com/progress
   `;
 
-  return await sendEmail({
-    to: userEmail,
-    subject: `Your Week in Photography — ${report.challengesCompleted} challenges completed!`,
-    text,
-    html,
-  });
+  return { subject: `Your Week in Photography — ${report.challengesCompleted} challenges completed!`, html, text };
 }
 
 /**
- * Send weather alert
+ * Send weekly progress report with AI-generated insights
  */
-export async function sendWeatherAlert(
+export async function sendWeeklyReport(
   userEmail: string,
   userName: string,
-  alert: {
-    condition: string;
-    message: string;
-    suggestion: string;
-  }
+  report: WeeklyReportContent
 ): Promise<boolean> {
+  return await sendEmail({ to: userEmail, ...buildWeeklyReportEmail(userName, report) });
+}
+
+export interface WeatherAlertContent {
+  condition: string;
+  message: string;
+  suggestion: string;
+}
+
+/**
+ * Weather alert: subject and HTML (no plain-text part, as before).
+ */
+export function buildWeatherAlertEmail(_userName: string, alert: WeatherAlertContent): BuiltEmail {
   const html = `
 <!DOCTYPE html>
 <html>
@@ -427,10 +453,10 @@ export async function sendWeatherAlert(
   <div class="container">
     <div class="alert-box">
       <h2>Weather Alert for Photography</h2>
-      <p><strong>${alert.condition}</strong></p>
-      <p>${alert.message}</p>
+      <p><strong>${escapeHtml(alert.condition)}</strong></p>
+      <p>${escapeHtml(alert.message)}</p>
       <p style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
-        <strong>Suggestion:</strong> ${alert.suggestion}
+        <strong>Suggestion:</strong> ${escapeHtml(alert.suggestion)}
       </p>
       <p style="text-align: center; margin-top: 20px;">
         <a href="https://myfoto.topues.com/dashboard" style="display: inline-block; padding: 12px 24px; background: #ffc107; color: #333; text-decoration: none; border-radius: 6px; font-weight: 500;">Go to Dashboard</a>
@@ -441,9 +467,17 @@ export async function sendWeatherAlert(
 </html>
   `;
 
-  return await sendEmail({
-    to: userEmail,
-    subject: `Perfect Photo Weather: ${alert.condition}`,
-    html,
-  });
+  return { subject: `Perfect Photo Weather: ${alert.condition}`, html };
 }
+
+/**
+ * Send weather alert
+ */
+export async function sendWeatherAlert(
+  userEmail: string,
+  userName: string,
+  alert: WeatherAlertContent
+): Promise<boolean> {
+  return await sendEmail({ to: userEmail, ...buildWeatherAlertEmail(userName, alert) });
+}
+

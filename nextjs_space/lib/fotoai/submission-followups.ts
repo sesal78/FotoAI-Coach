@@ -11,8 +11,17 @@
 // because of it. The app runs `next start` (long-running Node in Docker),
 // which keeps un-awaited promises alive. Every step uses the session
 // principal and the owner-scoped repository / guarded services.
+//
+// Token expiry: follow-ups outlive the response, and the user's access token
+// can expire during the LLM call. The feedback WRITES therefore use the
+// service role bound to the session user (cron-data-access.ts
+// bindServiceToUser: filters id AND user_id), so feedback_status never stays
+// 'pending'. Ownership was proven before the response with the user token
+// (the submission was created by this request). Reads stay on the user token.
+// Known gap: the auto-critique (createCritique) still writes with the user token.
 
 import { createCritique, MAX_CHALLENGE_TEXT_LENGTH } from './critiques.ts';
+import { bindServiceToUser } from './cron-data-access.ts';
 import { isFotoaiError } from './errors.ts';
 import { defaultLog, type FotoaiDeps } from './handlers/shared.ts';
 import type { ChallengeRow, OwnerScope, SubmissionRow } from './repository.ts';
@@ -47,6 +56,7 @@ export interface SubmissionFollowupResult {
 /** Legacy fallback text when the model returns nothing. */
 export const FALLBACK_FEEDBACK = 'Great work!';
 const MAX_FEEDBACK_LENGTH = 5000;
+const T_SUBMISSIONS = 'fotoai_challenge_submissions';
 
 function errorMessage(err: unknown): string {
   return (err instanceof Error ? err.message : String(err)).slice(0, 300);
@@ -76,6 +86,8 @@ async function awardXp(deps: FotoaiDeps, principal: OwnerScope, input: Submissio
 
 async function generateFeedback(deps: FotoaiDeps, principal: OwnerScope, input: SubmissionFollowupInput, log: LogFn): Promise<'generated' | 'fallback'> {
   const { challenge, submission, notes } = input;
+  // Not the user token: it may expire before the write (see header).
+  const writer = bindServiceToUser(deps.client, principal.userId);
   try {
     let skillLevel = 'intermediate';
     try {
@@ -89,13 +101,13 @@ async function generateFeedback(deps: FotoaiDeps, principal: OwnerScope, input: 
       skillLevel,
     });
     const feedback = (typeof raw === 'string' ? raw.trim().slice(0, MAX_FEEDBACK_LENGTH) : '') || FALLBACK_FEEDBACK;
-    await deps.repo.updateSubmission(principal, submission.id, { feedback, feedback_status: 'ready' });
+    await writer.updateById(T_SUBMISSIONS, submission.id, { feedback, feedback_status: 'ready' });
     return 'generated';
   } catch (err) {
     log('error', 'Async feedback failed for submission', { submissionId: submission.id, error: errorMessage(err) });
     // Legacy: mark ready without feedback so the page stops waiting.
     try {
-      await deps.repo.updateSubmission(principal, submission.id, { feedback_status: 'ready' });
+      await writer.updateById(T_SUBMISSIONS, submission.id, { feedback_status: 'ready' });
     } catch (updateErr) {
       log('error', 'Failed to update fallback feedback status', { submissionId: submission.id, error: errorMessage(updateErr) });
     }

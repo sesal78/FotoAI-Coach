@@ -90,3 +90,46 @@ test('bounded-body: a body within the limit parses normally', async () => {
   assert.equal(file.size, 300);
   assert.equal(file.type, 'image/jpeg');
 });
+
+// ----- JSON bodies (readJsonBody) -----------------------------------------
+
+test('readJsonBody: JSON bodies are capped at 64 KiB by default (413), declared or streamed; at the cap they parse', async () => {
+  const { readJsonBody } = await import('../../lib/fotoai/handlers/shared.ts');
+  const { MAX_JSON_BODY_BYTES } = await import('../../lib/fotoai/bounded-body.ts');
+  assert.equal(MAX_JSON_BODY_BYTES, 64 * 1024);
+  const bodyOf = (bytes: number) => JSON.stringify({ pad: 'x'.repeat(bytes - '{"pad":""}'.length) });
+  const jsonReq = (body: string, headers: Record<string, string> = {}) =>
+    new Request('http://localhost/api/fotoai/x', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body });
+
+  const atCap = bodyOf(MAX_JSON_BODY_BYTES);
+  assert.equal(new TextEncoder().encode(atCap).byteLength, MAX_JSON_BODY_BYTES);
+  assert.equal(((await readJsonBody(jsonReq(atCap))).pad as string).length, MAX_JSON_BODY_BYTES - 10);
+
+  const over = bodyOf(MAX_JSON_BODY_BYTES + 1);
+  await assert.rejects(readJsonBody(jsonReq(over)), (err: unknown) => err instanceof FotoaiPayloadTooLargeError && err.status === 413);
+  // A declared length over the cap is refused before reading.
+  await assert.rejects(readJsonBody(jsonReq('{}', { 'content-length': String(MAX_JSON_BODY_BYTES + 1) })), FotoaiPayloadTooLargeError);
+  // Multi-byte characters count as bytes, not characters.
+  await assert.rejects(readJsonBody(jsonReq(JSON.stringify({ pad: 'é'.repeat(MAX_JSON_BODY_BYTES / 2) }))), FotoaiPayloadTooLargeError);
+  // A caller may pass a larger cap.
+  assert.equal(((await readJsonBody(jsonReq(over), MAX_JSON_BODY_BYTES * 2)).pad as string).length, MAX_JSON_BODY_BYTES - 9);
+  // Not JSON is still 400.
+  await assert.rejects(readJsonBody(jsonReq('nope')), (err: unknown) => err instanceof FotoaiError && err.status === 400);
+});
+
+test('readJsonBody: an oversized body on an unauthenticated route (login) is 413 and reaches no GoTrue call', async () => {
+  const { createAuthHandlers } = await import('../../lib/fotoai/handlers/auth.ts');
+  const { createTestDeps } = await import('./helpers/deps.ts');
+  const deps = createTestDeps();
+  let signIns = 0;
+  deps.client.signInWithPassword = async () => { signIns += 1; throw new Error('must not be called'); };
+  const auth = createAuthHandlers(() => deps);
+  const res = await auth.login(new Request('http://localhost/api/fotoai/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'a@test.invalid', password: 'p'.repeat(200 * 1024) }),
+  }));
+  assert.equal(res.status, 413);
+  assert.equal((await res.json()).code, 'payload_too_large');
+  assert.equal(signIns, 0);
+});

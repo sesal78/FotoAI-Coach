@@ -7,6 +7,11 @@
 //   2. Storage insert policy: an upload key must start with the token owner's id.
 // It also records every server-side (service role) call so tests can assert
 // that signing/removal never happened for a denied request.
+//
+// createFakeSupabase({ rls: false }) models BROKEN RLS: user-token calls still
+// need a valid token but see and change ALL rows matching the query, and
+// inserts/updates skip the with-check. Defense-in-depth tests use it to prove
+// the repositories' own user_id filters keep users apart.
 
 import { FotoaiAuthError, FotoaiForbiddenError } from '../../../lib/fotoai/errors.ts';
 import type { VerifiedUser } from '../../../lib/fotoai/membership.ts';
@@ -55,7 +60,13 @@ function matches(row: Row, query: Record<string, string>): boolean {
   return true;
 }
 
-export function createFakeSupabase(): FakeSupabase {
+export interface FakeSupabaseOptions {
+  /** false = RLS disabled/broken (see header). Default true. */
+  rls?: boolean;
+}
+
+export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupabase {
+  const rls = options.rls !== false;
   const tables = new Map<string, Row[]>();
   const objects = new Map<string, { owner: string; bytes: number; contentType: string }>();
   const serviceCalls: FakeSupabase['serviceCalls'] = [];
@@ -65,10 +76,11 @@ export function createFakeSupabase(): FakeSupabase {
     return tables.get(table)!;
   };
 
-  // RLS emulation: visible rows are the token owner's rows that match the query.
+  // RLS emulation: visible rows are the token owner's rows that match the query
+  // (with rls: false, every row that matches the query).
   const visible = (table: string, query: Record<string, string>, token: string) => {
     const uid = uidForToken(token);
-    let rows = rowsOf(table).filter((r) => r.user_id === uid && matches(r, query));
+    let rows = rowsOf(table).filter((r) => (!rls || r.user_id === uid) && matches(r, query));
     if (query.order) {
       const [col, dir] = query.order.split('.');
       rows = [...rows].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (dir === 'desc' ? -1 : 1));
@@ -144,7 +156,7 @@ export function createFakeSupabase(): FakeSupabase {
 
     async restInsert(table, row, token) {
       const uid = uidForToken(token);
-      if (row.user_id !== uid) {
+      if (rls && row.user_id !== uid) {
         // RLS with-check violation: PostgREST answers 403 for authenticated.
         throw new FotoaiForbiddenError('fake RLS: new row violates row-level security policy');
       }
@@ -155,7 +167,7 @@ export function createFakeSupabase(): FakeSupabase {
 
     async restUpsert(table, row, onConflict, token) {
       const uid = uidForToken(token);
-      if (row.user_id !== uid) {
+      if (rls && row.user_id !== uid) {
         throw new FotoaiForbiddenError('fake RLS: new row violates row-level security policy');
       }
       const existing = rowsOf(table).find((candidate) => candidate[onConflict] === row[onConflict]);
@@ -170,7 +182,7 @@ export function createFakeSupabase(): FakeSupabase {
 
     async restUpdate(table, query, patch, token) {
       const uid = uidForToken(token);
-      if ('user_id' in patch && patch.user_id !== uid) {
+      if (rls && 'user_id' in patch && patch.user_id !== uid) {
         throw new FotoaiForbiddenError('fake RLS: update violates row-level security policy');
       }
       const targets = visible(table, { ...query, limit: '' }, token);

@@ -3,8 +3,8 @@
 //
 // Emails a challenge to the session user's own address (principal.email).
 // Ported from app/api/challenges/email/route.ts. The recipient never comes
-// from the request. Fields are length-limited and angle brackets are removed
-// because lib/email.ts places them into HTML unescaped.
+// from the request. Fields are length-limited and trimmed; lib/email.ts
+// HTML-escapes every value it places into the email.
 
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
@@ -22,7 +22,7 @@ const LIMITS: Record<string, number> = {
 const ALLOWED = new Set([...Object.keys(LIMITS), 'recommendedGear']);
 
 function clean(value: string): string {
-  return value.replace(/[<>]/g, '').trim();
+  return value.trim();
 }
 
 function optionalText(body: Record<string, unknown>, field: string): string | undefined {

@@ -6,7 +6,7 @@ import { createPhotoService } from '../../../lib/fotoai/photos.ts';
 import { createFotoaiRepository } from '../../../lib/fotoai/repository.ts';
 import type { FotoaiServices } from '../../../lib/fotoai/services.ts';
 import { createXpService } from '../../../lib/fotoai/xp.ts';
-import { createFakeSupabase, type FakeSupabase } from './fake-supabase.ts';
+import { createFakeSupabase, type FakeSupabase, type FakeSupabaseOptions } from './fake-supabase.ts';
 
 export const TEST_ENV: FotoaiEnv = {
   supabaseUrl: 'https://supabase.test.invalid',
@@ -46,8 +46,8 @@ function createFakeServices(calls: TestDeps['calls'], fakes: TestDeps['fakes']):
   return services as FotoaiServices;
 }
 
-export function createTestDeps(): TestDeps {
-  const client = createFakeSupabase();
+export function createTestDeps(options: FakeSupabaseOptions = {}): TestDeps {
+  const client = createFakeSupabase(options);
   const repo = createFotoaiRepository(client);
   const photos = createPhotoService(client, TEST_ENV, repo);
   const logs: TestDeps['logs'] = [];

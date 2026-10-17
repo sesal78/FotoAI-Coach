@@ -9,6 +9,7 @@ import { createProgressHandlers } from '../../lib/fotoai/handlers/progress.ts';
 import { createSubmissionHandlers } from '../../lib/fotoai/handlers/submissions.ts';
 import { FotoaiUpstreamError } from '../../lib/fotoai/errors.ts';
 import { errorResponse } from '../../lib/fotoai/handlers/shared.ts';
+import { buildSubmissionObjectKey } from '../../lib/fotoai/object-keys.ts';
 import { ALICE, BOB, TOKEN_ALICE, TOKEN_BOB } from './helpers/fake-supabase.ts';
 import { cookieFor, createTestDeps, jsonRequest, request, type TestDeps } from './helpers/deps.ts';
 
@@ -248,7 +249,7 @@ test('routes: owner can login, submit with photo, list, sign, and delete; object
   assert.equal(deps.client.objects.size, 0);
   assert.deepEqual(deps.client.serviceCalls.map((c) => c.op), ['sign', 'remove']);
 
-  const logout = await auth.logout(request('/api/fotoai/auth/logout', { method: 'POST', cookie: cookieFor(TOKEN_ALICE) }));
+  const logout = await auth.logout(jsonRequest('/api/fotoai/auth/logout', {}, { cookie: cookieFor(TOKEN_ALICE) }));
   assert.equal(logout.status, 200);
   assert.ok(setCookies(logout).every((c) => /Max-Age=0/.test(c)));
 });
@@ -337,4 +338,26 @@ test('routes: FotoaiUpstreamError response never exposes its sensitive marker', 
   assert.deepEqual(payload, { error: 'Upstream service error', code: 'upstream' });
   assert.doesNotMatch(JSON.stringify(payload), new RegExp(marker));
   assert.match(deps.logs[0].message, new RegExp(marker));
+});
+
+test('routes: photo ?ttl= must be an integer 1..300 (400 before any signing); valid values still sign', async () => {
+  const sub = deps.client.seed('fotoai_challenge_submissions', {
+    user_id: ALICE, challenge_id: aliceChallenge.id, notes: '', feedback_status: 'ready', submitted_at: '2026-10-01T00:00:00Z',
+  });
+  sub.photo_object_key = buildSubmissionObjectKey(ALICE, sub.id, 'shot.jpg');
+  const sign = (ttl: string) => subs.photo(
+    request(`/api/fotoai/submissions/${sub.id}/photo?ttl=${ttl}`, { cookie: cookieFor(TOKEN_ALICE) }),
+    { params: { id: sub.id } },
+  );
+  for (const bad of ['abc', '', '0', '-1', '301', '1.5', '1e2', '0x10', ' 30', 'Infinity', 'NaN', '99999999999999999999']) {
+    const res = await sign(encodeURIComponent(bad));
+    assert.equal(res.status, 400, `ttl=${JSON.stringify(bad)}`);
+    assert.equal((await res.json()).code, 'validation');
+  }
+  assert.equal(deps.client.serviceCalls.length, 0, 'nothing was signed');
+  for (const [ttl, expected] of [['1', 1], ['300', 300], ['60', 60]] as const) {
+    const res = await sign(ttl);
+    assert.equal(res.status, 200, `ttl=${ttl}`);
+    assert.equal((await res.json()).expiresIn, expected);
+  }
 });

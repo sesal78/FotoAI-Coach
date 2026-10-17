@@ -37,6 +37,12 @@ Do not include the CHALLENGE_DATA block unless you are actually generating a cha
 export const MAX_CHAT_MESSAGES = 40;
 export const MAX_CHAT_MESSAGE_LENGTH = 4000;
 export const MAX_CHAT_TOTAL_LENGTH = 40000;
+/**
+ * JSON body cap for chat. Worst case for the limits above: 40,000 characters
+ * that JSON escapes as \u00XX (6 bytes each) = 240,000 bytes, plus up to 40
+ * message envelopes. 256 KiB covers that; the default 64 KiB would not.
+ */
+export const MAX_CHAT_BODY_BYTES = 256 * 1024;
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -117,7 +123,7 @@ export function createChatHandlers(provider: DepsProvider) {
     send: withFotoai(provider, async (request, deps) => {
       const principal = await requirePrincipal(request, deps);
       assertNoBrowserIdentity(new URL(request.url).searchParams);
-      const body = await readJsonBody(request);
+      const body = await readJsonBody(request, MAX_CHAT_BODY_BYTES);
       assertNoBrowserIdentity(body);
       const unexpected = Object.keys(body).find((k) => k !== 'messages');
       if (unexpected) throw new FotoaiValidationError(`Unexpected field: ${unexpected}`);
