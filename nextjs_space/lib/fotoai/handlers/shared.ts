@@ -1,18 +1,24 @@
 // Shared pieces for FotoAI route handlers. Uses only the Web Request/Response
 // API so handlers run in Next.js Route Handlers AND in plain Node tests.
 
+import { MAX_JSON_BODY_BYTES, readBoundedText } from '../bounded-body.ts';
 import type { FotoaiEnv } from '../env.ts';
 import { FotoaiError, FotoaiUpstreamError, isFotoaiError } from '../errors.ts';
 import { resolvePrincipal, type FotoaiPrincipal } from '../membership.ts';
 import type { FotoaiPhotoService } from '../photos.ts';
 import type { FotoaiRepository } from '../repository.ts';
+import type { FotoaiServices } from '../services.ts';
 import type { FotoaiSupabaseClient } from '../supabase-http.ts';
+import type { FotoaiXpService } from '../xp.ts';
 
 export interface FotoaiDeps {
   env: FotoaiEnv;
   client: FotoaiSupabaseClient;
   repo: FotoaiRepository;
   photos: FotoaiPhotoService;
+  xp: FotoaiXpService;
+  /** LLM, weather and email. Fakes in tests. */
+  services: FotoaiServices;
   /** Injectable logger so tests stay quiet. */
   log?: (level: 'warn' | 'error', message: string, meta?: Record<string, unknown>) => void;
 }
@@ -73,9 +79,11 @@ export function withFotoai(
   };
 }
 
-export async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+/** Parses a JSON object body of at most `maxBytes` (413 above, 400 if not a JSON object). */
+export async function readJsonBody(request: Request, maxBytes = MAX_JSON_BODY_BYTES): Promise<Record<string, unknown>> {
+  const text = await readBoundedText(request, maxBytes);
   try {
-    const parsed = await request.json();
+    const parsed = JSON.parse(text);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
   } catch {
     // fall through

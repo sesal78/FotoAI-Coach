@@ -1,33 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/appwrite-server';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/forgot-password.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { email } = await request.json();
+export const dynamic = 'force-dynamic';
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-    }
+const gone = retiredRoute('/api/fotoai/auth/forgot-password');
 
-    const { account } = createAdminClient();
-
-    const proto = request.headers.get('x-forwarded-proto') || 'https';
-    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
-
-    await account.createRecovery(email, `${appUrl}/reset-password`);
-
-    // Always return success to prevent email enumeration
-    return NextResponse.json({
-      success: true,
-      message: 'If an account with that email exists, a password reset link has been sent.',
-    });
-  } catch (error: any) {
-    console.error('Forgot password error:', error);
-    // Return success even on error to prevent email enumeration
-    return NextResponse.json({
-      success: true,
-      message: 'If an account with that email exists, a password reset link has been sent.',
-    });
-  }
-}
+export const POST = gone;

@@ -14,6 +14,9 @@ import { FotoaiError } from './errors.ts';
 /** 50 MB photo + multipart overhead and text fields. */
 export const MAX_UPLOAD_REQUEST_BYTES = 50 * 1024 * 1024 + 1024 * 1024;
 
+/** Default cap for JSON request bodies (all JSON routes, signed in or not). */
+export const MAX_JSON_BODY_BYTES = 64 * 1024;
+
 export class FotoaiPayloadTooLargeError extends FotoaiError {
   constructor(message = 'Request body is too large') {
     super(413, 'payload_too_large', message);
@@ -72,6 +75,40 @@ export function boundedRequest(request: Request, maxBytes: number): Request {
     duplex: 'half',
   };
   return new Request(request.url, init);
+}
+
+/**
+ * Reads the body as UTF-8 text, never buffering more than `maxBytes`.
+ * Unlike uploads, Content-Length is optional here (JSON clients may stream),
+ * but a declared length over the limit is refused before reading. 413 above.
+ */
+export async function readBoundedText(request: Request, maxBytes: number): Promise<string> {
+  const declared = (request.headers.get('content-length') ?? '').trim();
+  if (/^\d{1,15}$/.test(declared) && Number(declared) > maxBytes) {
+    throw new FotoaiPayloadTooLargeError(`Request body exceeds ${maxBytes} bytes`);
+  }
+  if (!request.body) return '';
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let seen = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    seen += value.byteLength;
+    if (seen > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new FotoaiPayloadTooLargeError(`Request body exceeds ${maxBytes} bytes`);
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(seen);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 /**

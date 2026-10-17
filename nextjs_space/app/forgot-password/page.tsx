@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Mail } from 'lucide-react';
+import { FotoaiClientError } from '@/lib/fotoai/client';
+import { requestFotoaiPasswordReset } from '@/lib/fotoai/client-auth-flows';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -16,20 +18,12 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setSent(true);
-      } else {
-        setError(data.error || 'Something went wrong');
-      }
-    } catch {
-      setError('Failed to send reset email. Please try again.');
+      await requestFotoaiPasswordReset(email);
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof FotoaiClientError && err.status === 400
+        ? 'Please enter a valid email address.'
+        : 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }

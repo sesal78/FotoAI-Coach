@@ -4,12 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { useEditingRecipes } from '@/hooks/use-dashboard-data';
+import { useEditingRecipes } from '@/hooks/fotoai/editing';
+import { createFotoaiEditingRecipe, type FotoaiEditingRecipe } from '@/lib/fotoai/client-ai';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import type { EditingRecipe, EditingRecipeAnalysis } from '@/lib/types';
+import type { EditingRecipe } from '@/lib/types';
 import {
   ArrowLeft,
   Camera,
@@ -150,7 +151,7 @@ function RecipeDisplay({ recipe, originalPreview, editedPreview }: {
   );
 }
 
-function HistoryCard({ analysis }: { analysis: EditingRecipeAnalysis }) {
+function HistoryCard({ analysis }: { analysis: FotoaiEditingRecipe }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -187,8 +188,8 @@ function HistoryCard({ analysis }: { analysis: EditingRecipeAnalysis }) {
           <div className="mt-4 border-t border-border pt-4">
             <RecipeDisplay
               recipe={analysis.recipe}
-              originalPreview={analysis.originalPhotoUrl !== 'upload-failed' ? analysis.originalPhotoUrl : undefined}
-              editedPreview={analysis.editedPhotoUrl !== 'upload-failed' ? analysis.editedPhotoUrl : undefined}
+              originalPreview={analysis.originalPhotoUrl ?? undefined}
+              editedPreview={analysis.editedPhotoUrl ?? undefined}
             />
           </div>
         )}
@@ -198,14 +199,14 @@ function HistoryCard({ analysis }: { analysis: EditingRecipeAnalysis }) {
 }
 
 export default function EditingPage() {
-  const { user, status } = useAppwriteAuth();
-  const { data: recipes = [], isLoading: recipesLoading, refetch } = useEditingRecipes(user?.id);
+  const { status } = useAppwriteAuth();
+  const { data: recipes = [], isLoading: recipesLoading, refetch } = useEditingRecipes(status === 'authenticated');
   const [originalPhoto, setOriginalPhoto] = useState<File | null>(null);
   const [editedPhoto, setEditedPhoto] = useState<File | null>(null);
   const [originalPreview, setOriginalPreview] = useState<string | null>(null);
   const [editedPreview, setEditedPreview] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
-  const [latestResult, setLatestResult] = useState<EditingRecipeAnalysis | null>(null);
+  const [latestResult, setLatestResult] = useState<FotoaiEditingRecipe | null>(null);
 
   function handleFile(type: 'original' | 'edited', file: File | null) {
     if (type === 'original') {
@@ -230,27 +231,16 @@ export default function EditingPage() {
   }
 
   async function handleAnalyse() {
-    if (!originalPhoto || !editedPhoto || !user?.id) return;
+    if (!originalPhoto || !editedPhoto || status !== 'authenticated') return;
 
     setAnalysing(true);
     try {
-      const formData = new FormData();
-      formData.append('originalPhoto', originalPhoto);
-      formData.append('editedPhoto', editedPhoto);
-      formData.append('userId', user.id);
-
-      const res = await fetch('/api/editing-recipe', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (res.ok) {
-        setLatestResult(data.recipe);
-        toast.success('Editing recipe generated!');
-        refetch();
-      } else {
-        toast.error(data.error || 'Analysis failed');
-      }
-    } catch {
-      toast.error('Failed to generate editing recipe');
+      const result = await createFotoaiEditingRecipe(originalPhoto, editedPhoto);
+      setLatestResult(result);
+      toast.success('Editing recipe generated!');
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : 'Failed to generate editing recipe');
     } finally {
       setAnalysing(false);
     }

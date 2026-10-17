@@ -1,16 +1,9 @@
-import { NextResponse } from 'next/server';
-import { createSessionClient } from '@/lib/appwrite-server';
-import { SESSION_COOKIE } from '@/lib/session';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/logout.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-export async function POST(request: Request) {
-  try {
-    const { account } = await createSessionClient(request);
-    await account.deleteSession('current');
-  } catch {
-    // Session may already be invalid — continue to clear the cookie
-  }
+export const dynamic = 'force-dynamic';
 
-  const response = NextResponse.json({ success: true });
-  response.cookies.set(SESSION_COOKIE, '', { path: '/', maxAge: 0 });
-  return response;
-}
+const gone = retiredRoute('/api/fotoai/auth/logout');
+
+export const POST = gone;

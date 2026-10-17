@@ -75,7 +75,30 @@ export interface PreferenceDto {
   currentLocation: string | null;
 }
 
-export type PreferenceInput = Partial<PreferenceDto>;
+/** Work days use the legacy short names; photo days use full names (legacy data shape). */
+export type PreferenceWorkDay = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+export type PreferencePhotoDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+
+/** Every browser-editable column of fotoai_user_preferences (GET/PUT ?view=full). */
+export interface FullPreferenceDto extends PreferenceDto {
+  avoidsStyles: string[];
+  workDays: PreferenceWorkDay[];
+  workStartTime: string;
+  workEndTime: string;
+  lunchStartTime: string;
+  lunchEndTime: string;
+  primaryPhotoDay: PreferencePhotoDay;
+  secondaryPhotoDays: PreferencePhotoDay[];
+  lunchBreakPhotography: boolean;
+  eveningPhotography: boolean;
+  wfhFlexibility: boolean;
+  adaptToWeather: boolean;
+  adaptToCalendar: boolean;
+  officeLocation: string | null;
+}
+
+export type PreferenceView = 'basic' | 'full';
+export type PreferenceInput = Partial<FullPreferenceDto>;
 
 export interface GearRow {
   id: string;
@@ -117,6 +140,70 @@ const T_GEAR = 'fotoai_user_gear';
 const SKILL_LEVELS = new Set<SkillLevel>(['beginner', 'intermediate', 'advanced', 'professional']);
 const GEAR_CATEGORIES = new Set<GearCategory>(['camera', 'lens', 'tripod', 'light', 'other']);
 const PREFERENCE_FIELDS = new Set(['skillLevel', 'photographyInterests', 'homeLocation', 'currentLocation']);
+/** DTO field -> column. The first four are the basic view. */
+const PREFERENCE_COLUMNS: Record<keyof FullPreferenceDto, string> = {
+  skillLevel: 'skill_level',
+  photographyInterests: 'photography_interests',
+  homeLocation: 'home_location',
+  currentLocation: 'current_location',
+  avoidsStyles: 'avoids_styles',
+  workDays: 'work_days',
+  workStartTime: 'work_start_time',
+  workEndTime: 'work_end_time',
+  lunchStartTime: 'lunch_start_time',
+  lunchEndTime: 'lunch_end_time',
+  primaryPhotoDay: 'primary_photo_day',
+  secondaryPhotoDays: 'secondary_photo_days',
+  lunchBreakPhotography: 'lunch_break_photography',
+  eveningPhotography: 'evening_photography',
+  wfhFlexibility: 'wfh_flexibility',
+  adaptToWeather: 'adapt_to_weather',
+  adaptToCalendar: 'adapt_to_calendar',
+  officeLocation: 'office_location',
+};
+const PREFERENCE_FULL_FIELDS = new Set(Object.keys(PREFERENCE_COLUMNS));
+const PREFERENCE_WORK_DAYS: readonly PreferenceWorkDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const PREFERENCE_PHOTO_DAYS: readonly PreferencePhotoDay[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const PREFERENCE_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const PREFERENCE_TIME_FIELDS = ['workStartTime', 'workEndTime', 'lunchStartTime', 'lunchEndTime'] as const;
+const PREFERENCE_BOOLEAN_FIELDS = ['lunchBreakPhotography', 'eveningPhotography', 'wfhFlexibility', 'adaptToWeather', 'adaptToCalendar'] as const;
+
+/** Defaults for the schedule fields when no row exists (the legacy register seed). */
+export const PREFERENCE_DEFAULTS: Omit<FullPreferenceDto, keyof PreferenceDto> = {
+  avoidsStyles: [],
+  workDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+  workStartTime: '09:00',
+  workEndTime: '17:00',
+  lunchStartTime: '12:00',
+  lunchEndTime: '13:00',
+  primaryPhotoDay: 'Saturday',
+  secondaryPhotoDays: ['Sunday'],
+  lunchBreakPhotography: true,
+  eveningPhotography: true,
+  wfhFlexibility: true,
+  adaptToWeather: true,
+  adaptToCalendar: true,
+  officeLocation: null,
+};
+
+/** The row the legacy register route seeded, minus user_id. Used once after sign-up confirmation. */
+export const PREFERENCE_SEED_ROW: Record<string, unknown> = {
+  skill_level: 'intermediate',
+  photography_interests: ['street', 'portrait', 'architecture'],
+  avoids_styles: PREFERENCE_DEFAULTS.avoidsStyles,
+  work_days: PREFERENCE_DEFAULTS.workDays,
+  work_start_time: PREFERENCE_DEFAULTS.workStartTime,
+  work_end_time: PREFERENCE_DEFAULTS.workEndTime,
+  lunch_start_time: PREFERENCE_DEFAULTS.lunchStartTime,
+  lunch_end_time: PREFERENCE_DEFAULTS.lunchEndTime,
+  primary_photo_day: PREFERENCE_DEFAULTS.primaryPhotoDay,
+  secondary_photo_days: PREFERENCE_DEFAULTS.secondaryPhotoDays,
+  lunch_break_photography: true,
+  evening_photography: true,
+  wfh_flexibility: true,
+  adapt_to_weather: true,
+  adapt_to_calendar: true,
+};
 const GEAR_FIELDS = new Set(['category', 'brand', 'model']);
 
 function owner(scope: OwnerScope): Record<string, string> {
@@ -141,25 +228,70 @@ function cleanLocation(value: unknown, field: string): string | null {
   return cleaned;
 }
 
-function cleanInterests(value: unknown): string[] {
-  if (!Array.isArray(value)) throw new FotoaiValidationError('photographyInterests must be an array');
-  if (value.length > 20) throw new FotoaiValidationError('photographyInterests must have at most 20 items');
+function cleanInterests(value: unknown, field = 'photographyInterests', label = 'photography interest'): string[] {
+  if (!Array.isArray(value)) throw new FotoaiValidationError(`${field} must be an array`);
+  if (value.length > 20) throw new FotoaiValidationError(`${field} must have at most 20 items`);
   const cleaned = value.map((item) => {
-    if (typeof item !== 'string') throw new FotoaiValidationError('Each photography interest must be a string');
+    if (typeof item !== 'string') throw new FotoaiValidationError(`Each ${label} must be a string`);
     const interest = item.trim();
     if (!interest || interest.length > 40) {
-      throw new FotoaiValidationError('Each photography interest must be 1 to 40 characters');
+      throw new FotoaiValidationError(`Each ${label} must be 1 to 40 characters`);
     }
     return interest;
   });
   const unique = [...new Set(cleaned)];
-  if (unique.length > 20) throw new FotoaiValidationError('photographyInterests must have at most 20 items');
+  if (unique.length > 20) throw new FotoaiValidationError(`${field} must have at most 20 items`);
   return unique;
 }
 
-function parsePreferenceInput(input: Record<string, unknown>): PreferenceInput {
-  assertOnlyFields(input, PREFERENCE_FIELDS);
+/** Index 0-6 (Mon-Sun) for a short or full English day name; -1 otherwise. */
+function preferenceDayIndex(value: unknown): number {
+  if (typeof value !== 'string') return -1;
+  const short = PREFERENCE_WORK_DAYS.indexOf(value as PreferenceWorkDay);
+  return short !== -1 ? short : PREFERENCE_PHOTO_DAYS.indexOf(value as PreferencePhotoDay);
+}
+
+function cleanDays<T extends string>(value: unknown, field: string, canonical: readonly T[]): T[] {
+  if (!Array.isArray(value)) throw new FotoaiValidationError(`${field} must be an array`);
+  if (value.length > 7) throw new FotoaiValidationError(`${field} must have at most 7 items`);
+  const indexes = value.map((item) => {
+    const index = preferenceDayIndex(item);
+    if (index === -1) throw new FotoaiValidationError(`${field} contains an invalid day`);
+    return index;
+  });
+  return [...new Set(indexes)].sort((a, b) => a - b).map((index) => canonical[index]);
+}
+
+function cleanTime(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !PREFERENCE_TIME.test(value)) {
+    throw new FotoaiValidationError(`${field} must be a 24-hour HH:MM time`);
+  }
+  return value;
+}
+
+function parsePreferenceInput(input: Record<string, unknown>, view: PreferenceView = 'basic'): PreferenceInput {
+  assertOnlyFields(input, view === 'full' ? PREFERENCE_FULL_FIELDS : PREFERENCE_FIELDS);
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(input, key);
   const parsed: PreferenceInput = {};
+  if (has('avoidsStyles')) parsed.avoidsStyles = cleanInterests(input.avoidsStyles, 'avoidsStyles', 'avoided style');
+  if (has('workDays')) parsed.workDays = cleanDays(input.workDays, 'workDays', PREFERENCE_WORK_DAYS);
+  if (has('secondaryPhotoDays')) {
+    parsed.secondaryPhotoDays = cleanDays(input.secondaryPhotoDays, 'secondaryPhotoDays', PREFERENCE_PHOTO_DAYS);
+  }
+  if (has('primaryPhotoDay')) {
+    const index = preferenceDayIndex(input.primaryPhotoDay);
+    if (index === -1) throw new FotoaiValidationError('primaryPhotoDay must be a day name');
+    parsed.primaryPhotoDay = PREFERENCE_PHOTO_DAYS[index];
+  }
+  for (const field of PREFERENCE_TIME_FIELDS) {
+    if (has(field)) parsed[field] = cleanTime(input[field], field);
+  }
+  for (const field of PREFERENCE_BOOLEAN_FIELDS) {
+    if (!has(field)) continue;
+    if (typeof input[field] !== 'boolean') throw new FotoaiValidationError(`${field} must be a boolean`);
+    parsed[field] = input[field] as boolean;
+  }
+  if (has('officeLocation')) parsed.officeLocation = cleanLocation(input.officeLocation, 'officeLocation');
   if (Object.prototype.hasOwnProperty.call(input, 'skillLevel')) {
     if (typeof input.skillLevel !== 'string' || !SKILL_LEVELS.has(input.skillLevel as SkillLevel)) {
       throw new FotoaiValidationError('skillLevel is invalid');
@@ -178,7 +310,45 @@ function parsePreferenceInput(input: Record<string, unknown>): PreferenceInput {
   return parsed;
 }
 
-function mapPreferences(row?: Partial<PreferenceRow>): PreferenceDto {
+function mapPreferences(row?: Partial<PreferenceRow>): PreferenceDto;
+function mapPreferences(row: Partial<PreferenceRow> | undefined, view: 'full'): FullPreferenceDto;
+function mapPreferences(row: Partial<PreferenceRow> | undefined, view: PreferenceView): PreferenceDto | FullPreferenceDto;
+function mapPreferences(row?: Partial<PreferenceRow>, view: PreferenceView = 'basic'): PreferenceDto | FullPreferenceDto {
+  const basic = mapBasicPreferences(row);
+  if (view !== 'full') return basic;
+  const d = PREFERENCE_DEFAULTS;
+  const days = <T extends string>(value: unknown, canonical: readonly T[], fallback: T[]): T[] => {
+    if (!Array.isArray(value)) return fallback;
+    const indexes = value.map(preferenceDayIndex).filter((index) => index !== -1);
+    return [...new Set(indexes)].sort((a, b) => a - b).map((index) => canonical[index]);
+  };
+  const time = (value: unknown, fallback: string) => typeof value === 'string' && PREFERENCE_TIME.test(value) ? value : fallback;
+  const flag = (value: unknown, fallback: boolean) => typeof value === 'boolean' ? value : fallback;
+  const styles = row?.avoids_styles;
+  const primaryIndex = preferenceDayIndex(row?.primary_photo_day);
+  const office = row?.office_location;
+  return {
+    ...basic,
+    avoidsStyles: Array.isArray(styles)
+      ? [...new Set(styles.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter((item) => item.length > 0 && item.length <= 40))].slice(0, 20)
+      : [...d.avoidsStyles],
+    workDays: days(row?.work_days, PREFERENCE_WORK_DAYS, [...d.workDays]),
+    workStartTime: time(row?.work_start_time, d.workStartTime),
+    workEndTime: time(row?.work_end_time, d.workEndTime),
+    lunchStartTime: time(row?.lunch_start_time, d.lunchStartTime),
+    lunchEndTime: time(row?.lunch_end_time, d.lunchEndTime),
+    primaryPhotoDay: primaryIndex === -1 ? d.primaryPhotoDay : PREFERENCE_PHOTO_DAYS[primaryIndex],
+    secondaryPhotoDays: days(row?.secondary_photo_days, PREFERENCE_PHOTO_DAYS, [...d.secondaryPhotoDays]),
+    lunchBreakPhotography: flag(row?.lunch_break_photography, d.lunchBreakPhotography),
+    eveningPhotography: flag(row?.evening_photography, d.eveningPhotography),
+    wfhFlexibility: flag(row?.wfh_flexibility, d.wfhFlexibility),
+    adaptToWeather: flag(row?.adapt_to_weather, d.adaptToWeather),
+    adaptToCalendar: flag(row?.adapt_to_calendar, d.adaptToCalendar),
+    officeLocation: typeof office === 'string' && office.trim().length <= 120 ? office.trim() : null,
+  };
+}
+
+function mapBasicPreferences(row?: Partial<PreferenceRow>): PreferenceDto {
   const skillLevel = typeof row?.skill_level === 'string' && SKILL_LEVELS.has(row.skill_level as SkillLevel)
     ? row.skill_level as SkillLevel
     : 'intermediate';
@@ -222,27 +392,29 @@ function mapGear(row: GearRow): GearDto {
 export function createFotoaiRepository(client: FotoaiSupabaseClient) {
   return {
     // ----- preferences -------------------------------------------------
-    async getPreferences(scope: OwnerScope): Promise<PreferenceDto> {
+    /** Basic view: the four original fields. Full view (?view=full): every editable column. */
+    async getPreferences(scope: OwnerScope, view: PreferenceView = 'basic'): Promise<PreferenceDto | FullPreferenceDto> {
+      const fields = view === 'full' ? Object.keys(PREFERENCE_COLUMNS) : [...PREFERENCE_FIELDS];
       const rows = await client.restSelect<PreferenceRow>(
         T_PREFERENCES,
-        { ...owner(scope), select: 'skill_level,photography_interests,home_location,current_location', limit: '1' },
+        { ...owner(scope), select: fields.map((f) => PREFERENCE_COLUMNS[f as keyof FullPreferenceDto]).join(','), limit: '1' },
         scope.accessToken,
       );
-      return mapPreferences(rows[0]);
+      return mapPreferences(rows[0], view);
     },
 
-    async savePreferences(scope: OwnerScope, input: Record<string, unknown>): Promise<PreferenceDto> {
-      const parsed = parsePreferenceInput(input);
+    async savePreferences(scope: OwnerScope, input: Record<string, unknown>, view: PreferenceView = 'basic'): Promise<PreferenceDto | FullPreferenceDto> {
+      const parsed = parsePreferenceInput(input, view);
       const row: Record<string, unknown> = {
         user_id: requireUuid(scope.userId, 'session user id'),
         updated_at: new Date().toISOString(),
       };
-      if (parsed.skillLevel !== undefined) row.skill_level = parsed.skillLevel;
-      if (parsed.photographyInterests !== undefined) row.photography_interests = parsed.photographyInterests;
-      if (parsed.homeLocation !== undefined) row.home_location = parsed.homeLocation;
-      if (parsed.currentLocation !== undefined) row.current_location = parsed.currentLocation;
+      for (const [field, column] of Object.entries(PREFERENCE_COLUMNS)) {
+        const value = parsed[field as keyof FullPreferenceDto];
+        if (value !== undefined) row[column] = value;
+      }
       const saved = await client.restUpsert<PreferenceRow>(T_PREFERENCES, row, 'user_id', scope.accessToken);
-      return mapPreferences(saved);
+      return mapPreferences(saved, view);
     },
 
     // ----- gear --------------------------------------------------------

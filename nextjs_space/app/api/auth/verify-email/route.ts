@@ -1,25 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Client, Account } from 'node-appwrite';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/verify-email.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { userId, secret } = await request.json();
+export const dynamic = 'force-dynamic';
 
-    if (!userId || !secret) {
-      return NextResponse.json({ error: 'userId and secret are required' }, { status: 400 });
-    }
+const gone = retiredRoute('/api/fotoai/auth/verify-email');
 
-    // updateVerification does not require an active session —
-    // the one-time secret from the email link is sufficient proof.
-    const client = new Client()
-      .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-      .setProject(process.env.APPWRITE_PROJECT_ID!);
-
-    const account = new Account(client);
-    await account.updateVerification(userId, secret);
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Verification failed' }, { status: 400 });
-  }
-}
+export const POST = gone;

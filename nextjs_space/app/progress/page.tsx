@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { useUserProgress, useRecentChallenges, useWeeklyInsights } from '@/hooks/use-dashboard-data';
+import { useUserProgress, useRecentChallenges } from '@/hooks/use-dashboard-data';
+import { useWeeklyInsights } from '@/hooks/fotoai/insights';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -42,11 +43,11 @@ const TOOLTIP_STYLE = {
 } as const;
 
 export default function ProgressPage() {
-  const { user, status } = useAppwriteAuth();
+  const { status } = useAppwriteAuth();
   const hasFotoaiSession = status === 'authenticated';
   const { data: progress, isLoading: progressLoading } = useUserProgress(hasFotoaiSession);
   const { data: recentData } = useRecentChallenges(50, hasFotoaiSession);
-  const { data: weeklyInsights, isLoading: insightsLoading } = useWeeklyInsights(user?.id, 5);
+  const { data: weeklyInsights, isLoading: insightsLoading } = useWeeklyInsights(hasFotoaiSession, 5);
   const [showOlderReports, setShowOlderReports] = useState(false);
   const allChallenges = recentData?.challenges ?? [];
   const latestReport = weeklyInsights?.[0] ?? null;

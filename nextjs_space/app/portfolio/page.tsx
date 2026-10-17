@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { usePortfolioAnalyses } from '@/hooks/use-dashboard-data';
+import { usePortfolioAnalyses } from '@/hooks/fotoai/portfolio';
+import { createFotoaiPortfolioAnalysis } from '@/lib/fotoai/client-ai';
 import { motion } from 'framer-motion';
 import {
   Upload, Loader2, ImagePlus, X, CheckCircle2, XCircle, ArrowRight,
@@ -12,7 +13,7 @@ import type { PortfolioAnalysis } from '@/lib/types';
 
 export default function PortfolioPage() {
   const { user, status: authStatus } = useAppwriteAuth();
-  const { data: history, refetch: refetchHistory } = usePortfolioAnalyses(user?.id);
+  const { data: history, refetch: refetchHistory } = usePortfolioAnalyses(authStatus === 'authenticated');
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -44,26 +45,15 @@ export default function PortfolioPage() {
   };
 
   const analyze = async () => {
-    if (!user || files.length < 3) return;
+    if (authStatus !== 'authenticated' || files.length < 3) return;
     setAnalyzing(true);
     setError('');
     setProgress('Uploading photos...');
 
     try {
-      const formData = new FormData();
-      formData.append('userId', user.id);
-      files.forEach((f, i) => formData.append(`photo_${i}`, f));
-
       setProgress(`Analyzing ${files.length} photos (this may take 30-60 seconds)...`);
 
-      const res = await fetch('/api/portfolio', { method: 'POST', body: formData });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || `Analysis failed (${res.status})`);
-      }
-
-      const data = await res.json();
+      const data = await createFotoaiPortfolioAnalysis(files);
       setResult(data.analysis);
       setProgress('');
       refetchHistory();

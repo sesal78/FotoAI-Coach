@@ -1,30 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { SESSION_COOKIE } from '@/lib/session';
-import { createEmailSession } from '@/lib/appwrite-session';
+// Retired Appwrite route (P4 port, 95-P4-PORT-PLAN.md). Use /api/fotoai/auth/login.
+// The old code trusted a caller-supplied userId; it is kept only in git history.
+import { retiredRoute } from '@/lib/retired-route';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { email, password } = await request.json();
+export const dynamic = 'force-dynamic';
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
-    }
+const gone = retiredRoute('/api/fotoai/auth/login');
 
-    const { userId, secret } = await createEmailSession(email, password);
-    console.log('[login] Session created for', userId, '— secret length:', secret.length);
-
-    const response = NextResponse.json({ success: true, userId });
-    response.cookies.set(SESSION_COOKIE, secret, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365,
-    });
-
-    return response;
-  } catch (error: any) {
-    const message = error?.message || 'Invalid credentials';
-    return NextResponse.json({ error: message }, { status: 401 });
-  }
-}
+export const POST = gone;

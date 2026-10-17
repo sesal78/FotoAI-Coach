@@ -7,12 +7,16 @@
 //   GET    /api/fotoai/submissions/[id]/photo?ttl=          short-lived signed URL
 //
 // Identity: session cookie only. Any userId in the request is rejected (400).
+//
+// After a create, XP, AI feedback and (with a photo) the auto-critique run in
+// the background like the legacy route; see ../submission-followups.ts.
 
 import { MAX_UPLOAD_REQUEST_BYTES, readBoundedFormData } from '../bounded-body.ts';
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
-import type { IncomingPhoto } from '../photos.ts';
-import { type DepsProvider, json, requirePrincipal, withFotoai } from './shared.ts';
+import { type IncomingPhoto, MAX_SIGNED_URL_TTL_SECONDS } from '../photos.ts';
+import { backgroundScheduler, type FollowupScheduler, runSubmissionFollowups } from '../submission-followups.ts';
+import { defaultLog, type DepsProvider, json, requirePrincipal, withFotoai } from './shared.ts';
 
 function toIncomingPhoto(value: FormDataEntryValue | null): IncomingPhoto | null {
   if (!value || typeof value === 'string') return null;
@@ -26,7 +30,22 @@ function toIncomingPhoto(value: FormDataEntryValue | null): IncomingPhoto | null
   };
 }
 
-export function createSubmissionHandlers(provider: DepsProvider) {
+/** ?ttl= must be a plain integer 1..MAX_SIGNED_URL_TTL_SECONDS; anything else is 400, never NaN to Storage. */
+function parseTtl(raw: string | null): number {
+  const ttl = raw !== null && /^\d{1,3}$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isInteger(ttl) || ttl < 1 || ttl > MAX_SIGNED_URL_TTL_SECONDS) {
+    throw new FotoaiValidationError(`ttl must be an integer from 1 to ${MAX_SIGNED_URL_TTL_SECONDS}`);
+  }
+  return ttl;
+}
+
+export interface SubmissionHandlerOptions {
+  /** How follow-up work is started. Default: background, not awaited (legacy timing). */
+  scheduleFollowups?: FollowupScheduler;
+}
+
+export function createSubmissionHandlers(provider: DepsProvider, options: SubmissionHandlerOptions = {}) {
+  const scheduleFollowups = options.scheduleFollowups ?? backgroundScheduler;
   return {
     list: withFotoai(provider, async (request, deps) => {
       const principal = await requirePrincipal(request, deps);
@@ -76,11 +95,18 @@ export function createSubmissionHandlers(provider: DepsProvider) {
         rating,
       });
 
+      // The submission is saved; follow-up failures are logged, never returned.
+      const saved = submission;
+      scheduleFollowups(
+        () => runSubmissionFollowups(deps, principal, { challenge, submission: saved, notes }),
+        deps.log ?? defaultLog,
+      );
+
       return json({
         submission,
         message: submission.photo_object_key
-          ? 'Challenge submitted with photo.'
-          : 'Challenge submitted.',
+          ? 'Challenge submitted! Feedback and photo critique are being generated...'
+          : 'Challenge submitted successfully! Feedback is being generated...',
       }, { status: 201 });
     }),
 
@@ -105,7 +131,7 @@ export function createSubmissionHandlers(provider: DepsProvider) {
       const principal = await requirePrincipal(request, deps);
       const search = new URL(request.url).searchParams;
       assertNoBrowserIdentity(search);
-      const ttl = search.has('ttl') ? Number(search.get('ttl')) : undefined;
+      const ttl = search.has('ttl') ? parseTtl(search.get('ttl')) : undefined;
       const signed = await deps.photos.signSubmissionPhoto(principal, params.id, ttl);
       return json({ url: signed.url, expiresIn: signed.expiresIn });
     }),

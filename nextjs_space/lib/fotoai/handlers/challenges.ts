@@ -3,12 +3,18 @@
 //   GET   /api/fotoai/challenges?status=&limit=   list own challenges
 //   GET   /api/fotoai/challenges/[id]             read own challenge (+submissions)
 //   PATCH /api/fotoai/challenges/[id]  {status}   update own challenge status
+//   POST  /api/fotoai/challenges/generate {challengeType?, forceGenerate?}
+//                                                 generate (or return today's) own challenge
 //
 // Not ported on purpose: the Appwrite route's `?latest=true` path, which
 // returned the newest challenge of ANY user without authentication.
-// Challenge generation (LLM + weather) stays on the Appwrite route until the
-// generation pipeline is migrated in a later step.
 
+import {
+  createOwnerGenerationDataAccess,
+  generateChallengeFor,
+  parseChallengeType,
+  toChallengeDto,
+} from '../challenge-generation.ts';
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import type { ChallengeStatusFilter } from '../repository.ts';
@@ -48,6 +54,31 @@ export function createChallengeHandlers(provider: DepsProvider) {
         await deps.repo.recordCompletion(principal, challenge);
       }
       return json({ challenge, message: 'Challenge updated' });
+    }),
+
+    generate: withFotoai(provider, async (request, deps) => {
+      const principal = await requirePrincipal(request, deps);
+      assertNoBrowserIdentity(new URL(request.url).searchParams);
+      const body = await readJsonBody(request);
+      assertNoBrowserIdentity(body);
+      const unexpected = Object.keys(body).find((k) => k !== 'challengeType' && k !== 'forceGenerate');
+      if (unexpected) throw new FotoaiValidationError(`Unexpected field: ${unexpected}`);
+      if (body.forceGenerate !== undefined && typeof body.forceGenerate !== 'boolean') {
+        throw new FotoaiValidationError('forceGenerate must be a boolean');
+      }
+      const result = await generateChallengeFor(
+        { data: createOwnerGenerationDataAccess(deps), services: deps.services, log: deps.log },
+        { userId: principal.userId, accessToken: principal.accessToken },
+        {
+          challengeType: parseChallengeType(body.challengeType),
+          forceGenerate: body.forceGenerate === true,
+          displayName: principal.name,
+        },
+      );
+      return json({
+        challenge: toChallengeDto(result.challenge),
+        message: result.created ? 'Challenge generated successfully' : 'Challenge already exists for today',
+      }, { status: result.created ? 201 : 200 });
     }),
   };
 }

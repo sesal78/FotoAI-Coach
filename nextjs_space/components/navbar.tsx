@@ -7,7 +7,7 @@ import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
-import { useSkillTree } from '@/hooks/use-dashboard-data'
+import { useSkillTree } from '@/hooks/fotoai/skills'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +37,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, status, signOut } = useAppwriteAuth()
-  const { data: skillTree } = useSkillTree(status === 'authenticated' ? user?.id : undefined)
+  const { data: skillTree } = useSkillTree(status === 'authenticated')
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 

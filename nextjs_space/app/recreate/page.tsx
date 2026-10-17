@@ -4,12 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
-import { useReverseAnalyses } from '@/hooks/use-dashboard-data';
+import { useReverseAnalyses } from '@/hooks/fotoai/reverse';
+import { createFotoaiReverseAnalysis, type FotoaiReverseAnalysis } from '@/lib/fotoai/client-ai';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import type { ReverseAnalysis, ReverseEngineeringResult } from '@/lib/types';
+import type { ReverseEngineeringResult } from '@/lib/types';
 import {
   ArrowLeft,
   Camera,
@@ -80,7 +81,7 @@ function LightingSection({ lighting }: { lighting: ReverseEngineeringResult['lig
   );
 }
 
-function AnalysisCard({ analysis, defaultExpanded }: { analysis: ReverseAnalysis; defaultExpanded?: boolean }) {
+function AnalysisCard({ analysis, defaultExpanded }: { analysis: FotoaiReverseAnalysis; defaultExpanded?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const r = analysis.result;
 
@@ -206,12 +207,12 @@ function AnalysisCard({ analysis, defaultExpanded }: { analysis: ReverseAnalysis
 }
 
 export default function RecreatePage() {
-  const { user, status } = useAppwriteAuth();
-  const { data: analyses = [], isLoading: analysesLoading, refetch } = useReverseAnalyses(user?.id);
+  const { status } = useAppwriteAuth();
+  const { data: analyses = [], isLoading: analysesLoading, refetch } = useReverseAnalyses(status === 'authenticated');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
-  const [latestAnalysis, setLatestAnalysis] = useState<ReverseAnalysis | null>(null);
+  const [latestAnalysis, setLatestAnalysis] = useState<FotoaiReverseAnalysis | null>(null);
 
   function handleFileChange(file: File | null) {
     setPhoto(file);
@@ -226,26 +227,16 @@ export default function RecreatePage() {
   }
 
   async function handleAnalyse() {
-    if (!photo || !user?.id) return;
+    if (!photo || status !== 'authenticated') return;
 
     setAnalysing(true);
     try {
-      const formData = new FormData();
-      formData.append('photo', photo);
-      formData.append('userId', user.id);
-
-      const res = await fetch('/api/reverse-engineer', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (res.ok) {
-        setLatestAnalysis(data.analysis);
-        toast.success('Photo analysed — here\'s how to recreate it!');
-        refetch();
-      } else {
-        toast.error(data.error || 'Analysis failed');
-      }
-    } catch {
-      toast.error('Failed to analyse photo');
+      const analysis = await createFotoaiReverseAnalysis(photo);
+      setLatestAnalysis(analysis);
+      toast.success('Photo analysed — here\'s how to recreate it!');
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : 'Failed to analyse photo');
     } finally {
       setAnalysing(false);
     }

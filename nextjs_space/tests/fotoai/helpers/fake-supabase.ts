@@ -7,6 +7,11 @@
 //   2. Storage insert policy: an upload key must start with the token owner's id.
 // It also records every server-side (service role) call so tests can assert
 // that signing/removal never happened for a denied request.
+//
+// createFakeSupabase({ rls: false }) models BROKEN RLS: user-token calls still
+// need a valid token but see and change ALL rows matching the query, and
+// inserts/updates skip the with-check. Defense-in-depth tests use it to prove
+// the repositories' own user_id filters keep users apart.
 
 import { FotoaiAuthError, FotoaiForbiddenError } from '../../../lib/fotoai/errors.ts';
 import type { VerifiedUser } from '../../../lib/fotoai/membership.ts';
@@ -22,7 +27,7 @@ type Row = Record<string, any>;
 export interface FakeSupabase extends FotoaiSupabaseClient {
   tables: Map<string, Row[]>;
   objects: Map<string, { owner: string; bytes: number; contentType: string }>;
-  serviceCalls: Array<{ op: 'sign' | 'remove'; keys: string[] }>;
+  serviceCalls: Array<{ op: 'sign' | 'remove' | 'upload' | 'rpc' | 'select' | 'insert' | 'update' | 'users'; keys: string[] }>;
   seed(table: string, row: Row): Row;
   reset(): void;
 }
@@ -55,7 +60,13 @@ function matches(row: Row, query: Record<string, string>): boolean {
   return true;
 }
 
-export function createFakeSupabase(): FakeSupabase {
+export interface FakeSupabaseOptions {
+  /** false = RLS disabled/broken (see header). Default true. */
+  rls?: boolean;
+}
+
+export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupabase {
+  const rls = options.rls !== false;
   const tables = new Map<string, Row[]>();
   const objects = new Map<string, { owner: string; bytes: number; contentType: string }>();
   const serviceCalls: FakeSupabase['serviceCalls'] = [];
@@ -65,10 +76,11 @@ export function createFakeSupabase(): FakeSupabase {
     return tables.get(table)!;
   };
 
-  // RLS emulation: visible rows are the token owner's rows that match the query.
+  // RLS emulation: visible rows are the token owner's rows that match the query
+  // (with rls: false, every row that matches the query).
   const visible = (table: string, query: Record<string, string>, token: string) => {
     const uid = uidForToken(token);
-    let rows = rowsOf(table).filter((r) => r.user_id === uid && matches(r, query));
+    let rows = rowsOf(table).filter((r) => (!rls || r.user_id === uid) && matches(r, query));
     if (query.order) {
       const [col, dir] = query.order.split('.');
       rows = [...rows].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (dir === 'desc' ? -1 : 1));
@@ -115,13 +127,36 @@ export function createFakeSupabase(): FakeSupabase {
       /* noop */
     },
 
+    async signUpWithRedirect() {
+      return { userId: null, session: null };
+    },
+
+    async requestPasswordRecovery() {
+      /* GoTrue answers 200 for known and unknown addresses alike */
+    },
+
+    async resendSignupConfirmation() {
+      /* noop */
+    },
+
+    // 'hash-alice' / 'hash-bob' are valid one-time hashes; anything else is expired.
+    async verifyTokenHash(_type, tokenHash): Promise<PasswordSession> {
+      if (tokenHash === 'hash-alice') return { userId: ALICE, accessToken: TOKEN_ALICE, refreshToken: 'ref-alice', expiresIn: 3600 };
+      if (tokenHash === 'hash-bob') return { userId: BOB, accessToken: TOKEN_BOB, refreshToken: 'ref-bob', expiresIn: 3600 };
+      throw new FotoaiAuthError('Link is invalid or has expired');
+    },
+
+    async updateUserPassword(token) {
+      uidForToken(token);
+    },
+
     async restSelect(table, query, token) {
       return visible(table, query, token) as any[];
     },
 
     async restInsert(table, row, token) {
       const uid = uidForToken(token);
-      if (row.user_id !== uid) {
+      if (rls && row.user_id !== uid) {
         // RLS with-check violation: PostgREST answers 403 for authenticated.
         throw new FotoaiForbiddenError('fake RLS: new row violates row-level security policy');
       }
@@ -132,7 +167,7 @@ export function createFakeSupabase(): FakeSupabase {
 
     async restUpsert(table, row, onConflict, token) {
       const uid = uidForToken(token);
-      if (row.user_id !== uid) {
+      if (rls && row.user_id !== uid) {
         throw new FotoaiForbiddenError('fake RLS: new row violates row-level security policy');
       }
       const existing = rowsOf(table).find((candidate) => candidate[onConflict] === row[onConflict]);
@@ -147,7 +182,7 @@ export function createFakeSupabase(): FakeSupabase {
 
     async restUpdate(table, query, patch, token) {
       const uid = uidForToken(token);
-      if ('user_id' in patch && patch.user_id !== uid) {
+      if (rls && 'user_id' in patch && patch.user_id !== uid) {
         throw new FotoaiForbiddenError('fake RLS: update violates row-level security policy');
       }
       const targets = visible(table, { ...query, limit: '' }, token);
@@ -179,6 +214,75 @@ export function createFakeSupabase(): FakeSupabase {
     async storageRemove(keys) {
       serviceCalls.push({ op: 'remove', keys });
       for (const k of keys) objects.delete(k);
+    },
+
+    async storageUploadAsService(objectKey, bytes, contentType) {
+      serviceCalls.push({ op: 'upload', keys: [objectKey] });
+      if (objects.has(objectKey)) throw new FotoaiForbiddenError('fake storage: duplicate key');
+      objects.set(objectKey, { owner: objectKey.split('/')[0], bytes: bytes.byteLength, contentType });
+    },
+
+    // Emulates fotoai_award_skill_xp (0001): prerequisite check, de-duplication
+    // by (user, skill, kind, source), then an atomic skill update.
+    async serviceRpc(fn, args: Record<string, any>) {
+      serviceCalls.push({ op: 'rpc', keys: [fn] });
+      if (fn !== 'fotoai_award_skill_xp') throw new Error(`fake: unknown rpc ${fn}`);
+      const skills = rowsOf('fotoai_user_skills');
+      const mine = (skillId: string) => skills.find((r) => r.user_id === args.p_user_id && r.skill_id === skillId);
+      const prereqs: string[] = args.p_prerequisite_skills ?? [];
+      const current = mine(args.p_skill_id);
+      if (prereqs.some((id) => !['learned', 'practiced', 'mastered'].includes(mine(id)?.status))) {
+        return { outcome: 'locked', skill_id: args.p_skill_id, xp_awarded: 0, current_xp: current?.current_xp ?? 0, status: current?.status ?? 'locked', leveled_up: false } as any;
+      }
+      const events = rowsOf('fotoai_xp_events');
+      const dup = events.find((e) => e.user_id === args.p_user_id && e.skill_id === args.p_skill_id
+        && e.source_kind === args.p_source_kind && e.source_id === args.p_source_id);
+      if (dup) {
+        return { outcome: 'duplicate', skill_id: args.p_skill_id, xp_awarded: 0, current_xp: current?.current_xp ?? 0, status: current?.status ?? 'available', leveled_up: false } as any;
+      }
+      events.push({ id: nextUuid(), user_id: args.p_user_id, skill_id: args.p_skill_id, xp_amount: args.p_xp_amount,
+        source_kind: args.p_source_kind, source_id: args.p_source_id, awarded_at: new Date().toISOString() });
+      const prevStatus = current?.status ?? 'available';
+      const xp = (current?.current_xp ?? 0) + args.p_xp_amount;
+      const status = xp >= args.p_xp_to_master ? 'mastered' : xp >= args.p_xp_to_practice ? 'practiced' : xp >= args.p_xp_to_learn ? 'learned' : 'available';
+      if (current) Object.assign(current, { current_xp: xp, status });
+      else skills.push({ id: nextUuid(), user_id: args.p_user_id, skill_id: args.p_skill_id, current_xp: xp, status });
+      return { outcome: 'applied', skill_id: args.p_skill_id, xp_awarded: args.p_xp_amount, current_xp: xp, status, leveled_up: status !== prevStatus } as any;
+    },
+
+    // Service-role table access: no RLS, every call recorded.
+    async serviceSelect(table, query) {
+      serviceCalls.push({ op: 'select', keys: [table] });
+      let rows = rowsOf(table).filter((r) => matches(r, query));
+      if (query.order) {
+        const [col, dir] = query.order.split('.');
+        rows = [...rows].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (dir === 'desc' ? -1 : 1));
+      }
+      if (query.limit) rows = rows.slice(0, Number(query.limit));
+      return rows as any[];
+    },
+
+    async serviceInsert(table, row) {
+      serviceCalls.push({ op: 'insert', keys: [table] });
+      const full = { id: nextUuid(), ...row };
+      rowsOf(table).push(full);
+      return full as any;
+    },
+
+    async serviceUpdate(table, query, patch) {
+      serviceCalls.push({ op: 'update', keys: [table] });
+      const targets = rowsOf(table).filter((r) => matches(r, query));
+      for (const row of targets) Object.assign(row, patch);
+      return targets as any[];
+    },
+
+    async adminListUsers(page, perPage) {
+      serviceCalls.push({ op: 'users', keys: [String(page)] });
+      const all = [
+        { id: ALICE, email: 'alice@test.invalid', name: 'Alice' },
+        { id: BOB, email: 'bob@test.invalid', name: 'Bob' },
+      ];
+      return all.slice((page - 1) * perPage, page * perPage);
     },
   };
 

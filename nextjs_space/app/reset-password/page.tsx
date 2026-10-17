@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { FotoaiClientError } from '@/lib/fotoai/client';
+import { parseFotoaiLinkToken, resetFotoaiPassword } from '@/lib/fotoai/client-auth-flows';
+
+type ResetToken = { accessToken: string } | { tokenHash: string };
 
 function ResetPasswordForm() {
-  const searchParams = useSearchParams();
-  const userId = searchParams.get('userId') || '';
-  const secret = searchParams.get('secret') || '';
+  // The reset link lands here with the recovery session in the URL fragment
+  // (#access_token=...&type=recovery) or, with a custom template, ?token_hash=.
+  const [linkToken, setLinkToken] = useState<ResetToken | null>(null);
+  const [linkChecked, setLinkChecked] = useState(false);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,6 +20,18 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const parsed = parseFotoaiLinkToken(window.location.hash, window.location.search);
+    const isRecovery = (type: string | null) => type === null || type === 'recovery';
+    if (parsed.kind === 'session' && isRecovery(parsed.type)) setLinkToken({ accessToken: parsed.accessToken });
+    if (parsed.kind === 'hash' && isRecovery(parsed.type)) setLinkToken({ tokenHash: parsed.tokenHash });
+    // Keep link tokens out of history, bookmarks and Referer headers.
+    if (window.location.hash || window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    setLinkChecked(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,33 +47,38 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (!userId || !secret) {
+    if (!linkToken) {
       setError('Invalid reset link. Please request a new one.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, secret, password }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setSuccess(true);
+      await resetFotoaiPassword(linkToken, password);
+      setLinkToken(null);
+      setSuccess(true);
+    } catch (err) {
+      if (err instanceof FotoaiClientError && err.status === 401) {
+        setError('This reset link is invalid or has expired. Please request a new one.');
+      } else if (err instanceof FotoaiClientError && err.status === 400) {
+        setError(err.message);
       } else {
-        setError(data.error || 'Failed to reset password');
+        setError('Something went wrong. Please try again.');
       }
-    } catch {
-      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
-  if (!userId || !secret) {
+  if (!linkChecked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6 py-16">
+        <div className="h-10 w-10 border-2 border-border border-t-foreground rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!linkToken && !success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-md text-center space-y-6">
