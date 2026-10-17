@@ -1,5 +1,5 @@
 
-// Weather API utilities using OpenWeatherMap
+// Weather API utilities using Open-Meteo (free, no API key)
 export interface WeatherData {
   condition: string;
   temperature: number;
@@ -23,56 +23,75 @@ export interface PhotoWeatherAnalysis {
   alerts?: string[];
 }
 
-/**
- * Fetch current weather data for a location
- */
-export async function getWeather(location: string): Promise<WeatherData | null> {
-  try {
-    const apiKey = process.env.OPENWEATHERMAP_API_KEY;
-    if (!apiKey) {
-      console.error('OpenWeatherMap API key not configured');
-      return null;
-    }
+type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-    // Geocode the location first
-    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${apiKey}`;
-    const geoResponse = await fetch(geoUrl);
-    
-    if (!geoResponse.ok) {
-      throw new Error(`Geocoding failed: ${geoResponse.status}`);
-    }
-    
-    const geoData = await geoResponse.json();
-    
-    if (!geoData || geoData.length === 0) {
+// WMO weather codes (Open-Meteo) -> the condition names analyzeWeatherForPhotography expects.
+function conditionFromWmo(code: number): { condition: string; description: string } {
+  if (code === 0) return { condition: 'Clear', description: 'clear sky' };
+  if (code === 1) return { condition: 'Clear', description: 'mainly clear' };
+  if (code === 2) return { condition: 'Clouds', description: 'partly cloudy' };
+  if (code === 3) return { condition: 'Clouds', description: 'overcast' };
+  if (code === 45 || code === 48) return { condition: 'Fog', description: 'fog' };
+  if (code >= 51 && code <= 57) return { condition: 'Drizzle', description: 'drizzle' };
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return { condition: 'Rain', description: 'rain' };
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { condition: 'Snow', description: 'snow' };
+  if (code >= 95) return { condition: 'Thunderstorm', description: 'thunderstorm' };
+  return { condition: 'Clouds', description: 'unknown' };
+}
+
+/**
+ * Fetch current weather data for a location (Open-Meteo: free, no API key).
+ * `location` is free text such as "Melbourne, Australia". Units stay imperial
+ * (°F, mph) because the photo analysis and prompts expect them.
+ */
+export async function getWeather(location: string, fetchImpl: FetchLike = fetch): Promise<WeatherData | null> {
+  try {
+    const [rawName, ...rest] = location.split(',').map((part) => part.trim()).filter(Boolean);
+    if (!rawName) return null;
+    const hint = rest.join(' ').toLowerCase();
+
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(rawName)}&count=10&language=en&format=json`;
+    const geoResponse = await fetchImpl(geoUrl, { signal: AbortSignal.timeout(10000) });
+    if (!geoResponse.ok) throw new Error(`Geocoding failed: ${geoResponse.status}`);
+    const geoData = (await geoResponse.json()) as { results?: Array<Record<string, unknown>> };
+    const results = geoData.results ?? [];
+    if (results.length === 0) {
       console.error('Location not found:', location);
       return null;
     }
+    // Prefer a result whose country or region matches the text after the comma.
+    // Country/region names match as phrases; 2-letter country codes only as whole words ("us" is inside "australia").
+    const hintWords = new Set(hint.split(/[^a-z]+/).filter(Boolean));
+    const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
+    const place = (hint && results.find((r) =>
+      [lower(r.country), lower(r.admin1)].some((v) => v.length > 2 && hint.includes(v)) || hintWords.has(lower(r.country_code)),
+    )) || results[0];
 
-    const { lat, lon } = geoData[0];
-
-    // Fetch weather data
-    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
-    const weatherResponse = await fetch(weatherUrl);
-    
-    if (!weatherResponse.ok) {
-      throw new Error(`Weather API failed: ${weatherResponse.status}`);
-    }
-    
-    const data = await weatherResponse.json();
+    const weatherUrl = 'https://api.open-meteo.com/v1/forecast'
+      + `?latitude=${place.latitude}&longitude=${place.longitude}`
+      + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,cloud_cover,weather_code,visibility'
+      + '&daily=sunrise,sunset&forecast_days=1&timezone=auto&timeformat=unixtime'
+      + '&temperature_unit=fahrenheit&wind_speed_unit=mph';
+    const weatherResponse = await fetchImpl(weatherUrl, { signal: AbortSignal.timeout(10000) });
+    if (!weatherResponse.ok) throw new Error(`Weather API failed: ${weatherResponse.status}`);
+    const data = (await weatherResponse.json()) as {
+      current: Record<string, number>;
+      daily: { sunrise: number[]; sunset: number[] };
+    };
+    const { condition, description } = conditionFromWmo(data.current.weather_code);
 
     return {
-      condition: data.weather[0].main,
-      temperature: Math.round(data.main.temp),
-      feelsLike: Math.round(data.main.feels_like),
-      humidity: data.main.humidity,
-      windSpeed: Math.round(data.wind.speed),
-      clouds: data.clouds.all,
-      visibility: data.visibility,
-      sunrise: data.sys.sunrise,
-      sunset: data.sys.sunset,
-      description: data.weather[0].description,
-      icon: data.weather[0].icon,
+      condition,
+      temperature: Math.round(data.current.temperature_2m),
+      feelsLike: Math.round(data.current.apparent_temperature),
+      humidity: data.current.relative_humidity_2m,
+      windSpeed: Math.round(data.current.wind_speed_10m),
+      clouds: data.current.cloud_cover,
+      visibility: data.current.visibility,
+      sunrise: data.daily.sunrise[0],
+      sunset: data.daily.sunset[0],
+      description,
+      icon: '',
     };
   } catch (error) {
     console.error('Weather fetch failed:', error);
