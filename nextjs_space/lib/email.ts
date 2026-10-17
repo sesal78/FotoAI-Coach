@@ -1,9 +1,9 @@
 
-// Email notification utilities — SMTP primary, Resend fallback
+// Email notification utilities — Resend primary, SMTP fallback
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
-// ── SMTP (primary) ──────────────────────────────────────────────────────────
+// ── SMTP (fallback) ─────────────────────────────────────────────────────────
 
 const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 
@@ -19,7 +19,7 @@ const transporter = smtpConfigured
     })
   : null;
 
-// ── Resend (fallback) ───────────────────────────────────────────────────────
+// ── Resend (primary) ────────────────────────────────────────────────────────
 
 const resendConfigured = !!process.env.RESEND_API_KEY;
 const resend = resendConfigured ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -53,9 +53,28 @@ function sanitizeText(text: string): string {
 /**
  * Build common email fields from options
  */
+type EnvLike = Record<string, string | undefined>;
+
+/** Resend first (its domain topues.com is verified), SMTP only as a fallback. */
+export function emailProviderOrder(env: EnvLike = process.env): Array<'resend' | 'smtp'> {
+  const order: Array<'resend' | 'smtp'> = [];
+  if (env.RESEND_API_KEY) order.push('resend');
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) order.push('smtp');
+  return order;
+}
+
+/** Sender on the Resend-verified domain unless FROM_EMAIL overrides it. */
+export function defaultSender(env: EnvLike = process.env): { fromEmail: string; fromName: string } {
+  return {
+    fromEmail: env.FROM_EMAIL || 'noreply@topues.com',
+    fromName: env.FROM_NAME || env.EMAIL_FROM_NAME || 'Foto AI Coach',
+  };
+}
+
 function buildEmailFields(options: EmailOptions) {
-  const fromEmail = options.from || process.env.FROM_EMAIL || 'noreply@myfoto.topues.com';
-  const fromName = options.fromName || process.env.FROM_NAME || 'Foto AI Coach';
+  const sender = defaultSender();
+  const fromEmail = options.from || sender.fromEmail;
+  const fromName = options.fromName || sender.fromName;
   const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
   const subject = sanitizeText(options.subject);
   const html = options.html ? sanitizeText(options.html) : undefined;
@@ -108,31 +127,18 @@ async function sendViaResend(options: EmailOptions): Promise<boolean> {
 }
 
 /**
- * Send an email — tries SMTP first, falls back to Resend
+ * Send an email — tries Resend first, falls back to SMTP
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  // Try SMTP first
-  if (smtpConfigured) {
+  const order = emailProviderOrder();
+  for (const provider of order) {
     try {
-      return await sendViaSmtp(options);
+      return provider === 'resend' ? await sendViaResend(options) : await sendViaSmtp(options);
     } catch (error: any) {
-      console.error(`[SMTP] Failed: ${error.message}`);
-      if (!resendConfigured) return false;
-      console.log('[SMTP] Falling back to Resend...');
+      console.error(`[${provider === 'resend' ? 'Resend' : 'SMTP'}] Failed: ${error.message}`);
     }
   }
-
-  // Fallback to Resend
-  if (resendConfigured) {
-    try {
-      return await sendViaResend(options);
-    } catch (error: any) {
-      console.error(`[Resend] Failed: ${error.message}`);
-      return false;
-    }
-  }
-
-  console.error('No email provider available');
+  console.error(order.length ? 'All email providers failed' : 'No email provider available');
   return false;
 }
 

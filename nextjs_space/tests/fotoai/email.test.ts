@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildChallengeEmail, buildWeatherAlertEmail, buildWeeklyReportEmail, escapeHtml } from '../../lib/email.ts';
+import { buildChallengeEmail, buildWeatherAlertEmail, buildWeeklyReportEmail, defaultSender, emailProviderOrder, escapeHtml } from '../../lib/email.ts';
 
 const EVIL = '<a href=//evil>x</a>';
 const EVIL_ESCAPED = '&lt;a href=//evil&gt;x&lt;/a&gt;';
@@ -71,4 +71,18 @@ test('weather alert email: condition, message and suggestion are escaped in HTML
   const email = buildWeatherAlertEmail(EVIL, { condition: EVIL, message: EVIL, suggestion: EVIL });
   assertNoRawInjection(email.html);
   assert.equal(email.html.split(EVIL_ESCAPED).length - 1, 3);
+});
+
+test('email: Resend is tried first, SMTP only as a fallback', () => {
+  const smtp = { SMTP_HOST: 'smtp.example', SMTP_USER: 'u', SMTP_PASS: 'p' };
+  assert.deepEqual(emailProviderOrder({ RESEND_API_KEY: 'k', ...smtp }), ['resend', 'smtp']);
+  assert.deepEqual(emailProviderOrder({ ...smtp }), ['smtp']);
+  assert.deepEqual(emailProviderOrder({ RESEND_API_KEY: 'k' }), ['resend']);
+  assert.deepEqual(emailProviderOrder({}), []);
+});
+
+test('email: default sender is on the Resend-verified domain; the server name setting is honoured', () => {
+  assert.deepEqual(defaultSender({}), { fromEmail: 'noreply@topues.com', fromName: 'Foto AI Coach' });
+  assert.equal(defaultSender({ EMAIL_FROM_NAME: 'Foto Coach' }).fromName, 'Foto Coach');
+  assert.equal(defaultSender({ FROM_EMAIL: 'coach@topues.com' }).fromEmail, 'coach@topues.com');
 });
