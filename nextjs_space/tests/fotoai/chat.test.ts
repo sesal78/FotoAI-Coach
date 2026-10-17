@@ -52,7 +52,7 @@ test('chat: plain reply goes through deps.services.ai.callLLM with the system pr
   assert.equal(rowsOf(T_CH, ALICE).length, 0);
 });
 
-test('chat: a CHALLENGE_DATA block creates the caller\'s chatbot challenge, then updates it', async () => {
+test('chat: each CHALLENGE_DATA block creates a new challenge; earlier ones stay in history', async () => {
   const bobChat = deps.client.seed(T_CH, { user_id: BOB, challenge_type: 'CHATBOT_GENERATED', challenge_text: 'bob', status: 'pending', issued_date: '2026-09-01T00:00:00Z' });
   const aliceDash = deps.client.seed(T_CH, { user_id: ALICE, challenge_type: 'AFTER_WORK', challenge_text: 'dash', status: 'pending', issued_date: '2026-09-01T00:00:00Z' });
 
@@ -72,9 +72,12 @@ test('chat: a CHALLENGE_DATA block creates the caller\'s chatbot challenge, then
   deps.fakes.callLLM = () => ({ content: block({ challengeText: 'Frame shadows' }), model: 'fake' });
   res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
   body = await res.json();
-  assert.equal(body.challenge.id, created.id, 'pending chatbot challenge is overwritten');
+  assert.notEqual(body.challenge.id, created.id, 'a new chat challenge never overwrites the previous one');
   assert.equal(body.challenge.challengeText, 'Frame shadows');
-  assert.equal(rowsOf('fotoai_user_progress', ALICE)[0].total_challenges_issued, 1, 'update is not a new issue');
+  assert.equal(created.challenge_text, 'Frame strangers', 'the earlier challenge is kept unchanged');
+  assert.equal(created.status, 'pending', 'the earlier challenge can still be continued');
+  assert.equal(rowsOf(T_CH, ALICE).filter((r) => r.challenge_type === 'CHATBOT_GENERATED').length, 2);
+  assert.equal(rowsOf('fotoai_user_progress', ALICE)[0].total_challenges_issued, 2, 'each new challenge is a new issue');
 
   assert.equal(bobChat.challenge_text, 'bob');
   assert.equal(aliceDash.challenge_text, 'dash');
@@ -85,9 +88,30 @@ test('chat: a malformed block never fails the chat', async () => {
   deps.fakes.callLLM = () => ({ content: 'Sure.\n<CHALLENGE_DATA>{not json</CHALLENGE_DATA>', model: 'fake' });
   const res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { message: 'Sure.', challenge: null });
+  assert.deepEqual(await res.json(), { message: 'Sure.', challenge: null, challengeSaveFailed: true });
   assert.equal(rowsOf(T_CH, ALICE).length, 0);
   assert.ok(deps.logs.some((l) => l.level === 'error'));
+});
+
+test('chat: a reply without a challenge block does not claim a failed save', async () => {
+  deps.fakes.callLLM = () => ({ content: 'Use a tripod.', model: 'fake' });
+  const res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
+  assert.deepEqual(await res.json(), { message: 'Use a tripod.', challenge: null });
+});
+
+test('chat: a saved challenge is still returned when the progress counter update fails', async () => {
+  deps.fakes.callLLM = () => ({ content: block({ challengeText: 'Golden hour portraits' }), model: 'fake' });
+  const realSelect = deps.client.restSelect.bind(deps.client);
+  deps.client.restSelect = async (table: string, query: Record<string, string>, token: string) => {
+    if (table === 'fotoai_user_progress') throw new Error('progress table unavailable');
+    return realSelect(table, query, token);
+  };
+  const res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
+  const body = await res.json();
+  assert.equal(body.challenge.challengeText, 'Golden hour portraits');
+  assert.equal(body.challengeSaveFailed, undefined);
+  assert.equal(rowsOf(T_CH, ALICE).length, 1);
+  assert.ok(deps.logs.some((l) => l.level === 'warn' && /counter/.test(l.message)));
 });
 
 test('chat: LLM failure is a clean 502', async () => {

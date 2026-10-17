@@ -19,6 +19,8 @@ export function usePendingChallenge(enabled: boolean) {
       return challenge;
     },
     enabled,
+    // Always re-read on return to the page: challenges can be created elsewhere (chat).
+    refetchOnMount: 'always',
   });
 }
 
@@ -46,6 +48,7 @@ export function useRecentChallenges(limit: number = 5, enabled: boolean = true) 
       return { challenges: all.slice(0, limit), hasMore };
     },
     enabled,
+    refetchOnMount: 'always',
   });
 }
 

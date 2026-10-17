@@ -106,12 +106,15 @@ async function saveChatChallenge(deps: FotoaiDeps, scope: OwnerScope, raw: strin
       issued_date: new Date().toISOString(),
     };
 
+    // Every chat challenge is a new row: earlier ones stay pending in history and can be continued.
     const repo = createGenerationRepo(deps.client);
-    const existing = await repo.findPendingChatbot(scope);
-    if (existing) return await repo.updateChallenge(scope, existing.id, fields);
-
     const created = await repo.insertChallenge(scope, { ...fields, weather_conditions: null, status: 'pending' });
-    await repo.incrementIssued(scope, CHATBOT_CHALLENGE_TYPE);
+    try {
+      await repo.incrementIssued(scope, CHATBOT_CHALLENGE_TYPE);
+    } catch (err) {
+      // The challenge is saved; a counter failure must not hide it from the user.
+      deps.log?.('warn', `Chat challenge saved but the issued counter was not updated: ${err instanceof Error ? err.message : String(err)}`);
+    }
     return created;
   } catch (err) {
     deps.log?.('error', `Chat challenge was not saved: ${err instanceof Error ? err.message : String(err)}`);
@@ -150,6 +153,10 @@ export function createChatHandlers(provider: DepsProvider) {
       const saved = match ? await saveChatChallenge(deps, principal, match[1]) : null;
       const message = rawContent.replace(CHALLENGE_BLOCK_ALL, '').trim();
 
+      if (match && !saved) {
+        // The coach offered a challenge but it was not stored: say so instead of claiming it was saved.
+        return json({ message, challenge: null, challengeSaveFailed: true });
+      }
       return json({ message, challenge: saved ? toChallengeDto(saved) : null });
     }),
   };

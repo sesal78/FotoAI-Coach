@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { FotoaiClientError, listFotoaiChallenges } from '@/lib/fotoai/client'
 import { sendFotoaiChat } from '@/lib/fotoai/client-challenges'
+import { useInvalidateDashboard } from '@/hooks/use-dashboard-data'
 import {
   Clock,
   MapPin,
@@ -79,6 +80,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const invalidateDashboard = useInvalidateDashboard()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -131,9 +133,16 @@ export default function ChatPage() {
       // If a challenge was auto-saved, update the panel
       if (data.challenge) {
         setChallenge(data.challenge)
+        // Refresh the dashboard's cached challenge and history so the new challenge shows there.
+        invalidateDashboard()
         toast.success('Challenge saved to your dashboard!', {
           description: 'Head to Dashboard to submit it when you\'re done.',
           action: { label: 'Dashboard', onClick: () => window.location.href = '/dashboard' },
+        })
+      }
+      if (data.challengeSaveFailed) {
+        toast.error('This challenge could not be saved.', {
+          description: 'Ask the coach again, or generate one on the Dashboard.',
         })
       }
     } catch (error) {
