@@ -65,7 +65,7 @@ export async function emailFotoaiChallenge(
 export async function sendFotoaiChat(
   messages: FotoaiChatMessage[],
   fetcher: FotoaiFetch = fetch,
-): Promise<{ message: string; challenge: Challenge | null }> {
+): Promise<{ message: string; challenge: Challenge | null; challengeSaveFailed?: boolean }> {
   const recent = messages
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim())
     .slice(-FOTOAI_CHAT_HISTORY_LIMIT)

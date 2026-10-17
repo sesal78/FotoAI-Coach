@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FOTOAI_SESSION_COOKIE } from '@/lib/fotoai/session-cookie';
+import { FOTOAI_REFRESH_COOKIE, FOTOAI_SESSION_COOKIE } from '@/lib/fotoai/session-cookie';
 
 const PROTECTED_ROUTES = ['/dashboard', '/chat'];
 
@@ -9,7 +9,8 @@ export function middleware(request: NextRequest) {
   const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
   if (!isProtected) return NextResponse.next();
 
-  const sessionCookie = request.cookies.get(FOTOAI_SESSION_COOKIE);
+  // An expired access cookie is fine while a refresh cookie exists: the first API call renews it.
+  const sessionCookie = request.cookies.get(FOTOAI_SESSION_COOKIE) ?? request.cookies.get(FOTOAI_REFRESH_COOKIE);
 
   if (!sessionCookie?.value) {
     const loginUrl = new URL('/login', request.url);

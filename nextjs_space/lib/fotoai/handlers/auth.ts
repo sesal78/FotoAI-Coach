@@ -21,6 +21,7 @@
 // at register when GoTrue returns a session at once). Idempotent, never
 // overwrites, failures are logged and never block the sign-in.
 
+import { accessTokenNeedsRefresh, exchangeRefreshToken, forgetRefreshToken } from '../session-refresh.ts';
 import { FotoaiAuthError, FotoaiUpstreamError, FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import { isUuid } from '../object-keys.ts';
@@ -174,21 +175,25 @@ export function createAuthHandlers(provider: DepsProvider) {
       const session = await deps.client.signInWithPassword(email, password);
       await seedAccountDefaults(deps, session);
       return json({ success: true, userId: session.userId }, { headers: sessionHeaders(session, deps.env.cookieSecure) });
-    }),
+    }, { refreshSession: false }),
 
     /** POST /api/fotoai/auth/logout */
     logout: withFotoai(provider, async (request, deps) => {
       requireJsonContentType(request);
-      const token = readCookieValue(request.headers.get('cookie'), FOTOAI_SESSION_COOKIE);
-      if (token) {
-        try {
-          await deps.client.signOut(token);
-        } catch (err) {
-          deps.log?.('warn', `Sign-out upstream call failed: ${(err as Error).message}`);
-        }
+      const cookieHeader = request.headers.get('cookie');
+      let token = readCookieValue(cookieHeader, FOTOAI_SESSION_COOKIE);
+      const refresh = readCookieValue(cookieHeader, FOTOAI_REFRESH_COOKIE);
+      try {
+        // An expired access cookie cannot revoke the session; renew it first so logout ends it at Supabase.
+        if (refresh && accessTokenNeedsRefresh(token)) token = (await exchangeRefreshToken(deps.client, refresh)).accessToken;
+        if (token) await deps.client.signOut(token);
+      } catch (err) {
+        deps.log?.('warn', `Sign-out upstream call failed: ${(err as Error).message}`);
+      } finally {
+        if (refresh) forgetRefreshToken(refresh);
       }
       return json({ success: true }, { headers: clearedHeaders(deps.env.cookieSecure) });
-    }),
+    }, { refreshSession: false }),
 
     /** GET /api/fotoai/auth/me */
     me: withFotoai(provider, async (request, deps) => {
@@ -224,7 +229,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         status: 201,
         headers: sessionHeaders(session, deps.env.cookieSecure),
       });
-    }),
+    }, { refreshSession: false }),
 
     /** POST /api/fotoai/auth/forgot-password {email} -> always the same 200. */
     forgotPassword: withFotoai(provider, async (request, deps) => {
@@ -236,7 +241,7 @@ export function createAuthHandlers(provider: DepsProvider) {
       const redirectTo = `${authRedirectOrigin(request)}${FOTOAI_RESET_PATH}`;
       sendInBackground(deps, 'Password recovery request', () => deps.client.requestPasswordRecovery(email, redirectTo));
       return json({ success: true, message: GENERIC_RESET_MESSAGE });
-    }),
+    }, { refreshSession: false }),
 
     /**
      * POST /api/fotoai/auth/reset-password {accessToken | tokenHash, password}
@@ -265,7 +270,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         deps.log?.('warn', 'Recovery session sign-out failed', { status: err instanceof FotoaiUpstreamError ? err.upstreamStatus : undefined });
       }
       return json({ success: true, message: 'Password has been reset successfully.' }, { headers: clearedHeaders(deps.env.cookieSecure) });
-    }),
+    }, { refreshSession: false }),
 
     /**
      * POST /api/fotoai/auth/verify-email
@@ -293,7 +298,7 @@ export function createAuthHandlers(provider: DepsProvider) {
         if (!isUuid(session.userId)) throw new FotoaiAuthError('Link is invalid or has expired');
       }
       return json({ verified: true });
-    }),
+    }, { refreshSession: false }),
 
     /** POST /api/fotoai/auth/resend-verification {email} -> always the same 200. */
     resendVerification: withFotoai(provider, async (request, deps) => {
@@ -305,6 +310,6 @@ export function createAuthHandlers(provider: DepsProvider) {
       const redirectTo = `${authRedirectOrigin(request)}${FOTOAI_CONFIRM_PATH}`;
       sendInBackground(deps, 'Confirmation resend', () => deps.client.resendSignupConfirmation(email, redirectTo));
       return json({ success: true, message: GENERIC_RESEND_MESSAGE });
-    }),
+    }, { refreshSession: false }),
   };
 }

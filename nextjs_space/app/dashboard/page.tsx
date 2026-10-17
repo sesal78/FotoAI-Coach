@@ -38,12 +38,19 @@ export default function DashboardPage() {
   const { user: session, status: sessionStatus } = useAppwriteAuth();
 
   const hasFotoaiSession = sessionStatus === 'authenticated';
-  const { data: currentChallenge, isLoading: challengeLoading } = usePendingChallenge(hasFotoaiSession);
+  const { data: newestPending, isLoading: challengeLoading } = usePendingChallenge(hasFotoaiSession);
   const { data: progress } = useUserProgress(hasFotoaiSession);
   const [historyLimit, setHistoryLimit] = useState(5);
   const { data: recentData } = useRecentChallenges(historyLimit, hasFotoaiSession);
   const recentChallenges = recentData?.challenges ?? [];
   const hasMoreChallenges = recentData?.hasMore ?? false;
+  // A challenge picked with "Continue" in History; otherwise the newest pending one is current.
+  const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('challenge');
+  const selectedChallenge = recentChallenges.find(
+    (c) => c.id === selectedChallengeId && (c.status === 'pending' || c.status === 'accepted'),
+  );
+  const currentChallenge = selectedChallenge ?? newestPending;
   const { data: itineraries = [], isLoading: itinerariesLoading } = useItineraries(hasFotoaiSession);
   const createItinerary = useCreateItinerary();
   const invalidateDashboard = useInvalidateDashboard();
@@ -80,6 +87,8 @@ export default function DashboardPage() {
       toast.info('Generating your personalized challenge...');
       await generateFotoaiChallenge({ challengeType: selectedChallengeType, forceGenerate: true });
       toast.success('New challenge generated!');
+      // Show the new challenge, not one picked earlier with "Continue".
+      setSelectedChallengeId(null);
       // Invalidate all dashboard queries so React Query refetches
       invalidateDashboard();
     } catch (error) {
@@ -257,7 +266,7 @@ export default function DashboardPage() {
         )}
 
         {/* Main Content */}
-        <Tabs defaultValue="challenge" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 bg-muted p-1 h-auto">
             <TabsTrigger value="challenge" className="py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Current Challenge
@@ -582,6 +591,23 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       <p className="text-foreground leading-relaxed">{challenge.challengeText}</p>
+                      {(challenge.status === 'pending' || challenge.status === 'accepted') && challenge.id !== currentChallenge?.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() => {
+                            setSelectedChallengeId(challenge.id);
+                            setActiveTab('challenge');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        >
+                          Continue this challenge
+                        </Button>
+                      )}
+                      {challenge.id === currentChallenge?.id && (
+                        <p className="mt-3 text-xs font-medium text-primary">Current challenge</p>
+                      )}
                     </div>
                   ))
                 ) : (

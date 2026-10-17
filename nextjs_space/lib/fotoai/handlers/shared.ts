@@ -2,6 +2,7 @@
 // API so handlers run in Next.js Route Handlers AND in plain Node tests.
 
 import { MAX_JSON_BODY_BYTES, readBoundedText } from '../bounded-body.ts';
+import { appendSetCookies, refreshSessionIfNeeded } from '../session-refresh.ts';
 import type { FotoaiEnv } from '../env.ts';
 import { FotoaiError, FotoaiUpstreamError, isFotoaiError } from '../errors.ts';
 import { resolvePrincipal, type FotoaiPrincipal } from '../membership.ts';
@@ -66,15 +67,23 @@ export async function requirePrincipal(request: Request, deps: FotoaiDeps): Prom
 export function withFotoai(
   provider: DepsProvider,
   body: (request: Request, deps: FotoaiDeps, ctx: { params: Record<string, string> }) => Promise<Response>,
+  options: { refreshSession?: boolean } = {},
 ) {
   return async (request: Request, ctx?: { params?: Record<string, string> | Promise<Record<string, string>> }): Promise<Response> => {
     let deps: FotoaiDeps | undefined;
+    let setCookies: string[] = [];
     try {
       deps = provider();
+      // Renew an expired access token from the refresh cookie (off for routes that set their own session).
+      if (options.refreshSession !== false) {
+        const refreshed = await refreshSessionIfNeeded(request, deps.client, deps.env.cookieSecure);
+        request = refreshed.request;
+        setCookies = refreshed.setCookies;
+      }
       const params = (await ctx?.params) ?? {};
-      return await body(request, deps, { params });
+      return appendSetCookies(await body(request, deps, { params }), setCookies);
     } catch (err) {
-      return errorResponse(err, deps);
+      return appendSetCookies(errorResponse(err, deps), setCookies);
     }
   };
 }

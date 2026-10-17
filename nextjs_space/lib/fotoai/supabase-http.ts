@@ -30,6 +30,8 @@ export interface PasswordSession {
 
 export interface FotoaiSupabaseClient extends IdentityVerifier {
   signInWithPassword(email: string, password: string): Promise<PasswordSession>;
+  /** Exchanges a refresh token for a new session (the refresh token rotates). */
+  refreshSession(refreshToken: string): Promise<PasswordSession>;
   signUp(email: string, password: string, name: string): Promise<{ userId: string | null; session: PasswordSession | null }>;
   signOut(accessToken: string): Promise<void>;
   /** Sign-up that tells GoTrue where the confirmation link should land (redirect_to). */
@@ -200,6 +202,30 @@ export function createFotoaiSupabaseClient(env: FotoaiEnv, fetchImpl: FetchLike 
         ? { userId, accessToken: body.access_token, refreshToken: body.refresh_token, expiresIn: body.expires_in ?? 3600 }
         : null;
       return { userId, session };
+    },
+
+    async refreshSession(refreshToken) {
+      const res = await fetchImpl(`${base}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { apikey: env.anonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        throw new FotoaiAuthError('Refresh token rejected');
+      }
+      if (!res.ok) throw new FotoaiUpstreamError(res.status, `Session refresh failed: ${await readError(res)}`);
+      const body = (await res.json()) as {
+        access_token?: string; refresh_token?: string; expires_in?: number; user?: { id?: string };
+      };
+      if (!body.access_token || !body.refresh_token || !body.user?.id) {
+        throw new FotoaiUpstreamError(res.status, 'Refresh response lacked a session');
+      }
+      return {
+        userId: body.user.id,
+        accessToken: body.access_token,
+        refreshToken: body.refresh_token,
+        expiresIn: body.expires_in ?? 3600,
+      };
     },
 
     async signOut(accessToken) {
