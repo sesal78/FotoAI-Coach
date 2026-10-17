@@ -311,3 +311,35 @@ test('followups: the user token expiring after the response does not leave feedb
     { table: T_SUBS, query: { id: `eq.${second.id}`, user_id: `eq.${ALICE}` } },
   ], 'each write filters id AND user_id');
 });
+
+test('followups: the auto-critique is saved when the user token expires during the vision call (user-bound service insert)', async () => {
+  deps.fakes.generateFeedback = () => 'ok';
+  const client = deps.client as unknown as Record<string, (...args: any[]) => Promise<unknown>>;
+  const expireAliceToken = () => {
+    for (const op of ['restSelect', 'restInsert', 'restUpsert', 'restUpdate', 'restDelete']) {
+      const original = client[op].bind(deps.client);
+      client[op] = async (...args: any[]) => {
+        if (args[args.length - 1] === TOKEN_ALICE) throw new FotoaiAuthError('JWT expired');
+        return original(...args);
+      };
+    }
+  };
+  deps.fakes.critiquePhoto = () => { expireAliceToken(); return { ...CRITIQUE }; };
+
+  const res = await submit({ challengeId: aliceChallenge.id, photo: { name: 'shot.jpg', type: 'image/jpeg', bytes: JPEG } });
+  assert.equal(res.status, 201);
+  const sub = (await res.json()).submission;
+  const [result] = await settle();
+
+  assert.ok(result.critiqueId, 'critique saved despite the expired token');
+  const critiques = rows(T_CRITIQUES);
+  assert.equal(critiques.length, 1);
+  assert.equal(critiques[0].id, result.critiqueId);
+  assert.equal(critiques[0].user_id, ALICE);
+  assert.equal(critiques[0].submission_id, sub.id);
+  assert.equal(critiques[0].photo_object_key, sub.photo_object_key);
+  assert.equal(critiques[0].overall_score, 72);
+  assert.ok(deps.client.serviceCalls.some((c) => c.op === 'insert' && c.keys.includes(T_CRITIQUES)), 'written with the user-bound service role');
+  assert.ok(rows(T_XP).some((e) => e.source_kind === 'critique_bonus' && e.source_id === result.critiqueId), 'critique XP still awarded');
+  assert.ok(!deps.logs.some((l) => /Auto-critique failed/.test(l.message)));
+});

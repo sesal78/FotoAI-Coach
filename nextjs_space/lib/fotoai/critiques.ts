@@ -28,6 +28,12 @@ export interface CreateCritiqueInput {
   challengeText?: string | null;
 }
 
+export interface CreateCritiqueOptions {
+  /** Writes the finished row. Default: the user token (RLS). The submission
+   *  follow-up passes a user-bound service writer (see submission-followups.ts). */
+  insertCritique?: (row: NewCritique) => Promise<CritiqueRow>;
+}
+
 export interface CritiqueDto {
   id: string;
   submissionId: string | null;
@@ -131,6 +137,7 @@ export async function createCritique(
   deps: FotoaiDeps,
   principal: OwnerScope,
   input: CreateCritiqueInput,
+  options: CreateCritiqueOptions = {},
 ): Promise<{ critique: CritiqueRow; xp: XpAwardResult[] }> {
   const photo = input.photo ?? null;
   const submissionIdInput = input.submissionId ?? null;
@@ -214,7 +221,9 @@ export async function createCritique(
       improvements: textList(result.improvements),
       suggestedSettings: text(result.suggestedSettings, 2000),
     };
-    critique = await createCritiquesRepo(deps.client).insertCritique(principal, row);
+    critique = options.insertCritique
+      ? await options.insertCritique(row)
+      : await createCritiquesRepo(deps.client).insertCritique(principal, row);
   } catch (err) {
     if (uploadedKey) {
       await deps.photos.removeOwnedObject(principal, uploadedKey).catch((cleanupErr: unknown) => {
