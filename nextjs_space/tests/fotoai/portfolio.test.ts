@@ -194,3 +194,75 @@ test('portfolio: the reservation is inserted before any LLM call and removed whe
   const list = await h.list(request(URL_, { cookie: ALICE_COOKIE }));
   assert.deepEqual((await list.json()).analyses, []);
 });
+
+// ---------------------------------------------------------------------------
+// Reservation edge cases
+// ---------------------------------------------------------------------------
+
+const LOCAL_NOON = new Date(2026, 9, 17, 12, 0, 0);
+const minutesBefore = (date: Date, minutes: number) => new Date(date.getTime() - minutes * 60_000).toISOString();
+/** Freezes Date at local noon. Node >= 20.11 mocks Date; the pinned @types/node predates the option. */
+const freezeAtNoon = (t: { mock: { timers: unknown } }) =>
+  (t.mock.timers as { enable(o: { apis: string[]; now: Date }): void }).enable({ apis: ['Date'], now: LOCAL_NOON });
+
+test('portfolio: a failed release is retried, so no reservation is left behind', async () => {
+  const restDelete = deps.client.restDelete.bind(deps.client);
+  let failures = 1;
+  deps.client.restDelete = (async (...args: Parameters<typeof restDelete>) => {
+    if (failures > 0) { failures -= 1; throw new Error('network blip'); }
+    return restDelete(...args);
+  }) as typeof restDelete;
+
+  assert.equal((await post(photos(3))).status, 201);
+  const rows = deps.client.tables.get(T) ?? [];
+  assert.equal(rows.length, 1, 'only the finished analysis remains');
+  assert.notDeepEqual(rows[0].analysis, { status: 'pending' });
+});
+
+test('portfolio: a stale reservation (release failed earlier) no longer uses up the day and is cleaned up', async (t) => {
+  freezeAtNoon(t);
+  for (const minutes of [30, 40, 50]) {
+    deps.client.seed(T, { user_id: ALICE, photo_count: 3, analysis: { status: 'pending' }, analysis_date: minutesBefore(LOCAL_NOON, minutes) });
+  }
+  const bobStale = deps.client.seed(T, { user_id: BOB, photo_count: 3, analysis: { status: 'pending' }, analysis_date: minutesBefore(LOCAL_NOON, 30) });
+
+  const res = await post(photos(3));
+  assert.equal(res.status, 201, JSON.stringify(await res.clone().json()));
+  const mine = (deps.client.tables.get(T) ?? []).filter((r) => r.user_id === ALICE);
+  assert.equal(mine.length, 1, 'stale reservations were deleted');
+  assert.equal(mine[0].analysis.styleSummary, 'Moody street');
+  assert.ok((deps.client.tables.get(T) ?? []).includes(bobStale), 'Bob\'s rows are never touched');
+});
+
+test('portfolio: a fresh reservation (another request in flight) still counts toward the limit', async (t) => {
+  freezeAtNoon(t);
+  deps.client.seed(T, { user_id: ALICE, photo_count: 3, analysis: META, analysis_date: minutesBefore(LOCAL_NOON, 90) });
+  deps.client.seed(T, { user_id: ALICE, photo_count: 3, analysis: META, analysis_date: minutesBefore(LOCAL_NOON, 60) });
+  deps.client.seed(T, { user_id: ALICE, photo_count: 3, analysis: { status: 'pending' }, analysis_date: minutesBefore(LOCAL_NOON, 1) });
+  assert.equal((await post(photos(3))).status, 429);
+  assert.equal(deps.calls.length, 0);
+});
+
+test('portfolio GET: in-flight reservations do not shorten the page', async () => {
+  const finished = [1, 2, 3].map((d) => deps.client.seed(T, {
+    user_id: ALICE, photo_count: 3, analysis: { ...META, overallScore: d }, analysis_date: `2026-10-0${d}T00:00:00Z`,
+  }));
+  for (const d of [5, 6]) {
+    deps.client.seed(T, { user_id: ALICE, photo_count: 3, analysis: { status: 'pending' }, analysis_date: `2026-10-0${d}T00:00:00Z` });
+  }
+  const res = await h.list(request(`${URL_}?limit=3`, { cookie: ALICE_COOKIE }));
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).analyses.map((a: any) => a.id), finished.reverse().map((r) => r.id));
+});
+
+test('portfolio: a finished analysis whose content has status "pending" is still listed', async () => {
+  deps.fakes.analyzePortfolioMeta = () => ({ ...META, status: 'pending' });
+  const res = await post(photos(3));
+  assert.equal(res.status, 201);
+  const { id } = await res.json();
+  const seeded = deps.client.seed(T, {
+    user_id: ALICE, photo_count: 4, analysis: { photoAssessments: [], status: 'pending' }, analysis_date: '2026-10-01T00:00:00Z',
+  });
+  const list = await (await h.list(request(URL_, { cookie: ALICE_COOKIE }))).json();
+  assert.deepEqual(list.analyses.map((a: any) => a.id), [id, seeded.id]);
+});

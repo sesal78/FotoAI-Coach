@@ -16,14 +16,17 @@
 // can expire during the LLM call. The feedback WRITES therefore use the
 // service role bound to the session user (cron-data-access.ts
 // bindServiceToUser: filters id AND user_id), so feedback_status never stays
-// 'pending'. Ownership was proven before the response with the user token
-// (the submission was created by this request). Reads stay on the user token.
-// Known gap: the auto-critique (createCritique) still writes with the user token.
+// 'pending'. The auto-critique row is inserted the same way (bound insert:
+// user_id is always the session user). Ownership was proven before the
+// response with the user token (the submission was created by this request).
+// Reads (submission, signed URL, preferences, gear) stay on the user token and
+// run before the LLM call; critique XP goes through the guarded XP service.
 
 import { createCritique, MAX_CHALLENGE_TEXT_LENGTH } from './critiques.ts';
 import { bindServiceToUser } from './cron-data-access.ts';
 import { isFotoaiError } from './errors.ts';
 import { defaultLog, type FotoaiDeps } from './handlers/shared.ts';
+import { critiqueInsertRow, type CritiqueRow, T_CRITIQUES } from './repo-critiques.ts';
 import type { ChallengeRow, OwnerScope, SubmissionRow } from './repository.ts';
 import type { XpAwardResult } from './xp.ts';
 
@@ -118,10 +121,14 @@ async function generateFeedback(deps: FotoaiDeps, principal: OwnerScope, input: 
 async function autoCritique(deps: FotoaiDeps, principal: OwnerScope, input: SubmissionFollowupInput, log: LogFn): Promise<string | null> {
   const { challenge, submission } = input;
   if (!submission.photo_object_key) return null;
+  // Not the user token for the write: it may expire during the vision call.
+  const writer = bindServiceToUser(deps.client, principal.userId);
   try {
     const { critique } = await createCritique(deps, principal, {
       submissionId: submission.id,
       challengeText: (challenge.challenge_text ?? '').slice(0, MAX_CHALLENGE_TEXT_LENGTH),
+    }, {
+      insertCritique: (row) => writer.insert<CritiqueRow>(T_CRITIQUES, critiqueInsertRow(principal, row)),
     });
     return critique.id;
   } catch (err) {

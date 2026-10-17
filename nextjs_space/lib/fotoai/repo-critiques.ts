@@ -44,12 +44,33 @@ export interface NewCritique {
   suggestedSettings: string | null;
 }
 
-const T_CRITIQUES = 'fotoai_photo_critiques';
+export const T_CRITIQUES = 'fotoai_photo_critiques';
 export const DEFAULT_CRITIQUE_LIMIT = 20;
 export const MAX_CRITIQUE_LIMIT = 50;
 
 function owner(scope: OwnerScope): Record<string, string> {
   return { user_id: `eq.${requireUuid(scope.userId, 'session user id')}` };
+}
+
+/** The complete row for one new critique. The owner comes from the scope, never from input. */
+export function critiqueInsertRow(scope: OwnerScope, input: NewCritique): Record<string, unknown> {
+  return {
+    id: requireUuid(input.id, 'critique id'),
+    user_id: requireUuid(scope.userId, 'session user id'),
+    submission_id: input.submissionId === null ? null : requireUuid(input.submissionId, 'submissionId'),
+    photo_object_key: input.photoObjectKey,
+    technical_score: input.technicalScore,
+    composition_score: input.compositionScore,
+    creative_score: input.creativeScore,
+    overall_score: input.overallScore,
+    technical_feedback: input.technicalFeedback,
+    composition_feedback: input.compositionFeedback,
+    creative_feedback: input.creativeFeedback,
+    strengths: input.strengths,
+    improvements: input.improvements,
+    suggested_settings: input.suggestedSettings,
+    critique_date: new Date().toISOString(),
+  };
 }
 
 export function createCritiquesRepo(client: FotoaiSupabaseClient) {
@@ -78,23 +99,7 @@ export function createCritiquesRepo(client: FotoaiSupabaseClient) {
     },
 
     async insertCritique(scope: OwnerScope, input: NewCritique): Promise<CritiqueRow> {
-      return client.restInsert<CritiqueRow>(T_CRITIQUES, {
-        id: requireUuid(input.id, 'critique id'),
-        user_id: requireUuid(scope.userId, 'session user id'), // from the session, never from input
-        submission_id: input.submissionId === null ? null : requireUuid(input.submissionId, 'submissionId'),
-        photo_object_key: input.photoObjectKey,
-        technical_score: input.technicalScore,
-        composition_score: input.compositionScore,
-        creative_score: input.creativeScore,
-        overall_score: input.overallScore,
-        technical_feedback: input.technicalFeedback,
-        composition_feedback: input.compositionFeedback,
-        creative_feedback: input.creativeFeedback,
-        strengths: input.strengths,
-        improvements: input.improvements,
-        suggested_settings: input.suggestedSettings,
-        critique_date: new Date().toISOString(),
-      }, scope.accessToken);
+      return client.restInsert<CritiqueRow>(T_CRITIQUES, critiqueInsertRow(scope, input), scope.accessToken);
     },
   };
 }

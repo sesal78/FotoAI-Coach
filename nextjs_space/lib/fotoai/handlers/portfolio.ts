@@ -12,11 +12,13 @@
 // and answers 429. The row is also deleted when the LLM fails, and after the
 // finished analysis is inserted as a new row (users have no UPDATE grant on
 // this table). Concurrent requests may both be refused; never both admitted
-// past the limit.
+// past the limit. A failed delete is retried once; a reservation that still
+// survives stops counting after PORTFOLIO_RESERVATION_TTL_MS and is deleted by
+// the owner's next POST (see repo-portfolio.ts).
 // Note: the whole multipart body is capped at MAX_UPLOAD_REQUEST_BYTES (51 MB).
 
 import { MAX_UPLOAD_REQUEST_BYTES, readBoundedFormData } from '../bounded-body.ts';
-import { FotoaiError, FotoaiValidationError } from '../errors.ts';
+import { FotoaiRateLimitError, FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import { createPortfolioRepo, type PortfolioAnalysisRow, type PortfolioRepo } from '../repo-portfolio.ts';
 import type { OwnerScope } from '../repository.ts';
@@ -30,13 +32,7 @@ export const PORTFOLIO_MAX_ANALYSES_PER_DAY = 3;
 export const PORTFOLIO_MAX_CONCURRENT = 5;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per photo (legacy)
-
-export class FotoaiRateLimitError extends FotoaiError {
-  constructor(message: string) {
-    super(429, 'rate_limited', message);
-    this.name = 'FotoaiRateLimitError';
-  }
-}
+const RELEASE_ATTEMPTS = 2;
 
 function startOfLocalDay(now: Date): Date {
   const start = new Date(now);
@@ -48,13 +44,27 @@ function rateLimited(): FotoaiRateLimitError {
   return new FotoaiRateLimitError(`Rate limit: maximum ${PORTFOLIO_MAX_ANALYSES_PER_DAY} portfolio analyses per day`);
 }
 
-/** Deletes the reservation. Never throws: the outcome of the request stands. */
+/** Deletes the reservation, retrying once. Never throws: the outcome of the request stands. */
 async function releaseReservation(deps: FotoaiDeps, repo: PortfolioRepo, scope: OwnerScope, id: string): Promise<void> {
-  try {
-    await repo.deleteOwn(scope, id);
-  } catch (err) {
-    deps.log?.('error', 'Portfolio reservation could not be deleted', { error: err instanceof Error ? err.message.slice(0, 200) : String(err) });
+  for (let attempt = 1; attempt <= RELEASE_ATTEMPTS; attempt += 1) {
+    try {
+      await repo.deleteOwn(scope, id);
+      return;
+    } catch (err) {
+      if (attempt === RELEASE_ATTEMPTS) {
+        deps.log?.('error', 'Portfolio reservation could not be deleted; it stops counting once stale', {
+          error: err instanceof Error ? err.message.slice(0, 200) : String(err),
+        });
+      }
+    }
   }
+}
+
+/** Today's own rows (up to `max`); deletes stale reservations it finds on the way. */
+async function countToday(deps: FotoaiDeps, repo: PortfolioRepo, scope: OwnerScope, since: Date, max: number): Promise<number> {
+  const { count, staleReservations } = await repo.countOwnSince(scope, since, max);
+  for (const id of staleReservations) await releaseReservation(deps, repo, scope, id);
+  return count;
 }
 
 function collectPhotos(form: FormData): File[] {
@@ -111,7 +121,7 @@ export function createPortfolioHandlers(provider: DepsProvider) {
       // Cheap early refusal before the body is read. Counts only the session
       // user's own rows (owner filter + RLS). The reservation below is the guard.
       const since = startOfLocalDay(new Date());
-      if (await repo.countOwnSince(principal, since, PORTFOLIO_MAX_ANALYSES_PER_DAY) >= PORTFOLIO_MAX_ANALYSES_PER_DAY) {
+      if (await countToday(deps, repo, principal, since, PORTFOLIO_MAX_ANALYSES_PER_DAY) >= PORTFOLIO_MAX_ANALYSES_PER_DAY) {
         throw rateLimited();
       }
 
@@ -122,7 +132,7 @@ export function createPortfolioHandlers(provider: DepsProvider) {
       const reservation = await repo.reserve(principal, photos.length);
       try {
         // Our own reservation is included: more than the limit means we lost.
-        if (await repo.countOwnSince(principal, since, PORTFOLIO_MAX_ANALYSES_PER_DAY + 1) > PORTFOLIO_MAX_ANALYSES_PER_DAY) {
+        if (await countToday(deps, repo, principal, since, PORTFOLIO_MAX_ANALYSES_PER_DAY + 1) > PORTFOLIO_MAX_ANALYSES_PER_DAY) {
           throw rateLimited();
         }
         const row = await analyse(deps, repo, principal, photos);

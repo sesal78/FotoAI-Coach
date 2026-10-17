@@ -26,6 +26,11 @@ function rowsOf(table: string, user: string) {
   return (deps.client.tables.get(table) ?? []).filter((r) => r.user_id === user);
 }
 
+/** Audit actions other than the per-route LLM rate-limit records (rate-limit.ts). */
+function auditActionsOf(user: string) {
+  return rowsOf('fotoai_agent_actions', user).filter((a) => !String(a.action_type).startsWith('LLM_REQUEST_'));
+}
+
 beforeEach(() => {
   deps = createTestDeps();
   itineraries = createItineraryHandlers(() => deps);
@@ -82,7 +87,7 @@ test('itineraries: create uses the caller\'s profile, saves an owned row and log
   assert.equal(row.weather_conditions, 'Clear, 70°F');
   assert.equal(row.status, 'generated');
   assert.equal(rowsOf(T_IT, BOB).length, 0);
-  const [action] = rowsOf('fotoai_agent_actions', ALICE);
+  const [action] = auditActionsOf(ALICE);
   assert.equal(action.action_type, 'ITINERARY_GENERATED');
   assert.equal(action.details.spotsCount, 1);
   assert.equal(deps.client.serviceCalls.length, 0);
@@ -111,7 +116,7 @@ test('itineraries: LLM failure is a 502 with nothing saved; missing preferences 
   let res = await itineraries.create(jsonRequest(URL_IT, { location: 'CBD' }, { cookie: aliceCookie }));
   assert.equal(res.status, 502);
   assert.equal(rowsOf(T_IT, ALICE).length, 0);
-  assert.equal(rowsOf('fotoai_agent_actions', ALICE).length, 0);
+  assert.equal(auditActionsOf(ALICE).length, 0);
 
   deps.client.tables.set('fotoai_user_preferences', []);
   res = await itineraries.create(jsonRequest(URL_IT, { location: 'CBD' }, { cookie: aliceCookie }));

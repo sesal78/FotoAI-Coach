@@ -65,6 +65,11 @@ function rowsOf(table: string, user: string) {
   return (deps.client.tables.get(table) ?? []).filter((r) => r.user_id === user);
 }
 
+/** Audit actions other than the per-route LLM rate-limit records (rate-limit.ts). */
+function auditActionsOf(user: string) {
+  return rowsOf('fotoai_agent_actions', user).filter((a) => !String(a.action_type).startsWith('LLM_REQUEST_'));
+}
+
 function callsOf(name: string) {
   return deps.calls.filter((c) => c.name === name);
 }
@@ -109,7 +114,7 @@ test('generate: uses only the caller\'s preferences and gear, maps every field, 
   assert.equal(row.what_to_look_for, 'Clipped highlights');
   assert.equal(rowsOf(T_CH, BOB).length, 0);
 
-  const [action] = rowsOf('fotoai_agent_actions', ALICE);
+  const [action] = auditActionsOf(ALICE);
   assert.equal(action.action_type, 'CHALLENGE_SENT');
   assert.equal(action.details.challengeId, row.id);
   assert.equal(deps.client.serviceCalls.length, 0, 'no service-role use');
@@ -189,7 +194,7 @@ test('generate: LLM failure is a 502 with nothing written; missing preferences i
   assert.equal((await res.json()).code, 'upstream');
   assert.equal(rowsOf(T_CH, ALICE).length, 0);
   assert.equal(rowsOf(T_PROGRESS, ALICE).length, 0);
-  assert.equal(rowsOf('fotoai_agent_actions', ALICE).length, 0);
+  assert.equal(auditActionsOf(ALICE).length, 0);
 
   deps.fakes.generateChallenge = () => ({ challengeText: '' });
   res = await challenges.generate(jsonRequest(GEN_URL, { forceGenerate: true }, { cookie: aliceCookie }));
