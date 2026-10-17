@@ -46,6 +46,14 @@ export class FotoaiNotFoundError extends FotoaiError {
   }
 }
 
+/** 429 — the session user is over a per-user limit. */
+export class FotoaiRateLimitError extends FotoaiError {
+  constructor(message: string) {
+    super(429, 'rate_limited', message);
+    this.name = 'FotoaiRateLimitError';
+  }
+}
+
 /** 500 — server misconfiguration (missing env). Never includes secret values. */
 export class FotoaiConfigError extends FotoaiError {
   constructor(message: string) {

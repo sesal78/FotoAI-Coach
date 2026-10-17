@@ -70,7 +70,7 @@ export default function LocationsPage() {
       setSearching(true);
       toast.info('Scouting locations...');
 
-      const res = await fetch('/api/locations', {
+      const res = await fetch('/api/fotoai/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -83,8 +83,11 @@ export default function LocationsPage() {
         const data = await res.json();
         setResults(data);
         toast.success(`Found ${data.locations?.length || 0} locations!`);
+      } else if (res.status === 401) {
+        toast.error('Please sign in to scout locations');
       } else {
-        toast.error('Failed to search locations');
+        const data = await res.json().catch(() => null);
+        toast.error(res.status === 429 && data?.error ? data.error : 'Failed to search locations');
       }
     } catch (error) {
       console.error('Search error:', error);

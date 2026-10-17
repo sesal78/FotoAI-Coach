@@ -52,6 +52,8 @@ export interface GenerationDeps<S> {
   services: Pick<FotoaiServices, 'ai' | 'weather'>;
   now?: () => Date;
   log?: FotoaiDeps['log'];
+  /** Runs once before a NEW challenge is generated (not when today's is returned). May throw, e.g. a rate limit. */
+  beforeGenerate?: (scope: S) => Promise<void>;
 }
 
 export interface GenerateOptions {
@@ -171,6 +173,7 @@ export async function generateChallengeFor<S>(
     const existing = await deps.data.findPendingIssuedSince(scope, startOfLocalDay(now));
     if (existing) return { challenge: existing, created: false };
   }
+  await deps.beforeGenerate?.(scope);
 
   const preferences = await deps.data.getPreferences(scope);
   if (!preferences) throw new FotoaiNotFoundError('User preferences not found');

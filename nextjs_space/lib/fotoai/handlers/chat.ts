@@ -12,6 +12,7 @@
 import { toChallengeDto } from '../challenge-generation.ts';
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
+import { reserveLlmCall } from '../rate-limit.ts';
 import { CHATBOT_CHALLENGE_TYPE, createGenerationRepo } from '../repo-generation.ts';
 import type { ChallengeRow, OwnerScope } from '../repository.ts';
 import { gearArray } from './challenge-sync.ts';
@@ -128,6 +129,7 @@ export function createChatHandlers(provider: DepsProvider) {
       const unexpected = Object.keys(body).find((k) => k !== 'messages');
       if (unexpected) throw new FotoaiValidationError(`Unexpected field: ${unexpected}`);
       const messages = parseChatMessages(body.messages);
+      await reserveLlmCall(deps.client, principal, 'chat');
 
       let rawContent: string;
       try {

@@ -10,6 +10,7 @@
 import { weatherFor } from '../challenge-generation.ts';
 import { FotoaiNotFoundError, FotoaiUpstreamError, FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
+import { reserveLlmCall } from '../rate-limit.ts';
 import { createGenerationRepo } from '../repo-generation.ts';
 import { createItinerariesRepo, type ItineraryRow } from '../repo-itineraries.ts';
 import { type DepsProvider, json, readJsonBody, requirePrincipal, withFotoai } from './shared.ts';
@@ -105,6 +106,7 @@ export function createItineraryHandlers(provider: DepsProvider) {
       const generation = createGenerationRepo(deps.client);
       const preferences = await generation.getPreferences(principal);
       if (!preferences) throw new FotoaiNotFoundError('User preferences not found');
+      await reserveLlmCall(deps.client, principal, 'itinerary');
       const gear = await generation.listGearNames(principal);
       const weather = await weatherFor(deps.services, location, deps.log);
 

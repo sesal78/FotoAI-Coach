@@ -214,7 +214,11 @@ test('critiques POST: a non-object LLM answer is 502; an insert failure also rem
   assert.equal((await post({ photo: { name: 'a.jpg', type: 'image/jpeg', bytes: JPEG } })).status, 502);
 
   deps.fakes.critiquePhoto = () => ({ ...GOOD_RESULT });
-  deps.client.restInsert = async () => { throw new FotoaiUpstreamError(500, 'insert failed'); };
+  const restInsert = deps.client.restInsert.bind(deps.client);
+  deps.client.restInsert = (async (table: string, ...rest: [any, string]) => {
+    if (table === T) throw new FotoaiUpstreamError(500, 'insert failed');
+    return restInsert(table, ...rest);
+  }) as typeof deps.client.restInsert;
   const res = await post({ photo: { name: 'b.jpg', type: 'image/jpeg', bytes: JPEG } });
   assert.equal(res.status, 502);
   assert.equal(ops('remove').length, 2);

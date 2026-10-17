@@ -10,6 +10,7 @@ import { MAX_UPLOAD_REQUEST_BYTES, readBoundedFormData } from '../bounded-body.t
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import { validateIncomingPhoto } from '../photos.ts';
+import { reserveLlmCall } from '../rate-limit.ts';
 import { createReverseRepo } from '../repo-reverse.ts';
 import {
   callAi, detectMime, loadAiContext, parseLimit, rejectUnreadableRaw, removeUploaded, signOrNull, toDataUri, toIncomingPhoto,
@@ -47,6 +48,7 @@ export function createReverseHandlers(provider: DepsProvider) {
       const data = await photo.bytes();
       const mime = detectMime(data, photo.type || 'image/jpeg');
       rejectUnreadableRaw([{ name: photo.name, mime }], RAW_MESSAGE);
+      await reserveLlmCall(deps.client, principal, 'reverse');
 
       const { skillLevel, gear } = await loadAiContext(deps, principal);
       // LLM first: nothing is stored when the analysis fails.

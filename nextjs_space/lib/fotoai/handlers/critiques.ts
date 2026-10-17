@@ -11,6 +11,7 @@ import { createCritique, toCritiqueDto } from '../critiques.ts';
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
 import type { IncomingPhoto } from '../photos.ts';
+import { reserveLlmCall } from '../rate-limit.ts';
 import { createCritiquesRepo, DEFAULT_CRITIQUE_LIMIT, MAX_CRITIQUE_LIMIT } from '../repo-critiques.ts';
 import { parseListLimit } from '../repo-insights.ts';
 import { type DepsProvider, json, requirePrincipal, withFotoai } from './shared.ts';
@@ -65,10 +66,12 @@ export function createCritiqueHandlers(provider: DepsProvider) {
       assertNoBrowserIdentity(form);
 
       const submissionId = optionalText(form, 'submissionId');
+      const challengeText = optionalText(form, 'challengeText');
+      await reserveLlmCall(deps.client, principal, 'critique');
       const { critique } = await createCritique(deps, principal, {
         photo: toIncomingPhoto(form.get('photo')),
         submissionId: submissionId === '' ? null : submissionId,
-        challengeText: optionalText(form, 'challengeText'),
+        challengeText,
       });
       return json({ critique: await toCritiqueDto(deps, principal, critique) }, { status: 201 });
     }),

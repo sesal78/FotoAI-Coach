@@ -17,6 +17,7 @@ import {
 } from '../challenge-generation.ts';
 import { FotoaiValidationError } from '../errors.ts';
 import { assertNoBrowserIdentity } from '../membership.ts';
+import { reserveLlmCall } from '../rate-limit.ts';
 import type { ChallengeStatusFilter } from '../repository.ts';
 import { type DepsProvider, json, readJsonBody, requirePrincipal, withFotoai } from './shared.ts';
 
@@ -67,7 +68,13 @@ export function createChallengeHandlers(provider: DepsProvider) {
         throw new FotoaiValidationError('forceGenerate must be a boolean');
       }
       const result = await generateChallengeFor(
-        { data: createOwnerGenerationDataAccess(deps), services: deps.services, log: deps.log },
+        {
+          data: createOwnerGenerationDataAccess(deps),
+          services: deps.services,
+          log: deps.log,
+          // Only a new generation (forceGenerate, or no pending challenge today) calls the LLM.
+          beforeGenerate: (scope) => reserveLlmCall(deps.client, scope, 'challenge_generate'),
+        },
         { userId: principal.userId, accessToken: principal.accessToken },
         {
           challengeType: parseChallengeType(body.challengeType),
