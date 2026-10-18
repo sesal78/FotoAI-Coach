@@ -1,7 +1,7 @@
 # FotoAI Coach refactor: design
 
 **Date:** 18 October 2026
-**Owner:** Seun (the principal). **Status:** draft for owner approval.
+**Owner:** Seun (the principal). **Status:** approved by Seun on 18 Oct 2026.
 **Inputs:**
 - Code audit: `D:/Homebase/Research/AI-Opportunities/Repo-Refresh-2026-10/98-FOTOAI-CODE-AUDIT.md`
 - Locked mockups: `D:/Homebase/Research/AI-Opportunities/Repo-Refresh-2026-10/.superpowers/brainstorm/18482-1792292557/content/`. The locked set is `phone-flow.html` (the core flow), `phone-looks-7.html` look A, and `golden-more.html`.
