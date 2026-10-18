@@ -22,3 +22,4 @@ export {
   SettingsDto,
 } from './gear.ts';
 export { CONDITIONS, LightTimesDto, WeatherDto, type Condition } from './conditions.ts';
+export { PHOTO_TYPES, PhotoRef, PlaceDetail, PlaceSummary } from './places.ts';

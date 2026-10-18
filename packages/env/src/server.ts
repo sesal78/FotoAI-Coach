@@ -9,6 +9,8 @@ export interface ServerEnv {
   FOTOAI_SUPABASE_ANON_KEY: string;
   FOTOAI_SUPABASE_SERVICE_ROLE_KEY: string;
   FOTOAI_COOKIE_SECURE: boolean;
+  /** Server key for Google Places (New). Optional: without it the Places endpoints answer 500 config. */
+  GOOGLE_MAPS_SERVER_API_KEY?: string;
   NODE_ENV: 'development' | 'test' | 'production';
 }
 
@@ -27,6 +29,7 @@ export function createServerEnv(source: EnvSource = process.env): ServerEnv {
       FOTOAI_SUPABASE_ANON_KEY: trimmed,
       FOTOAI_SUPABASE_SERVICE_ROLE_KEY: trimmed,
       FOTOAI_COOKIE_SECURE: z.enum(['true', 'false']).optional(),
+      GOOGLE_MAPS_SERVER_API_KEY: trimmed.optional(),
       NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     },
     runtimeEnv: source,
@@ -46,6 +49,7 @@ export function createServerEnv(source: EnvSource = process.env): ServerEnv {
     FOTOAI_SUPABASE_ANON_KEY: env.FOTOAI_SUPABASE_ANON_KEY,
     FOTOAI_SUPABASE_SERVICE_ROLE_KEY: env.FOTOAI_SUPABASE_SERVICE_ROLE_KEY,
     FOTOAI_COOKIE_SECURE: cookieSecure,
+    GOOGLE_MAPS_SERVER_API_KEY: env.GOOGLE_MAPS_SERVER_API_KEY,
     NODE_ENV: env.NODE_ENV,
   };
 }

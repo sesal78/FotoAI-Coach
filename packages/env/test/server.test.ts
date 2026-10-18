@@ -44,3 +44,9 @@ test('error message names variables but never values', () => {
   expect(message).toMatch(/FOTOAI_SUPABASE_URL/);
   expect(message).not.toContain('sk-live-SECRET123');
 });
+
+test('the Google Maps server key is optional, trimmed, and empty means not set', () => {
+  expect(createServerEnv(ok).GOOGLE_MAPS_SERVER_API_KEY).toBeUndefined();
+  expect(createServerEnv({ ...ok, GOOGLE_MAPS_SERVER_API_KEY: '' }).GOOGLE_MAPS_SERVER_API_KEY).toBeUndefined();
+  expect(createServerEnv({ ...ok, GOOGLE_MAPS_SERVER_API_KEY: '  AIzaTEST  ' }).GOOGLE_MAPS_SERVER_API_KEY).toBe('AIzaTEST');
+});
