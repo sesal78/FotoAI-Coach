@@ -34,6 +34,10 @@
   },
   "dependencies": {
     "@floating-ui/react": "0.26.0",
+    "@fotoai/api": "workspace:*",
+    "@fotoai/contracts": "workspace:*",
+    "@fotoai/db": "workspace:*",
+    "@fotoai/env": "workspace:*",
     "@headlessui/react": "1.7.18",
     "@hookform/resolvers": "3.9.0",
     "@radix-ui/react-accordion": "1.2.0",
