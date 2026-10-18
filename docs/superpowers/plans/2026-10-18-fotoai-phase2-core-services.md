@@ -629,19 +629,264 @@ test('chat-saved challenges record source chat', async () => { /* existing saveC
   - Expected: all pass, and 0 error lines in the app log for 10 minutes.
   - **On failure:** redeploy the previous image by restoring the 2A commit on a pinned branch (the same method as `rollback/pre-2a`). The migrations stay, because they only add.
 
-## Sub-phase 2C — Gear catalog, capability checks, film math (task level)
+## Sub-phase 2C — Gear catalog, capability checks, film math (step level; expanded 18 Oct 2026 after 2B shipped)
 
-**Ships:** `packages/core` with the gear model and the setting checks, the seeded catalog for Seun's 5 bodies and 7 lenses, custom gear, film exposure helpers, and the v2 gear endpoints.
+**Ships:**
+- `packages/core` with the gear model, setting checks and film exposure helpers;
+- a seeded catalog of Seun's 5 bodies and 7 lenses, each value with a source;
+- custom gear;
+- the shoot loadout;
+- the v2 gear endpoints.
 
-| Task | Deliverable | Key interfaces and tests |
-|---|---|---|
-| 1. Capability facts | A research step before any code. Collect sourced specs from maker manuals: modes, shutter range (including mechanical and bulb), flash sync, ISO range, metering, and fixed lens for X-T5, GR IIIx, FE2, ME Super and Electro 35 GL; focal range and maximum aperture for all 7 lenses. Facts the spec pins: FE2 top speed 1/4000; ME Super top speed 1/2000; Electro 35 GL aperture priority only with a fixed 40mm f/1.7. Store them in `packages/core/src/gear/catalog-sources.md`. | Every catalog value has a source URL. Unknowns are marked `null`, never guessed. |
-| 2. Gear model | `packages/core/src/gear/`: `Body`, `Lens`, `Loadout = { body; lens; film?: FilmStock }`, `ExposureMode = 'P'\|'A'\|'S'\|'M'`, `Settings = { mode; aperture?; shutterSeconds?; iso?; focalMm?; whiteBalance?; filmSimulation? }`. | Types only, plus zod schemas in `@fotoai/contracts` for the API. |
-| 3. Capability checks | `validateSettings(loadout: Loadout, settings: Settings): { ok: true; settings: Settings } \| { ok: false; issues: SettingIssue[] }` and `clampSettings(...)`. | Tests: 1/4000 is rejected on the ME Super; a manual shutter on the Electro GL is rejected; f/1.4 on a 28mm f/2.8 is rejected; ISO is locked to box speed on film unless pushed or pulled; focal length outside the lens range is rejected. |
-| 4. Film math | `sunny16(scene: 'full_sun'\|'slight_overcast'\|'overcast'\|'heavy_overcast'\|'open_shade'\|'golden_hour'\|'blue_hour', iso: number): { aperture: number; shutterSeconds: number }`, `framesLeft(roll)`, `pushPullStops(boxIso, ratedIso)`. | Table tests against the sunny 16 rule, for example ISO 400 full sun → f/16 at 1/500; golden hour is 3 stops more than full sun. |
-| 5. Catalog migration + seed | `fotoai_gear_bodies` and `fotoai_gear_lenses` (shared read for `authenticated`, no write grants; seed only by migration). `fotoai_user_gear` is extended with nullable `body_id`, `lens_id` and a custom capability JSON validated in code. | RLS integration: a user cannot insert catalog rows; a user sees only their own kit. |
-| 6. v2 gear endpoints | `GET /api/v2/gear/catalog`, `GET/POST/DELETE /api/v2/me/gear` (catalog item or custom with required capability fields), `PUT /api/v2/me/loadout`. | Test: custom gear missing the shutter range is a 400 that names the field. |
-| 7. PR + approval + migrations + deploy | As in 2B Task 7. | |
+**2C decisions (planner's calls):**
+- **One source of truth for the catalog.** It is `packages/core/src/gear/catalog.ts`: typed data, with `sources: string[]` on every item. A script generates the seed migration from it, and two tests keep the two identical: the migration matches the generated SQL, and the live database catalog matches `catalog.ts`.
+- **Assumed lens makers.** The 28mm and 50mm lenses on the film bodies are assumed to be the makers' own lenses: Nikon AI-S Nikkor 28mm f/2.8 and 50mm f/1.4 on the FE2, and SMC Pentax-M 28mm f/2.8 and 50mm f/1.7 on the ME Super. If any is a third-party lens, it is added as custom gear later; nothing else changes.
+- **Variable-aperture zooms.** The largest aperture at a given focal length is interpolated linearly between the wide and the tele end. This is an approximation; the real step curve is not published as data.
+- **Sunny 16 scenes.** Sunny 16 covers daylight scenes plus `golden_hour` (3 stops more light needed than full sun). It deliberately returns `null` for `blue_hour`: the light changes too fast for a fixed rule, so the guide says "meter, then bracket" instead of guessing.
+- **The loadout lives on the preferences row.** It is stored as `loadout jsonb`, holding gear row ids plus an optional film stock. It is validated in code against the user's own gear.
+- **v2 gear rows stay readable by the live app.** They still fill the live app's `category`, `brand` and `model` columns, so the existing web settings and onboarding keep working.
+
+### Task C1: Sourced capability catalog
+
+**Files:**
+- Create: `packages/core/package.json` (`@fotoai/core`; it depends on `@fotoai/contracts`), plus `tsconfig.json` and `vitest.config.ts` copied from `@fotoai/api`.
+- Create: `packages/core/src/gear/types.ts`
+- Create: `packages/core/src/gear/catalog.ts`
+- Create: `packages/core/src/index.ts`
+- Test: `packages/core/test/catalog.test.ts`
+
+**Interfaces:**
+- Produces, in `@fotoai/core`:
+  - `type BodyType = 'digital' | 'film'`;
+  - `type ExposureMode = 'P' | 'A' | 'S' | 'M'`;
+  - `interface Body { id: string; make: string; model: string; type: BodyType; mount: string | null; modes: ExposureMode[]; shutter: { slowestSeconds: number; fastestSeconds: number; bulb: boolean }; flashSyncSeconds: number | null; iso: { min: number; max: number }; metering: string | null; fixedLensId: string | null; sources: string[] }`. `metering` is short text such as "centre-weighted" or "multi-segment", shown in the guide and never used for checks;
+  - `interface Lens { id: string; make: string; model: string; mount: string | null; focalMm: { min: number; max: number }; maxAperture: { wide: number; tele: number }; minAperture: number; sources: string[] }`;
+  - `CATALOG: { bodies: readonly Body[]; lenses: readonly Lens[] }`;
+  - `findBody(id: string): Body | undefined` and `findLens(id: string): Lens | undefined`.
+- Ids are slugs:
+  - bodies: `fujifilm-x-t5`, `ricoh-gr-iiix`, `nikon-fe2`, `pentax-me-super`, `yashica-electro-35-gl`;
+  - lenses: `fujifilm-xf-23mm-f2-8`, `fujifilm-xf-70-300mm-f4-5-6`, `sigma-18-50mm-f2-8-dc-dn-x`, `nikon-ai-s-28mm-f2-8`, `nikon-ai-s-50mm-f1-4`, `pentax-m-28mm-f2-8`, `pentax-m-50mm-f1-7`, plus the two fixed lenses `ricoh-gr-iiix-26-1mm-f2-8` and `yashica-electro-35-gl-40mm-f1-7`.
+- `iso` for a film body is the range of its film-speed dial.
+
+- [ ] **Step 1: Research.**
+  - For each value, find a maker manual or spec page, preferably the maker's own site or the original manual (PDF scans are fine), and record its URL in `sources`.
+  - A value that cannot be sourced must not be guessed. Leave it out of the catalog: shrink the claim, for example `flashSyncSeconds: null`, and say so in a comment.
+  - The facts the spec pins must hold: FE2 fastest 1/4000 s; ME Super fastest 1/2000 s; Electro 35 GL `modes: ['A']` with the fixed 40mm f/1.7.
+
+- [ ] **Step 2: Write the failing tests.**
+
+```ts
+test('every catalog item has at least one https source', () => { /* bodies + lenses: sources.length ≥ 1, all start with https:// */ });
+test('ids are unique slugs', () => { /* /^[a-z0-9-]+$/, no duplicates across bodies and lenses */ });
+test('the facts the spec pins hold', () => {
+  expect(findBody('nikon-fe2')!.shutter.fastestSeconds).toBe(1 / 4000);
+  expect(findBody('pentax-me-super')!.shutter.fastestSeconds).toBe(1 / 2000);
+  const gl = findBody('yashica-electro-35-gl')!;
+  expect(gl.modes).toEqual(['A']);
+  expect(findLens(gl.fixedLensId!)).toMatchObject({ focalMm: { min: 40, max: 40 }, maxAperture: { wide: 1.7, tele: 1.7 } });
+  expect(findLens('nikon-ai-s-28mm-f2-8')!.maxAperture.wide).toBe(2.8);
+});
+test("Seun's lens and body pairs share a mount; fixed-lens bodies point at a lens with no mount", () => { /* X: xt5 + 3 lenses; F: fe2 + 2 nikkor; K: me super + 2 pentax-m; gr/gl fixedLensId → mount null */ });
+test('ranges are well-formed', () => { /* slowest > fastest; iso.min ≤ iso.max; focal min ≤ max; wide ≤ tele aperture; minAperture > maxAperture.tele */ });
+```
+
+- [ ] **Step 3: Run the tests and confirm they fail.**
+  - Run: `pnpm --filter @fotoai/core test`
+  - Expected: FAIL, because the modules are missing.
+
+- [ ] **Step 4: Write `types.ts` and `catalog.ts`** from the research.
+
+- [ ] **Step 5: Run and confirm they pass.**
+  - Run: `pnpm typecheck && pnpm lint && pnpm test`
+  - Expected: all pass.
+
+- [ ] **Step 6: Commit.**
+  - `git commit -m "feat(core): sourced capability catalog for Seun's cameras and lenses"`
+
+### Task C2: Setting checks (`validateSettings`, `clampSettings`)
+
+**Files:**
+- Create: `packages/core/src/gear/settings.ts`
+- Create: `packages/contracts/src/gear.ts` (zod `Settings`, `SettingIssue`)
+- Test: `packages/core/test/settings.test.ts`, `packages/contracts/test/gear.test.ts`
+
+**Interfaces:**
+- Produces:
+  - `interface Settings { mode: ExposureMode; aperture?: number; shutterSeconds?: number; iso?: number; focalMm?: number; whiteBalance?: string; filmSimulation?: string }`;
+  - `interface FilmLoad { stock: string; boxIso: number; ratedIso?: number }`;
+  - `interface Loadout { body: Body; lens: Lens; film?: FilmLoad }`;
+  - `type SettingIssue = { field: 'mode' | 'aperture' | 'shutterSeconds' | 'iso' | 'focalMm' | 'film' | 'lens'; message: string }`;
+  - `maxApertureAt(lens: Lens, focalMm: number): number` (linear between wide and tele);
+  - `validateSettings(loadout: Loadout, settings: Settings): { ok: true; settings: Settings } | { ok: false; issues: SettingIssue[] }`;
+  - `clampSettings(loadout: Loadout, settings: Settings): { settings: Settings; changes: SettingIssue[] }`.
+- **Rules:**
+  - `mode` must be in `body.modes`.
+  - In `A` or `P` mode on an aperture-priority body, `shutterSeconds` must be absent, because the camera chooses it.
+  - `shutterSeconds` must be within `[fastest, slowest]`, unless the body has `bulb` and the value is longer than `slowest`.
+  - `aperture` must be within `[maxApertureAt(focal), minAperture]`. A smaller f-number means a larger aperture.
+  - `focalMm` must be within the lens range.
+  - The lens mount must equal the body mount. A fixed-lens body must use its own lens.
+  - On a film body: `film` is required, and `iso` must equal `film.ratedIso ?? film.boxIso`. On a digital body: `iso` must be within the body's range.
+  - `filmSimulation` is allowed only on Fujifilm digital bodies. Anywhere else it is an issue, and clamping drops it.
+  - Clamping moves each value to the nearest allowed one. A disallowed mode becomes `A` if allowed, else `P`, else `M`. A lens mismatch cannot be clamped; it stays an issue.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('1/4000 is rejected on the ME Super and clamped to 1/2000', () => { /* validate → issue field shutterSeconds; clamp → 1/2000 */ });
+test('a manual shutter on the Electro 35 GL is rejected; mode M becomes A', () => { /* modes ['A'] */ });
+test('f/1.4 on a 28mm f/2.8 is rejected and clamped to f/2.8', () => {});
+test('film ISO is locked to box speed unless the roll is pushed or pulled', () => {
+  // FE2 + Portra 400: iso 800 rejected; with ratedIso 1600, iso 1600 ok and 400 rejected; missing film is a 'film' issue
+});
+test('focal length outside the lens range is rejected and clamped', () => {});
+test('the 70-300 zoom allows f/4 at 70mm but not at 300mm', () => { /* maxApertureAt interpolation */ });
+test('a Nikon lens on the Pentax body is a lens issue that clamping cannot fix', () => {});
+test('bulb exposures longer than the slowest timed speed are allowed only on bulb bodies', () => {});
+test('film simulation is only for Fujifilm digital bodies', () => { /* X-T5 Classic Chrome ok; FE2 Classic Chrome → issue, clamp drops it */ });
+test('valid settings pass unchanged', () => { /* X-T5 + Sigma 18-50 at f/8 1/250 ISO 125 24mm */ });
+```
+
+  - The contract test checks that `Settings.parse` rejects a negative aperture and an unknown mode.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+  - Run: `pnpm --filter @fotoai/core test`
+  - Expected: FAIL, because the modules are missing.
+
+- [ ] **Step 3: Implement.**
+
+- [ ] **Step 4: Run and confirm they pass.**
+  - Run: `pnpm typecheck && pnpm lint && pnpm test`
+  - Expected: all pass.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(core): validate and clamp camera settings against the loadout"`
+
+### Task C3: Film exposure helpers
+
+**Files:**
+- Create: `packages/core/src/film/exposure.ts`
+- Test: `packages/core/test/film.test.ts`
+
+**Interfaces:**
+- Produces:
+  - `type Scene = 'snow_sand' | 'full_sun' | 'slight_overcast' | 'overcast' | 'heavy_overcast' | 'open_shade' | 'golden_hour' | 'blue_hour'`;
+  - `STANDARD_SHUTTER_SECONDS` (1-stop speeds from 8 s to 1/4000);
+  - `nearestShutter(seconds: number): number` (nearest in stops);
+  - `sunny16(scene: Scene, iso: number): { aperture: number; shutterSeconds: number } | null`. Apertures: snow f/22, full sun f/16, slight overcast f/11, overcast f/8, heavy overcast f/5.6, open shade f/5.6, golden hour f/5.6. The shutter is `nearestShutter(1 / iso)`. Blue hour returns `null`;
+  - `framesLeft(roll: { exposures: number; framesLogged: number }): number` (never negative);
+  - `pushPullStops(boxIso: number, ratedIso: number): number` (log2, rounded to 1/3 stop).
+
+- [ ] **Step 1: Write the failing tests.**
+  - ISO 400 full sun gives `{ aperture: 16, shutterSeconds: 1/500 }`.
+  - ISO 100 overcast gives f/8 at 1/125.
+  - Golden hour at ISO 400 is f/5.6 at 1/500, which is 3 stops more than full sun.
+  - Blue hour is `null`.
+  - `nearestShutter(1/400)` is `1/500` and `nearestShutter(1/60)` is `1/60`.
+  - `framesLeft({ exposures: 36, framesLogged: 40 })` is `0`.
+  - `pushPullStops(400, 1600)` is `2`, and `pushPullStops(400, 200)` is `-1`.
+
+- [ ] **Step 2: Run the tests and confirm they fail.** Then implement, then run them again and confirm they pass.
+
+- [ ] **Step 3: Commit.**
+  - `git commit -m "feat(core): sunny 16, frames left and push/pull helpers"`
+
+### Task C4: Catalog tables, seed, gear links and loadout column
+
+**Files:**
+- Create: `packages/core/scripts/catalog-sql.ts` (prints the seed SQL from `CATALOG`)
+- Create: `supabase/migrations/20261019100001_gear_catalog.sql`
+- Create: `supabase/undo/20261019100001_gear_catalog.undo.sql`
+- Regenerate: types and the Drizzle baseline.
+- Test: `packages/core/test/catalog-sql.test.ts`, `packages/db/test/gear-catalog.integration.test.ts`
+
+**Interfaces:**
+- **Migration, part one: the catalog tables.**
+  - `fotoai_gear_lenses`: `id text primary key`, `make`, `model`, `mount text null`, `focal_min_mm`, `focal_max_mm`, `max_aperture_wide`, `max_aperture_tele`, `min_aperture` (numeric, with checks), `sources text[] not null`.
+  - `fotoai_gear_bodies`: `id text primary key`, `make`, `model`, `type` (check `digital`/`film`), `mount`, `modes text[]` (check `<@ array['P','A','S','M']`), `shutter_slowest_s`, `shutter_fastest_s`, `bulb boolean`, `flash_sync_s numeric null`, `iso_min`, `iso_max`, `metering text null`, `fixed_lens_id text null references fotoai_gear_lenses`, `sources text[] not null`.
+  - Both tables: RLS enabled; policy `select to authenticated using (true)`; only `grant select ... to authenticated`; no insert, update or delete grants.
+  - The seed is inserted from the script output, in the same file, between the markers `-- BEGIN CATALOG SEED` and `-- END CATALOG SEED`.
+- **Migration, part two: links and loadout.**
+  - `fotoai_user_gear` gains `body_id text null references fotoai_gear_bodies`, `lens_id text null references fotoai_gear_lenses`, `custom jsonb null`, and a check that at most one of `body_id`, `lens_id` and `custom` is set.
+  - `fotoai_user_preferences` gains `loadout jsonb null`.
+
+- [ ] **Step 1: Write the failing tests.**
+  - `the seed in the migration equals the SQL generated from catalog.ts` (unit): the text between the markers equals `catalogSql()` after newline normalisation.
+  - Integration (local stack), `the database catalog equals catalog.ts`: select every row with a user token and compare it field by field.
+  - Integration, `users can read the catalog but cannot write it`: an insert, update or delete with a user token fails.
+  - Integration, `a gear row may link a catalog body or lens, or carry custom data, but not two of them`: inserting both `body_id` and `lens_id` fails the check.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+
+- [ ] **Step 3: Write the script and the migration** (paste the script output between the markers). Apply the migration locally. Regenerate the types and re-pull the Drizzle baseline (2B process).
+  - The migration guard and undo-script tests must pass. The undo has the atomic header, a `Discards:` line, and a guard that refuses to run while any `fotoai_user_gear` row links the catalog.
+
+- [ ] **Step 4: Run and confirm they pass.**
+  - Run: the full gate plus both integration suites.
+  - Expected: all pass, 0 skipped.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(db): gear catalog tables and seed, gear links, loadout column"`
+
+### Task C5: v2 gear and loadout endpoints
+
+**Files:**
+- Modify: `packages/contracts/src/gear.ts`. Add `BodyDto`, `LensDto`, `CustomBodyInput`, `CustomLensInput`, `GearItem`, `AddGearInput`, `LoadoutInput` and `LoadoutDto`.
+- Create: `packages/api/src/gear.ts`
+- Create the route files:
+  - `nextjs_space/app/api/v2/gear/catalog/route.ts`
+  - `nextjs_space/app/api/v2/me/gear/route.ts` (`GET`, `POST`)
+  - `nextjs_space/app/api/v2/me/gear/[id]/route.ts` (`DELETE`)
+  - `nextjs_space/app/api/v2/me/loadout/route.ts` (`GET`, `PUT`)
+- Test: `packages/contracts/test/gear.test.ts` (extended), `packages/api/test/gear.integration.test.ts`
+
+**Interfaces:**
+- **Contracts:**
+  - `GearItem = { id; kind: 'body' | 'lens' | 'other'; catalogId: string | null; name: string; capability: BodyDto | LensDto | null }`. Legacy free-text rows appear with `capability: null`.
+  - `AddGearInput = { catalogId: string } | { custom: CustomBodyInput } | { custom: CustomLensInput }`, as a strict union.
+  - `CustomBodyInput` requires `type`, `modes`, `shutter.slowestSeconds`, `shutter.fastestSeconds` and `iso`.
+  - `CustomLensInput` requires `focalMm`, `maxAperture` and `minAperture`.
+  - `LoadoutInput = { bodyGearId: string; lensGearId?: string; film?: FilmLoad }`.
+- **Handlers:**
+  - `getGearCatalog` returns `{ bodies, lenses }`.
+  - `listMyGear` returns `{ items }`.
+  - `addMyGear` returns 201 `{ item }`. It also fills the live app's `category` (`camera` or `lens`), `brand` (make) and `model` columns.
+  - `deleteMyGear` returns `{ success: true }`, or 404 when the row is not the caller's.
+  - `getLoadout` returns `{ loadout: LoadoutDto | null }`, resolved with capabilities.
+  - `putLoadout` validates that the gear rows are the caller's and that the body and lens fit (`validateSettings` lens rule; a fixed-lens body needs no `lensGearId`). It stores the loadout and returns it.
+  - All handlers use the user client and reject identity keys.
+
+- [ ] **Step 1: Write the failing tests.**
+  - Contract test, `custom gear missing the shutter range is rejected, naming the field`.
+  - Integration test names (local stack):
+    - `the catalog lists Seun's 5 bodies and 9 lenses`;
+    - `adding a catalog body creates a gear row the live app can read` (category, brand and model are filled);
+    - `custom gear missing the shutter range is a 400 that names the field`;
+    - `a loadout with another user's gear is a 404; a Nikon lens on the Pentax body is a 400`;
+    - `a fixed-lens body makes a loadout without a lens`;
+    - `deleting another user's gear is a 404`.
+
+- [ ] **Step 2: Run them and confirm they fail.** Then implement, and run them again and confirm they pass.
+  - Run: the full gate plus all integration suites.
+  - Expected: all pass, 0 skipped.
+
+- [ ] **Step 3: Commit.**
+  - `git commit -m "feat(api): v2 gear catalog, my gear and loadout"`
+
+### Task C6: Review, PR, approvals, production migration, deploy and smoke
+
+Same pattern as B7:
+1. Run the whole-branch review (fresh reviewer) and the fix pass. Then open the PR; CI must be green.
+2. Stop for Seun's yes.
+3. Run a read-only pre-check, then apply `20261019100001_gear_catalog.sql` with `psql -1 -v ON_ERROR_STOP=1`.
+4. Run the verify queries:
+   - row counts: 5 bodies and 9 lenses;
+   - grants: `authenticated` has select only;
+   - every existing `fotoai_user_gear` row is untouched, with null links.
+5. Run `notify pgrst, 'reload schema'`, then merge and deploy.
+6. Run the smoke checks: the 22 existing ones plus the 401 checks for `/api/v2/gear/catalog`, `/api/v2/me/gear` and `/api/v2/me/loadout`. Watch the log for 10 minutes.
+7. **Optional, needs a separate yes:** attach Seun's kit to his account. That means inserting 5 body and 7 lens gear rows linked to the catalog, using his user id looked up on the server. The alternative is to let him add the kit in the app in phase 3.
+8. On failure: redeploy the pinned rollback branch. The migration stays, because it only adds.
 
 ## Sub-phase 2D — Places, light, weather (task level)
 
