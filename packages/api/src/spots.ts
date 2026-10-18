@@ -13,7 +13,7 @@ import { placesConfigured, placesFor } from './places-client.ts';
 import { reserveCalls } from './rate-limit.ts';
 
 const T_PLACES = 'fotoai_places';
-const COLUMNS = 'id, source, place_id, name, lat, lng, notes, favourite, created_at';
+export const SPOT_COLUMNS = 'id, source, place_id, name, lat, lng, notes, favourite, created_at';
 const LIST_MAX = 50;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -29,7 +29,7 @@ export type SpotRow = {
   created_at: string;
 };
 
-type Fresh = { name: string; location: { lat: number; lng: number } } | null;
+export type Fresh = { name: string; location: { lat: number; lng: number } } | null;
 
 const upstream = (what: string) => new ApiError('upstream', `Could not ${what}`);
 
@@ -38,7 +38,7 @@ function validationFrom(issues: Array<{ path: PropertyKey[] }>): ApiError {
   return new ApiError('validation', `Invalid spot: ${fields.join(', ')}`);
 }
 
-function toSpot(row: SpotRow, fresh?: Fresh): SpotDto {
+export function toSpot(row: SpotRow, fresh?: Fresh): SpotDto {
   const google = row.source === 'google';
   return {
     id: row.id,
@@ -86,7 +86,7 @@ export const listMySpots: V2Body = async (request, deps) => {
   const principal = await requirePrincipal(request, deps);
   const { data, error } = await createUserClient(deps.env, principal.accessToken)
     .from(T_PLACES)
-    .select(COLUMNS)
+    .select(SPOT_COLUMNS)
     .eq('user_id', principal.userId)
     .order('created_at', { ascending: false })
     .limit(LIST_MAX);
@@ -108,7 +108,7 @@ export const addMySpot: V2Body = async (request, deps) => {
     const { data, error } = await db
       .from(T_PLACES)
       .insert({ user_id: principal.userId, source: 'user', name: input.pin.name, lat: input.pin.lat, lng: input.pin.lng, notes: input.notes ?? null } as never)
-      .select(COLUMNS)
+      .select(SPOT_COLUMNS)
       .single();
     if (error || !data) throw upstream('save the spot');
     return json({ spot: toSpot(data as unknown as SpotRow) }, { status: 201 });
@@ -121,7 +121,7 @@ export const addMySpot: V2Body = async (request, deps) => {
   const fresh: Fresh = { name: place.name, location: place.location };
 
   const existing = async () => {
-    const { data, error } = await db.from(T_PLACES).select(COLUMNS).eq('user_id', principal.userId).eq('place_id', input.placeId).maybeSingle();
+    const { data, error } = await db.from(T_PLACES).select(SPOT_COLUMNS).eq('user_id', principal.userId).eq('place_id', input.placeId).maybeSingle();
     if (error) throw upstream('load the spot');
     return data as unknown as SpotRow | null;
   };
@@ -131,7 +131,7 @@ export const addMySpot: V2Body = async (request, deps) => {
   const { data, error } = await db
     .from(T_PLACES)
     .insert({ user_id: principal.userId, source: 'google', place_id: input.placeId, notes: input.notes ?? null } as never)
-    .select(COLUMNS)
+    .select(SPOT_COLUMNS)
     .single();
   if (error?.code === '23505') {
     const raced = await existing(); // a parallel save won: return its row
@@ -152,7 +152,7 @@ export const updateMySpot: V2Body = async (request, deps, { params }) => {
   if (!parsed.success) throw validationFrom(parsed.error.issues);
   const db = createUserClient(deps.env, principal.accessToken);
 
-  const { data: current, error: readError } = await db.from(T_PLACES).select(COLUMNS).eq('id', id).maybeSingle();
+  const { data: current, error: readError } = await db.from(T_PLACES).select(SPOT_COLUMNS).eq('id', id).maybeSingle();
   if (readError) throw upstream('load the spot');
   if (!current) throw new ApiError('not_found', 'Spot not found');
   if (parsed.data.name !== undefined && (current as unknown as SpotRow).source === 'google') {
@@ -163,7 +163,7 @@ export const updateMySpot: V2Body = async (request, deps, { params }) => {
     .from(T_PLACES)
     .update({ ...parsed.data, updated_at: deps.now().toISOString() } as never)
     .eq('id', id)
-    .select(COLUMNS)
+    .select(SPOT_COLUMNS)
     .maybeSingle();
   if (error) throw upstream('save the spot');
   if (!data) throw new ApiError('not_found', 'Spot not found');
