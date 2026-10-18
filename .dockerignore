@@ -1,0 +1,19 @@
+# Build context is the repo root (docker build -f nextjs_space/Dockerfile .)
+**/node_modules
+**/.next
+.git
+.turbo
+coverage
+.superpowers
+.planning
+.hermes
+.claude
+docs
+*.pdf
+supabase/.temp
+**/.env
+**/.env.*
+!**/.env.example
+**/test-results
+**/playwright-report
+**/.drizzle-check-*

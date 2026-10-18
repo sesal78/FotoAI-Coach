@@ -1,32 +1,29 @@
-# Foto AI Coach - Self-Hosted Dockerfile (Supabase backend)
-# Node 22 LTS (Node 18 is end-of-life; CI and the tests use Node 22)
+# Foto AI Coach - live web app (@fotoai/legacy-web) image.
+# Build context is the REPO ROOT (pnpm workspace):  docker build -f nextjs_space/Dockerfile .
+# Node 22 LTS. No secrets at build time: the app reads every key from the runtime environment.
 FROM node:22-alpine AS base
+RUN corepack enable
+WORKDIR /repo
 
-# Install dependencies only when needed
+# Install workspace dependencies for the web app and the packages it uses
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
-WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY nextjs_space/package.json nextjs_space/package.json
+COPY packages packages
+RUN pnpm install --frozen-lockfile --filter "@fotoai/legacy-web..."
 
-# Copy package files
-COPY package.json package-lock.json* ./
-
-RUN npm ci --no-audit --no-fund
-
-# Rebuild the source code only when needed
+# Build (standalone output traced from the repo root)
 FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /repo ./
 COPY . .
-
-# No secrets at build time: the app reads every key from the runtime environment.
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_OUTPUT_MODE=standalone
-
-RUN npm run build
+RUN pnpm --filter @fotoai/legacy-web build
 
 # Production image
-FROM base AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -35,9 +32,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# In a monorepo the standalone server lives under the app's folder name
+COPY --from=builder /repo/nextjs_space/.next/standalone ./
+COPY --from=builder /repo/nextjs_space/.next/static ./nextjs_space/.next/static
+COPY --from=builder /repo/nextjs_space/public ./nextjs_space/public
 
 RUN chown -R nextjs:nodejs /app
 
@@ -48,4 +46,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["node", "nextjs_space/server.js"]
