@@ -18,6 +18,8 @@ type ChallengeRow = Database['public']['Tables']['fotoai_daily_challenges']['Row
 const TABLE = 'fotoai_daily_challenges';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
+// Only the timestamp shape PostgREST returns; it is interpolated into an or() filter.
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
@@ -59,7 +61,9 @@ export function decodeCursor(cursor: string): { issuedDate: string; id: string }
   const invalid = () => new ApiError('validation', 'Invalid cursor');
   if (!BASE64URL.test(cursor)) throw invalid();
   const [issuedDate, id, ...rest] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
-  if (rest.length > 0 || !issuedDate || !id || Number.isNaN(Date.parse(issuedDate)) || !UUID.test(id)) throw invalid();
+  if (rest.length > 0 || !issuedDate || !id || !ISO_TIMESTAMP.test(issuedDate) || Number.isNaN(Date.parse(issuedDate)) || !UUID.test(id)) {
+    throw invalid();
+  }
   return { issuedDate, id };
 }
 

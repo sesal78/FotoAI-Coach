@@ -32,3 +32,13 @@ test('toV2Challenge maps a database row to the shared DTO with safe defaults', (
     shotList: [], source: 'chat',
   });
 });
+
+test('a cursor date must be the ISO timestamp the API issued, not anything Date.parse accepts', () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  for (const loose of ['Oct 18 2026 junk', '2026-10-18', '2026-10-18 05:00:00', 'Sat, 18 Oct 2026 05:00:00 GMT']) {
+    expect(() => decodeCursor(encodeCursor(loose, id)), loose).toThrow(expect.objectContaining({ code: 'validation' }));
+  }
+  for (const ok of ['2026-10-18T05:00:00+00:00', '2026-10-18T05:00:00.123456+00:00', '2026-10-18T05:00:00Z']) {
+    expect(decodeCursor(encodeCursor(ok, id)).issuedDate).toBe(ok);
+  }
+});

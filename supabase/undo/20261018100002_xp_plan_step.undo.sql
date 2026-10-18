@@ -1,5 +1,15 @@
--- UNDO for 20261018100002_xp_plan_step.sql. Run only with Seun's approval.
--- Fails (on purpose) if any plan_step XP events exist; resolve those first.
+-- UNDO for 20261018100002_xp_plan_step.sql. Run only with Seun's approval, atomically:
+--   psql -1 -v ON_ERROR_STOP=1 -f - < this file   (one transaction; any error changes nothing)
+-- Discards: nothing (it only narrows the allowed source_kind list again).
+-- Stops before any change while plan_step XP events exist; resolve those first.
+
+do $$
+begin
+  if exists (select 1 from public.fotoai_xp_events where source_kind = 'plan_step') then
+    raise exception 'undo refused: plan_step XP events exist; resolve them first';
+  end if;
+end $$;
+
 alter table public.fotoai_xp_events drop constraint fotoai_xp_events_source_kind_check;
 alter table public.fotoai_xp_events
   add constraint fotoai_xp_events_source_kind_check
