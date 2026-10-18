@@ -294,37 +294,76 @@ test('email: 401, 400 for userId/missing/oversized/unknown fields, 502 when mail
 // Sync
 // ---------------------------------------------------------------------------
 
-test('sync: creates then updates only the caller\'s pending CHATBOT_GENERATED challenge', async () => {
+test('sync keeps the earlier pending chat challenge and adds a new one', async () => {
   const dashboardOne = deps.client.seed(T_CH, { user_id: ALICE, challenge_type: 'AFTER_WORK', challenge_text: 'dash', status: 'pending', issued_date: new Date().toISOString() });
   const bobChat = deps.client.seed(T_CH, { user_id: BOB, challenge_type: 'CHATBOT_GENERATED', challenge_text: 'bob chat', status: 'pending', issued_date: new Date().toISOString() });
 
   let res = await sync.sync(jsonRequest(SYNC_URL, { challengeText: 'first', recommendedGear: 'Tripod', tips: 'slow down' }, { cookie: aliceCookie }));
   assert.equal(res.status, 201);
-  const created = await res.json();
-  assert.equal(created.created, true);
-  assert.equal(created.challenge.challengeType, 'CHATBOT_GENERATED');
-  assert.deepEqual(created.challenge.recommendedGear, ['Tripod']);
-  assert.equal(created.challenge.category, 'General');
+  const first = await res.json();
+  assert.equal(first.created, true);
+  assert.equal(first.challenge.challengeType, 'CHATBOT_GENERATED');
+  assert.deepEqual(first.challenge.recommendedGear, ['Tripod']);
+  assert.equal(first.challenge.category, 'General');
 
   res = await sync.sync(jsonRequest(SYNC_URL, { challengeText: 'second', category: 'street' }, { cookie: aliceCookie }));
-  assert.equal(res.status, 200);
-  const updated = await res.json();
-  assert.equal(updated.updated, true);
-  assert.equal(updated.challenge.id, created.challenge.id);
-  assert.equal(updated.challenge.challengeText, 'second');
-  assert.equal(updated.challenge.tips, 'slow down', 'missing fields keep stored values');
-  assert.deepEqual(updated.challenge.recommendedGear, ['Tripod']);
+  assert.equal(res.status, 201);
+  const second = await res.json();
+  assert.equal(second.created, true);
+  assert.notEqual(second.challenge.id, first.challenge.id, 'a new sync never overwrites the earlier challenge');
 
-  assert.equal(dashboardOne.challenge_text, 'dash', 'dashboard challenge never overwritten');
+  const chats = rowsOf(T_CH, ALICE).filter((r) => r.challenge_type === 'CHATBOT_GENERATED');
+  assert.equal(chats.length, 2);
+  assert.deepEqual(chats.map((r) => r.challenge_text).sort(), ['first', 'second']);
+  assert.ok(chats.every((r) => r.status === 'pending' && r.source === 'chat'));
+  assert.equal(chats.find((r) => r.challenge_text === 'first')!.tips, 'slow down', 'the earlier challenge is unchanged');
   assert.equal(bobChat.challenge_text, 'bob chat');
+  assert.equal(dashboardOne.challenge_text, 'dash');
   assert.equal(rowsOf(T_PROGRESS, ALICE).length, 0, 'sync does not touch counters (legacy behaviour)');
 
   res = await sync.status(request(SYNC_URL, { cookie: aliceCookie }));
   const status = await res.json();
   assert.equal(status.hasChallenge, true);
-  assert.ok([dashboardOne.id, created.challenge.id].includes(status.challenge.id));
   assert.notEqual(status.challenge.id, bobChat.id);
   assert.equal(deps.client.serviceCalls.length, 0);
+});
+
+test('sync with the same text as a pending chat challenge returns it without a new row', async () => {
+  const created = await (await sync.sync(jsonRequest(SYNC_URL, { challengeText: 'first' }, { cookie: aliceCookie }))).json();
+  const res = await sync.sync(jsonRequest(SYNC_URL, { challengeText: 'first' }, { cookie: aliceCookie }));
+  assert.equal(res.status, 200);
+  const again = await res.json();
+  assert.equal(again.existing, true);
+  assert.equal(again.challenge.id, created.challenge.id);
+  assert.equal(rowsOf(T_CH, ALICE).filter((r) => r.challenge_type === 'CHATBOT_GENERATED').length, 1);
+});
+
+test('generate records source dashboard; the cron path records source job', async () => {
+  const res = await challenges.generate(jsonRequest(GEN_URL, { challengeType: 'AFTER_WORK', forceGenerate: true }, { cookie: aliceCookie }));
+  assert.equal(res.status, 201);
+  const body = await res.json();
+  assert.equal(rowsOf(T_CH, ALICE).find((r) => r.id === body.challenge.id)!.source, 'dashboard');
+
+  const inserted: Record<string, unknown>[] = [];
+  const data: GenerationDataAccess<{ userId: string }> = {
+    getPreferences: async () => ({
+      skillLevel: 'professional', photographyInterests: ['night'], avoidsStyles: [], workDays: [], workStartTime: '09:00',
+      workEndTime: '17:00', lunchStartTime: '12:00', lunchEndTime: '13:00', primaryPhotoDay: 'Saturday',
+      secondaryPhotoDays: [], lunchBreakPhotography: true, eveningPhotography: true, wfhFlexibility: true,
+      adaptToWeather: true, adaptToCalendar: true, officeLocation: null, homeLocation: 'Hobart', currentLocation: null,
+    }),
+    listGearNames: async () => [],
+    listRecentChallengeTexts: async () => [],
+    findPendingIssuedSince: async () => null,
+    insertChallenge: async (scope, row) => {
+      inserted.push(row);
+      return { id: 'x', user_id: scope.userId, ...row } as any;
+    },
+    incrementIssued: async () => {},
+    logAgentAction: async () => {},
+  };
+  await generateChallengeFor({ data, services: deps.services }, { userId: BOB }, { challengeType: 'LUNCH_BREAK', source: 'job' });
+  assert.equal(inserted[0]!.source, 'job');
 });
 
 test('sync: 401 without a session, 400 for userId or bad input', async () => {

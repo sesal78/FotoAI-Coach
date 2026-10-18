@@ -22,7 +22,9 @@ export interface ChallengeRow {
   challenge_text: string;
   difficulty: string | null;
   category: string | null;
-  status: 'pending' | 'accepted' | 'skipped' | 'completed';
+  status: 'pending' | 'accepted' | 'skipped' | 'completed' | 'superseded';
+  /** Where the challenge came from (refactor 2B). Older code paths may omit it on insert. */
+  source?: 'dashboard' | 'chat' | 'plan' | 'job';
   issued_date: string;
   completed_date: string | null;
   [key: string]: unknown;
