@@ -23,6 +23,7 @@ function makeDeps(opts: { key?: string; weather?: WeatherDto | null } = {}) {
       FOTOAI_SUPABASE_SERVICE_ROLE_KEY: 'svc',
       FOTOAI_COOKIE_SECURE: false,
       NODE_ENV: 'test',
+      FOTOAI_AI_MODEL: 'gpt-6-luna',
       GOOGLE_MAPS_SERVER_API_KEY: opts.key,
     },
     now: () => new Date('2026-10-18T03:20:00Z'),
