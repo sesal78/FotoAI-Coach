@@ -50,11 +50,12 @@ function startsAtOn(value: string | null, date: string): string | null {
   return Math.abs(day - Date.parse(`${date}T00:00:00Z`)) <= DAY_MS ? value : null;
 }
 
-function toDraftSteps(output: ShootPlanOutput, date: string): DraftStep[] {
+/** Text is cleaned (the Google name replaced) before it is cut, so it always fits the limits. */
+function toDraftSteps(output: ShootPlanOutput, date: string, clean: (text: string) => string): DraftStep[] {
   return output.steps.slice(0, MAX_STEPS).map((step) => ({
-    title: cut(step.title, 80),
-    instruction: cut(step.instruction, 600),
-    tip: step.tip ? cut(step.tip, 200) : null,
+    title: cut(clean(step.title), 80),
+    instruction: cut(clean(step.instruction), 600),
+    tip: step.tip ? cut(clean(step.tip), 200) || null : null,
     startsAt: startsAtOn(step.startsAt, date),
     settings: toSettings(step.settings),
   }));
@@ -66,15 +67,18 @@ const issuesOf = (input: PlanInput, steps: DraftStep[]) =>
     return check.ok ? [] : check.issues;
   });
 
+/** Replaces the name as a whole word or phrase, any case ("Fed" is not replaced inside "Federal"). */
 function scrub(text: string, name: string): string {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(escaped, 'gi'), 'this spot');
+  return text.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu'), 'this spot');
 }
 
 export async function generateShootPlan(ai: AiClient, input: PlanInput): Promise<ShootPlanDraft> {
   const notes: string[] = [];
+  const name = input.place.kind === 'google' ? input.place.name : null;
+  const clean = (text: string) => (name ? scrub(text, name) : text);
   let output = (await ai.generate(SHOOT_PLAN_V1, input)).output;
-  let steps = toDraftSteps(output, input.date);
+  let steps = toDraftSteps(output, input.date, clean);
   let issues = issuesOf(input, steps);
 
   if (issues.some((list) => list.length > 0)) {
@@ -83,12 +87,13 @@ export async function generateShootPlan(ai: AiClient, input: PlanInput): Promise
       .filter(Boolean)
       .join('\n');
     output = (await ai.generate(SHOOT_PLAN_V1, input, { extra: `Some steps break the gear limits. Answer with the whole plan again, fixing:\n${listing}` })).output;
-    steps = toDraftSteps(output, input.date);
+    steps = toDraftSteps(output, input.date, clean);
     issues = issuesOf(input, steps);
   }
 
   const kept: DraftStep[] = [];
   steps.forEach((step, i) => {
+    if (!step.title || !step.instruction) return void notes.push(`Step ${i + 1} dropped: empty title or instruction`);
     const list = issues[i]!;
     if (list.length === 0) return void kept.push(step);
     if (list.every((issue) => EXPOSURE_FIELDS.has(issue.field))) {
@@ -102,12 +107,10 @@ export async function generateShootPlan(ai: AiClient, input: PlanInput): Promise
   });
   if (kept.length === 0) throw new AiError('upstream', 'The plan had no usable steps');
 
-  const name = input.place.kind === 'google' ? input.place.name : null;
-  const clean = (text: string) => (name ? scrub(text, name) : text);
   return {
-    title: clean(cut(output.title, 80)),
-    summary: clean(cut(output.summary, 400)),
-    steps: kept.map((step) => ({ ...step, title: clean(step.title), instruction: clean(step.instruction), tip: step.tip ? clean(step.tip) : null })),
+    title: cut(clean(output.title), 80),
+    summary: cut(clean(output.summary), 400),
+    steps: kept,
     notes,
     prompt: { id: SHOOT_PLAN_V1.id, version: SHOOT_PLAN_V1.version },
     model: ai.modelId,

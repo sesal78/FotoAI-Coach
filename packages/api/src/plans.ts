@@ -155,6 +155,8 @@ export const generatePlan: V2Body = async (request, deps) => {
   const loadout: Loadout = { body: saved.body.capability as Body, lens: saved.lens, ...(saved.film ? { film: saved.film } : {}) };
   if (loadout.body.type === 'film' && !loadout.film) throw new ApiError('validation', 'Load a film first');
 
+  // The plan limit comes before any Google call, so a refused plan costs no Places call.
+  await reserveCalls(deps.env, principal, 'plan_generate', 1, deps.now());
   const where = await resolvePlace(deps, principal, parsed.data);
   const { lat, lng } = where.place.location;
   const timezone = timezoneAt(lat, lng);
@@ -176,7 +178,6 @@ export const generatePlan: V2Body = async (request, deps) => {
   if (skills.error || critiques.error) throw upstream('load your skills');
   const weaknesses = [...new Set((critiques.data as Array<{ improvements: string[] | null }>).flatMap((c) => c.improvements ?? []))].slice(0, 5);
 
-  await reserveCalls(deps.env, principal, 'plan_generate', 1, deps.now());
   let draft;
   try {
     draft = await generateShootPlan(deps.ai, {
@@ -235,7 +236,9 @@ export const generatePlan: V2Body = async (request, deps) => {
     .select(STEP_COLUMNS)
     .order('position');
   if (stepError || !stepData) {
-    await db.from(T_PLANS).delete().eq('id', plan.id); // never leave a half plan
+    // Never leave a half plan; if even that fails, say so (the plan id only, no text).
+    const { error: cleanupError } = await db.from(T_PLANS).delete().eq('id', plan.id);
+    if (cleanupError) console.warn(`FotoAI v2 plan cleanup failed for plan ${plan.id}`);
     throw upstream('save the plan steps');
   }
 

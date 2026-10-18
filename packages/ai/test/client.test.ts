@@ -1,3 +1,4 @@
+import { APICallError } from 'ai';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 
@@ -84,4 +85,13 @@ test('assertStrictSchema refuses optional fields', () => {
   expect(() => assertStrictSchema(z.object({ a: z.string(), b: z.number().nullable() }))).not.toThrow();
   expect(() => assertStrictSchema(z.object({ a: z.string().optional() }))).toThrow(/a/);
   expect(() => assertStrictSchema(z.object({ steps: z.array(z.object({ tip: z.string().optional() })) }))).toThrow(/steps\.\[\]\.tip/);
+});
+
+test('a 4xx API error is not retried, and the log names the error and status only', async () => {
+  const err = new APICallError({ message: 'Invalid model gpt-6-luna for key sk-secret', url: 'https://api.openai.com/v1/responses', requestBodyValues: {}, statusCode: 404, isRetryable: false });
+  const { ai, model, logs } = setup([err]);
+  await expect(ai.generate(spec, { subject: 'trees' })).rejects.toMatchObject({ code: 'upstream' });
+  expect(model.doGenerateCalls).toHaveLength(1);
+  expect(logs.at(-1)).toMatch(/outcome=failed error=AI_APICallError status=404$/);
+  expect(logs.join('\n')).not.toMatch(/sk-secret|Invalid model/);
 });

@@ -176,3 +176,26 @@ test('a film body cannot take stops in ISO; the message names what is left', () 
   expect(settings).toMatchObject({ shutterSeconds: 1 / 2000, aperture: 22, iso: 400 });
   expect(changes.find((c) => c.field === 'shutterSeconds')!.message).toContain('1 stop brighter than asked');
 });
+
+test('two broken exposure fields are balanced against what was asked', () => {
+  const l = loadout('pentax-me-super', 'pentax-m-50mm-f1-7', portra400);
+  const s: Settings = { mode: 'M', aperture: 1.4, shutterSeconds: 1 / 4000, iso: 400, focalMm: 50 };
+  const { settings, changes } = clampSettings(l, s);
+  expect(settings).toMatchObject({ shutterSeconds: 1 / 2000, aperture: 2 });
+  expect(Math.abs(exposureStops(s, settings))).toBeLessThan(0.15);
+  expect(changes.map((c) => c.message).join(' ')).not.toMatch(/brighter|darker/);
+});
+
+test('a gap that cannot be closed is reported against what was asked', () => {
+  const l = loadout('fujifilm-x-t5', 'fujifilm-xf-23mm-f2-8');
+  const s: Settings = { mode: 'M', aperture: 11, shutterSeconds: 1 / 16000, iso: 50, focalMm: 23 };
+  const { settings, changes } = clampSettings(l, s);
+  expect(settings).toMatchObject({ shutterSeconds: 1 / 8000, aperture: 16, iso: 125 });
+  expect(changes.map((c) => c.message).join(' ')).toMatch(/1\.3 stops brighter than asked/);
+});
+
+test('in A mode the camera picks the shutter, so a clamped aperture needs no exposure note', () => {
+  const l = loadout('nikon-fe2', 'nikon-ai-s-28mm-f2-8', portra400);
+  const { changes } = clampSettings(l, { mode: 'A', aperture: 1.4, iso: 400, focalMm: 28 });
+  expect(changes.map((c) => c.message).join(' ')).not.toMatch(/brighter|darker/);
+});

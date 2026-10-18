@@ -4,7 +4,7 @@
 // outcome, never any prompt or answer text. Errors carry no model text.
 
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateText, Output, type LanguageModel } from 'ai';
+import { APICallError, generateText, Output, type LanguageModel } from 'ai';
 
 import type { PromptSpec } from './prompt.ts';
 
@@ -74,9 +74,14 @@ export function createAi(opts: { apiKey: string | undefined; modelId: string; lo
           const output = result.output as Awaited<ReturnType<typeof spec.schema.parse>>;
           log.info(line(attempt === 1 ? 'ok' : 'retried'));
           return { output, usage };
-        } catch {
-          if (attempt === ATTEMPTS) {
-            log.warn(line('failed'));
+        } catch (err) {
+          // A 4xx (bad key, unknown model, bad request) will not get better on a retry.
+          const status = APICallError.isInstance(err) ? err.statusCode : undefined;
+          const final = attempt === ATTEMPTS || (status !== undefined && status >= 400 && status < 500);
+          if (final) {
+            // The error name and status only: an API error message can carry response text.
+            const name = err instanceof Error ? err.name : 'unknown';
+            log.warn(`${line('failed')} error=${name}${status !== undefined ? ` status=${status}` : ''}`);
             throw new AiError('upstream', 'The AI service did not give a usable answer');
           }
         }

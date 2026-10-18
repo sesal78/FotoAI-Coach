@@ -64,6 +64,13 @@ describe.skipIf(!db)('fotoai_shoot_plans and fotoai_plan_steps', () => {
     expect(read.data).toMatchObject({ spot_id: null });
   });
 
+  test("a plan cannot point at another user's spot", async () => {
+    const theirs = await from(b, 'fotoai_places').insert({ user_id: b.id, source: 'user', name: 'Theirs', lat: -37.8, lng: 144.9 } as never).select('id').single();
+    const spotId = (theirs.data as unknown as Row).id as string;
+    const steal = await from(a, 'fotoai_shoot_plans').insert(planRow(a, { place_source: 'user', place_id: null, spot_id: spotId }) as never);
+    expect(steal.error?.message).toMatch(/fotoai_shoot_plans_spot_fkey/);
+  });
+
   test('deleting a plan deletes its steps', async () => {
     const id = await newPlan(a);
     await from(a, 'fotoai_plan_steps').insert(stepRow(a, id, 1) as never);

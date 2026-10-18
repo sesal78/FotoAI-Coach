@@ -158,6 +158,9 @@ export function exposureStops(a: Settings, b: Settings): number {
   return stops;
 }
 
+const exposureFieldsChanged = (a: Settings, b: Settings) =>
+  a.shutterSeconds !== b.shutterSeconds || a.aperture !== b.aperture || a.iso !== b.iso;
+
 const stopsText = (stops: number) => {
   const n = Math.round(Math.abs(stops) * 3) / 3;
   const amount = Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -182,30 +185,32 @@ export function clampSettings(loadout: Loadout, settings: Settings): { settings:
 
   let shutterNote = '';
   if (s.shutterSeconds !== undefined) {
-    const asked = s.shutterSeconds;
     if (cameraPicksShutter(body, s.mode)) delete s.shutterSeconds;
     else if (s.shutterSeconds < fastestAt(body, s.aperture)) s.shutterSeconds = fastestAt(body, s.aperture);
     else if (tooSlow(body, s.shutterSeconds)) s.shutterSeconds = body.shutter.slowestSeconds!;
-    if (s.shutterSeconds !== undefined && s.shutterSeconds !== asked) {
-      // Keep the exposure: the shutter gave `moved` stops; the aperture, then ISO, take them back.
-      const before: Settings = { ...s, shutterSeconds: asked };
-      const moved = Math.log2(s.shutterSeconds / asked);
-      if (s.aperture !== undefined) {
-        const widest = maxApertureAt(lens, focalFor(lens, s));
-        s.aperture = clamp(nearest(F_STOPS, clamp(s.aperture * 2 ** (moved / 2), widest, lens.minAperture)), widest, lens.minAperture);
-      }
-      const afterAperture = exposureStops(before, s);
-      if (Math.abs(afterAperture) >= 0.15 && body.type === 'digital' && body.iso && s.iso !== undefined) {
-        s.iso = clamp(nearest(ISOS, s.iso * 2 ** -afterAperture), body.iso.min, body.iso.max);
-      }
-      const left = exposureStops(before, s);
-      if (Math.abs(left) >= 0.15) shutterNote = `; ${stopsText(left)}`;
+  }
+  // A manual exposure (shutter and aperture both given) is kept equal to what was asked: the
+  // gap left by every clamp above is taken back by the aperture, then by ISO on a digital body.
+  // In A, S or P mode the camera meters, so there is nothing to balance.
+  const manual = settings.shutterSeconds !== undefined && settings.aperture !== undefined && s.shutterSeconds !== undefined && s.aperture !== undefined;
+  if (manual && exposureFieldsChanged(settings, s)) {
+    const gap = exposureStops(settings, s);
+    if (Math.abs(gap) >= 0.15) {
+      const widest = maxApertureAt(lens, focalFor(lens, s));
+      s.aperture = clamp(nearest(F_STOPS, clamp(s.aperture! * 2 ** (gap / 2), widest, lens.minAperture)), widest, lens.minAperture);
     }
+    const afterAperture = exposureStops(settings, s);
+    if (Math.abs(afterAperture) >= 0.15 && body.type === 'digital' && body.iso && s.iso !== undefined) {
+      s.iso = clamp(nearest(ISOS, s.iso * 2 ** -afterAperture), body.iso.min, body.iso.max);
+    }
+    const left = exposureStops(settings, s);
+    if (Math.abs(left) >= 0.15) shutterNote = `; ${stopsText(left)}`;
   }
   if (s.filmSimulation !== undefined && !(body.type === 'digital' && body.make === 'Fujifilm')) delete s.filmSimulation;
 
   // Every field that changed is listed, even when it follows from another fix (2C M8).
-  const changes = issues.map((issue) => (issue.field === 'shutterSeconds' && shutterNote ? { ...issue, message: issue.message + shutterNote } : issue));
+  const noteField = (['shutterSeconds', 'aperture', 'iso'] as const).find((f) => issues.some((i) => i.field === f));
+  const changes = issues.map((issue) => (issue.field === noteField && shutterNote ? { ...issue, message: issue.message + shutterNote } : issue));
   const FIELDS = ['mode', 'aperture', 'shutterSeconds', 'iso', 'focalMm', 'filmSimulation'] as const;
   for (const field of FIELDS) {
     if (settings[field] !== s[field] && !changes.some((c) => c.field === field)) {

@@ -127,3 +127,35 @@ test('weather null says "weather unavailable" in the prompt; long text is cut to
 test('the shoot plan output schema has no optional fields (strict mode)', () => {
   expect(() => assertStrictSchema(SHOOT_PLAN_V1.schema)).not.toThrow();
 });
+
+test('a short Google name is replaced before the cut, so text stays within the limits', async () => {
+  const mcg = { ...FED, name: 'MCG' };
+  const title = `MCG ${'x'.repeat(70)} MCG`;
+  const answer = plan([step({ title, instruction: `MCG ${'y'.repeat(594)}`, settings: { mode: 'A', aperture: 8, iso: 125 } })], { title, summary: `MCG ${'z'.repeat(396)}` });
+  const { ai } = setup([answer]);
+  const draft = await generateShootPlan(ai, input({ place: mcg }));
+  expect(draft.title.length).toBeLessThanOrEqual(80);
+  expect(draft.summary.length).toBeLessThanOrEqual(400);
+  expect(draft.steps[0]!.title.length).toBeLessThanOrEqual(80);
+  expect(draft.steps[0]!.instruction.length).toBeLessThanOrEqual(600);
+  expect(JSON.stringify(draft)).not.toContain('MCG');
+});
+
+test('a step with an empty title or instruction is dropped with a note', async () => {
+  const answer = plan([
+    step({ title: '   ', settings: { mode: 'A', aperture: 8, iso: 125 } }),
+    step({ instruction: '', settings: { mode: 'A', aperture: 8, iso: 125 } }),
+    step({ title: 'Good', settings: { mode: 'A', aperture: 8, iso: 125 } }),
+  ]);
+  const { ai } = setup([answer]);
+  const draft = await generateShootPlan(ai, input());
+  expect(draft.steps.map((s) => s.title)).toEqual(['Good']);
+  expect(draft.notes.filter((n) => /empty/.test(n))).toHaveLength(2);
+});
+
+test('the name is replaced as a whole word only', async () => {
+  const answer = plan([step({ title: 'Fed steps', instruction: 'The Federal building faces Fed.', settings: { mode: 'A', aperture: 8, iso: 125 } })]);
+  const { ai } = setup([answer]);
+  const draft = await generateShootPlan(ai, input({ place: { ...FED, name: 'Fed' } }));
+  expect(draft.steps[0]!.instruction).toBe('The Federal building faces this spot.');
+});
