@@ -1,0 +1,21 @@
+{
+  "name": "@fotoai/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./service": "./src/service-client.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:types": "npx --yes supabase@2.118.0 gen types typescript --local --schema public --workdir ../.. > src/types.gen.ts"
+  },
+  "dependencies": {
+    "@fotoai/env": "workspace:*",
+    "@supabase/supabase-js": "^2.76.0"
+  }
+}
