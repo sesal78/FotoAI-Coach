@@ -59,3 +59,23 @@ test('weather: unknown place or a failing service returns null (callers carry on
   assert.equal(await getWeather('Melbourne', async () => new Response('down', { status: 503 })), null);
   assert.equal(await getWeather('   ', stubFetch({ results: [MELBOURNE_AU] }, FORECAST)), null);
 });
+
+test('weather: a timeout is retried once; a second failure returns null', async () => {
+  let geoCalls = 0;
+  const flaky = async (url: string) => {
+    if (url.startsWith('https://geocoding-api.open-meteo.com/')) {
+      geoCalls += 1;
+      if (geoCalls === 1) throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      return new Response(JSON.stringify({ results: [MELBOURNE_AU] }));
+    }
+    return new Response(JSON.stringify(FORECAST));
+  };
+  const w = await getWeather('Melbourne, Australia', flaky);
+  assert.equal(w?.condition, 'Clouds');
+  assert.equal(geoCalls, 2);
+
+  let calls = 0;
+  const down = async () => { calls += 1; throw new TypeError('fetch failed'); };
+  assert.equal(await getWeather('Melbourne', down), null);
+  assert.equal(calls, 2, 'retried exactly once');
+});

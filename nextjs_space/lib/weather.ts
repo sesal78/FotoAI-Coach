@@ -25,6 +25,15 @@ export interface PhotoWeatherAnalysis {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/** One retry on a timeout or network error: Open-Meteo is occasionally slow. HTTP errors are not retried. */
+async function fetchWithRetry(fetchImpl: FetchLike, url: string): Promise<Response> {
+  try {
+    return await fetchImpl(url, { signal: AbortSignal.timeout(10000) });
+  } catch {
+    return fetchImpl(url, { signal: AbortSignal.timeout(10000) });
+  }
+}
+
 // WMO weather codes (Open-Meteo) -> the condition names analyzeWeatherForPhotography expects.
 function conditionFromWmo(code: number): { condition: string; description: string } {
   if (code === 0) return { condition: 'Clear', description: 'clear sky' };
@@ -51,7 +60,7 @@ export async function getWeather(location: string, fetchImpl: FetchLike = fetch)
     const hint = rest.join(' ').toLowerCase();
 
     const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(rawName)}&count=10&language=en&format=json`;
-    const geoResponse = await fetchImpl(geoUrl, { signal: AbortSignal.timeout(10000) });
+    const geoResponse = await fetchWithRetry(fetchImpl, geoUrl);
     if (!geoResponse.ok) throw new Error(`Geocoding failed: ${geoResponse.status}`);
     const geoData = (await geoResponse.json()) as { results?: Array<Record<string, unknown>> };
     const results = geoData.results ?? [];
@@ -72,7 +81,7 @@ export async function getWeather(location: string, fetchImpl: FetchLike = fetch)
       + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,cloud_cover,weather_code,visibility'
       + '&daily=sunrise,sunset&forecast_days=1&timezone=auto&timeformat=unixtime'
       + '&temperature_unit=fahrenheit&wind_speed_unit=mph';
-    const weatherResponse = await fetchImpl(weatherUrl, { signal: AbortSignal.timeout(10000) });
+    const weatherResponse = await fetchWithRetry(fetchImpl, weatherUrl);
     if (!weatherResponse.ok) throw new Error(`Weather API failed: ${weatherResponse.status}`);
     const data = (await weatherResponse.json()) as {
       current: Record<string, number>;

@@ -51,3 +51,7 @@ prisma/*.db-journal
 
 # OS
 Thumbs.db
+
+# Playwright (local e2e)
+/test-results/
+/playwright-report/
