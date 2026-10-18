@@ -52,9 +52,9 @@ type StepRow = {
 };
 
 const upstream = (what: string) => new ApiError('upstream', `Could not ${what}`);
-const fromAi = (err: unknown) => (err instanceof AiError ? new ApiError(err.code, err.message) : err);
+export const fromAi = (err: unknown) => (err instanceof AiError ? new ApiError(err.code, err.message) : err);
 
-function requireAi(deps: V2Deps): void {
+export function requireAi(deps: V2Deps): void {
   if (!deps.ai.configured) throw new ApiError('config', 'AI is not configured');
 }
 

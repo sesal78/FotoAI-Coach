@@ -27,6 +27,7 @@ export {
   PHOTO_TYPES,
   PhotoRef,
   PLACE_ID_RE,
+  PlaceExplanationDto,
   PlaceDetail,
   PlaceSummary,
   SpotDto,

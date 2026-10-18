@@ -25,3 +25,4 @@ export { addMySpot, deleteMySpot, listMySpots, updateMySpot } from './spots.ts';
 export { exploreNearby, exploreSearch, getConditions, getPlace, getPlacePhoto } from './explore.ts';
 export { generatePlan, getPlan, listPlans, patchPlan, patchPlanStep } from './plans.ts';
 export { loadSavedLoadout } from './gear.ts';
+export { explainGooglePlace, explainSpot } from './explain.ts';

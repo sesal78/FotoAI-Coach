@@ -62,13 +62,17 @@ const window = (w: Window) => (w ? `${time(w.start)}–${time(w.end)}` : 'none')
 const cap = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
 const shutterText = (s: number | null) => (s === null ? 'unknown' : s >= 1 ? `${s} s` : `1/${Math.round(1 / s)} s`);
 
+export function renderLight(light: LightTimes): string {
+  return `Light: sunrise ${time(light.sunrise)}, sunset ${time(light.sunset)}; golden ${window(light.goldenMorning)} and ${window(light.goldenEvening)}; blue ${window(light.blueMorning)} and ${window(light.blueEvening)}.`;
+}
+
 function renderPlace(place: PlanPlace): string {
   const at = `${place.location.lat.toFixed(4)}, ${place.location.lng.toFixed(4)}`;
   if (place.kind === 'google') return `Place (from Google Places): ${place.name}; types: ${place.types.join(', ') || 'none'}; at ${at}.`;
   return `Place (user-provided pin): ${place.name}; at ${at}; the photographer's notes: ${place.notes ? cap(place.notes, 2000) : 'none'}.`;
 }
 
-function renderWeather(weather: WeatherDto | null): string {
+export function renderWeather(weather: WeatherDto | null): string {
   if (!weather) return 'Weather: weather unavailable.';
   const c = weather.current;
   const hours = weather.hourly.map((h) => `${time(h.time)} ${h.condition} ${h.cloudPct}% cloud`).join('; ');
@@ -93,7 +97,7 @@ export const SHOOT_PLAN_V1: PromptSpec<PlanInput, ShootPlanOutput> = {
     [
       renderPlace(input.place),
       `Date: ${input.date}; timezone ${input.light.timezone}.`,
-      `Light: sunrise ${time(input.light.sunrise)}, sunset ${time(input.light.sunset)}; golden ${window(input.light.goldenMorning)} and ${window(input.light.goldenEvening)}; blue ${window(input.light.blueMorning)} and ${window(input.light.blueEvening)}.`,
+      renderLight(input.light),
       renderWeather(input.weather),
       renderGear(input.loadout),
       `Skills: ${input.skills.slice(0, 30).map((s) => `${s.id} (${s.status})`).join(', ') || 'none'}.`,

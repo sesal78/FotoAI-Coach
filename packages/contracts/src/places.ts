@@ -87,3 +87,11 @@ export const SpotDto = z.object({
   unavailable: z.boolean(),
 });
 export type SpotDto = z.infer<typeof SpotDto>;
+
+export const PlaceExplanationDto = z.object({
+  bestLight: z.string().max(300),
+  angles: z.array(z.string().max(200)).max(3),
+  caution: z.string().max(200).nullable(),
+  prompt: z.object({ id: z.string(), version: z.number().int() }),
+});
+export type PlaceExplanationDto = z.infer<typeof PlaceExplanationDto>;

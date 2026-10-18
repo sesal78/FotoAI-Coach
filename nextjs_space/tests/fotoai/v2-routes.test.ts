@@ -63,3 +63,11 @@ test('the 2E-1 plan route modules load and answer 401 without a token (no networ
   const step = await import('../../app/api/v2/plans/[id]/steps/[stepId]/route.ts');
   assert.equal((await step.PATCH(new Request(`http://localhost/api/v2/plans/${id}/steps/${id}`, { method: 'PATCH', body: '{}' }), params)).status, 401);
 });
+
+test('the 2E-1 explain route modules load and answer 401 without a token (no network call)', async () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  const google = await import('../../app/api/v2/places/[placeId]/explain/route.ts');
+  assert.equal((await google.GET(new Request('http://localhost/api/v2/places/x/explain'), { params: { placeId: 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ' } })).status, 401);
+  const spot = await import('../../app/api/v2/me/spots/[id]/explain/route.ts');
+  assert.equal((await spot.GET(new Request('http://localhost/api/v2/me/spots/x/explain'), { params: { id } })).status, 401);
+});
