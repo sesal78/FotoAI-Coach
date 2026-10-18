@@ -5,6 +5,7 @@
 import { HTTP_STATUS_BY_CODE, type ErrorCode } from '@fotoai/contracts';
 import { createTokenVerifier, type TokenVerifier } from '@fotoai/db';
 import { createServerEnv, type ServerEnv } from '@fotoai/env';
+import { createWeatherService, type FetchLike, type WeatherService } from '@fotoai/places';
 
 export class ApiError extends Error {
   readonly code: ErrorCode;
@@ -24,6 +25,10 @@ export interface V2Deps {
   env: ServerEnv;
   now: () => Date;
   verifyToken: TokenVerifier;
+  /** Outside calls (Google, weather); injected in tests. */
+  fetch: FetchLike;
+  /** One weather service per process, so its cache is shared. */
+  weather: WeatherService;
 }
 
 export type V2DepsProvider = () => V2Deps;
@@ -59,7 +64,8 @@ let memo: V2Deps | null = null;
 export const defaultV2Deps: V2DepsProvider = () => {
   if (!memo) {
     const env = createServerEnv();
-    memo = { env, now: () => new Date(), verifyToken: createTokenVerifier(env) };
+    const fetchImpl: FetchLike = (url, init) => fetch(url, init);
+    memo = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fetchImpl, weather: createWeatherService({ fetch: fetchImpl }) };
   }
   return memo;
 };

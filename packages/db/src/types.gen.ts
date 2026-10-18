@@ -127,6 +127,19 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"fotoai_places": {
+                  Row: {
+                    "created_at": string,"favourite": boolean,"id": string,"lat": number | null,"lng": number | null,"name": string | null,"notes": string | null,"place_id": string | null,"source": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"favourite"?: boolean,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name"?: string | null,"notes"?: string | null,"place_id"?: string | null,"source": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"favourite"?: boolean,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name"?: string | null,"notes"?: string | null,"place_id"?: string | null,"source"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"fotoai_portfolio_analyses": {
                   Row: {
                     "analysis": NonNullable<Json>,"analysis_date": string,"created_at": string,"id": string,"legacy_appwrite_id": string | null,"photo_count": number,"user_id": string

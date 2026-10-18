@@ -1,0 +1,103 @@
+{
+ "id": "ChIJ0T2NLmJC1moRbU6M9oX9mWQ",
+ "displayName": {
+  "text": "Federation Square",
+  "languageCode": "en"
+ },
+ "formattedAddress": "Swanston St & Flinders St, Melbourne VIC 3000, Australia",
+ "location": {
+  "latitude": -37.8179789,
+  "longitude": 144.9690576
+ },
+ "types": [
+  "tourist_attraction"
+ ],
+ "primaryType": "tourist_attraction",
+ "googleMapsUri": "https://maps.google.com/?cid=7248366838592228973",
+ "photos": [
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q1photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 1",
+     "uri": "https://maps.google.com/maps/contrib/101",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  },
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q2photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 2",
+     "uri": "https://maps.google.com/maps/contrib/102",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  },
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q3photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 3",
+     "uri": "https://maps.google.com/maps/contrib/103",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  },
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q4photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 4",
+     "uri": "https://maps.google.com/maps/contrib/104",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  },
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q5photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 5",
+     "uri": "https://maps.google.com/maps/contrib/105",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  },
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q6photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 6",
+     "uri": "https://maps.google.com/maps/contrib/106",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  },
+  {
+   "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q7photoRef0123456789abcdef",
+   "widthPx": 4032,
+   "heightPx": 3024,
+   "authorAttributions": [
+    {
+     "displayName": "Photographer 7",
+     "uri": "https://maps.google.com/maps/contrib/107",
+     "photoUri": "https://lh3.googleusercontent.com/a/x"
+    }
+   ]
+  }
+ ]
+}

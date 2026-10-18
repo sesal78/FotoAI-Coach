@@ -14,7 +14,7 @@ describe.skipIf(!db)('v2 preferences against the local Supabase', () => {
 
   beforeAll(async () => {
     const env = testEnv(db!);
-    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env) };
+    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch, weather: { get: async () => null } };
     [a, b] = await Promise.all([createTestUser(db!, 'prefs-a'), createTestUser(db!, 'prefs-b')]);
   });
 

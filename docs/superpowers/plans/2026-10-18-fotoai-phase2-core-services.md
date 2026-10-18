@@ -54,6 +54,7 @@
 3. **A v2 route reads env at import time and breaks `next build` without secrets.** CI builds with no `FOTOAI_*` variables. (2A Task 3, test `importing a v2 route module does not read env or build deps`.)
 4. **Malformed bearer tokens.** Cases like `Bearer ` (empty), lowercase `bearer`, a header and a cookie both present, a token with whitespace or over 8192 characters, and a token for a deleted user must all give 401, never a 500 or a wrong user. (2A Task 4, tests `rejects malformed Authorization headers` and `prefers the bearer token over the cookie`.)
 5. **An offline-queued write retried after it already succeeded.** The phone resends a frame or a step change with the same client id. It must not double-count, double-award XP, or 409 the queue to a stop. (2E Task 4, test `replaying the same client id is a no-op that returns the stored record`.)
+6. **The Google key reaches a client.** It must travel only in the `X-Goog-Api-Key` header to Google. A photo URL, an error message or a log line that carries it is a leak. (2D Task D3, tests `the key goes in the header only` and `a photoUri that contains the key is refused`; Task D7, test `responses never contain the Google key`.)
 
 ---
 
@@ -888,21 +889,324 @@ Same pattern as B7:
 7. **Optional, needs a separate yes:** attach Seun's kit to his account. That means inserting 5 body and 7 lens gear rows linked to the catalog, using his user id looked up on the server. The alternative is to let him add the kit in the app in phase 3.
 8. On failure: redeploy the pinned rollback branch. The migration stays, because it only adds.
 
-## Sub-phase 2D — Places, light, weather (task level)
+## Sub-phase 2D — Places, light, weather (step level; expanded 18 Oct 2026 after 2C shipped)
 
-**Ships:** `packages/places` with Google Places, light times, metric weather with a fallback, `fotoai_places` (Google or user pins), and the v2 explore endpoints.
+**Ships:**
+- light times computed in code (`@fotoai/core`, no network, so the phone can use it offline later);
+- metric weather from Open-Meteo, with MET Norway as the fallback (`@fotoai/places`);
+- a Google Places client: nearby search, text search, details and photos (`@fotoai/places`);
+- `fotoai_places` for the user's saved spots (Google places and their own pins);
+- a v2 rate limiter for the paid Google calls;
+- the v2 conditions, explore, place and my-spots endpoints.
 
-**Prerequisite (Seun):** a Google Maps Platform billing account, plus a server key restricted to the Places API (New), stored as `GOOGLE_MAPS_SERVER_API_KEY` in Dokploy env. Without it, everything except the live smoke test still ships, against recorded fixtures.
+**Prerequisite (Seun), before Task D8 only:**
+- a Google Maps Platform billing account, and a server key restricted to the Places API (New);
+- daily quotas set in Google Cloud so a bug cannot run up a bill: suggested Nearby Search 150/day, Text Search 100/day, Place Details 300/day, Place Photos 30/day;
+- Seun adds the key as `GOOGLE_MAPS_SERVER_API_KEY` in the Dokploy env themself (agents do not type keys into fields).
 
-| Task | Deliverable | Key interfaces and tests |
-|---|---|---|
-| 1. Light | `lightTimes(lat: number, lng: number, date: Date): { timezone: string; goldenMorning; sunrise; sunset; goldenEvening; blueEvening; … }`. It uses suncalc (or equal) and a timezone-from-coordinates library, with times as ISO strings in the place's zone. | Fixtures: Melbourne CBD on 18 Oct 2026 matches a reference table within 1 minute; polar-day input gives `null` times, not an exception. |
-| 2. Weather | `getWeather(lat, lng, fetch): Promise<Weather \| null>`. It calls Open-Meteo (metric, the existing single retry) and falls back to MET Norway Locationforecast with the required `User-Agent`. | Tests with an injected fetch: primary OK; primary 5xx → fallback used; both down → `null` and one warning log. |
-| 3. Places client | `createPlacesClient({ key, fetch }): { nearby(lat, lng, radiusM, types); search(text, near?); details(placeId); photoUrl(photoName, maxPx) }`, with field masks kept minimal and costs logged. | Recorded-fixture tests; a missing key gives `ApiError('config')`; never stores names or photos. |
-| 4. Places table + my spots | `fotoai_places(source google\|user, place_id nullable, name for user pins only, lat, lng, notes, favourite)` with owner RLS. | RLS integration test; a user pin with no `place_id` is accepted; a Google row with a name is rejected by a CHECK. |
-| 5. Rate limits | Add `places: 120` and `plan_generate: 20` per hour to the rate-limit table, shared with the live app's `reserveLlmCall` pattern. | Test: request 121 within an hour gives 429. |
-| 6. v2 explore endpoints | `GET /api/v2/explore/nearby?lat&lng`, `GET /api/v2/places/:placeId` (details + light + weather), `GET/POST/PATCH/DELETE /api/v2/me/spots`. | Test: the AI-written description endpoint passes only the Places facts it was given (no free-text place names in the prompt from the user). |
-| 7. PR + approval + migration + env + deploy | Google key env set by Seun; live smoke `GET /api/v2/explore/nearby` near Flinders St returns real `place_id`s. | |
+Tasks D1–D7 need no key: they test against recorded fixtures. Without the key, everything ships and the Google endpoints answer 500 `config`.
+
+**Facts checked on 18 Oct 2026 (sources in the 2D ledger):**
+- Google terms: `place_id` may be stored with no time limit. Coordinates from Places may be cached for 30 days at most. Names, photos, ratings and photo names must not be stored.
+- Google prices: Nearby Search is Pro (5,000 free a month); Place Photos is Enterprise (1,000 free a month). `rating` or `userRatingCount` in a field mask moves a request to Enterprise.
+- Place Photos: `GET /v1/{photoName}/media?skipHttpRedirect=true` returns JSON with a `photoUri`. A photo's `authorAttributions` must be shown with the full-size image.
+- MET Norway: needs a User-Agent with the app name and a contact website or email; at most 4 decimals in coordinates; do not ask again before the `Expires` time; data is CC BY 4.0.
+- Open-Meteo: metric by default; `timeformat=unixtime` keeps times right across a DST change; the free tier is for non-commercial use only; data is CC BY 4.0.
+- Libraries: `suncalc` 2.x (2026; types bundled; polar days give `null` times) and `@photostructure/tz-lookup` 11.x (CC0, no dependencies, 88 KB).
+- Reference: Melbourne CBD (-37.8136, 144.9631) on 18 Oct 2026 has sunrise 06:29:34 and sunset 19:41:10 AEDT (sunrise-sunset.org).
+
+**2D decisions (planner's calls):**
+- **Google rows store only the `place_id`.** Their name and coordinates are fetched fresh from Place Details when shown. This replaces "store coordinates long-term" in spec 5.3, which the 30-day rule does not allow. A CHECK enforces it: a Google row has no name and no coordinates. A user pin stores its name and coordinates, because they are the user's own data.
+- **The AI place explanation moves to 2E.** "Best light and best angle" needs `packages/ai`, which 2E builds. 2D returns only facts from Places, light and weather. The test that the AI is given only the facts it may use moves with it (2E Task 2b).
+- **Light lives in `@fotoai/core`.** It is pure code with no network, so the Android app can show light times offline later. Google and weather calls live in a new server-only package, `@fotoai/places`.
+- **Light definitions.** Golden hour is the sun between +6° and −4°. Blue hour is the sun between −4° and −8°. Times are ISO strings with the place's UTC offset, for example `2026-10-18T19:41:10+11:00`. A time that does not happen that day (polar day or night) is `null`.
+- **Weather keeps Open-Meteo first,** as Seun confirmed. Its free tier is non-commercial; before FotoAI makes money, either MET Norway becomes the primary source or an Open-Meteo plan is bought. This is recorded as an open item, not built now.
+- **Weather is cached in memory** for 15 minutes per place (coordinates rounded to 2 decimals for the key), or until MET's `Expires` time. This keeps both services' rules. The cache holds at most 500 entries.
+- **Photos are fetched on demand only.** A list returns each place's first photo name, never a photo URL. The client asks for a URL only when it shows the photo. Photo calls have their own, lower limit, because only 1,000 are free a month.
+- **Rate limits** use the live app's pattern: one `fotoai_agent_actions` row per admitted call, counted per user per hour. v2 adds `places: 120` and `place_photos: 30`. `plan_generate` comes in 2E with the plan generator.
+- **Migration file name.** It is `20261019100002_places.sql`, so it sorts after the 2C file `20261019100001_gear_catalog.sql`, which is already applied. The CLI refuses a file that sorts before an applied one.
+
+### Task D1: Light times
+
+**Files:**
+- Modify: `packages/core/package.json` (add `suncalc` and `@photostructure/tz-lookup`, exact versions, each published at least 14 days before install)
+- Create: `packages/core/src/light/light.ts`, `packages/core/src/light/zoned.ts`
+- Modify: `packages/core/src/index.ts`
+- Test: `packages/core/test/light.test.ts`
+
+**Interfaces:**
+- Produces, in `@fotoai/core`:
+  - `timezoneAt(lat: number, lng: number): string` (IANA name, such as `Australia/Melbourne`);
+  - `toZonedIso(instant: Date, timeZone: string): string` (ISO with the zone's offset at that instant, seconds precision);
+  - `localDate(instant: Date, timeZone: string): string` (`YYYY-MM-DD` in that zone);
+  - `type Window = { start: string; end: string } | null`;
+  - `interface LightTimes { date: string; timezone: string; sunrise: string | null; sunset: string | null; solarNoon: string; goldenMorning: Window; goldenEvening: Window; blueMorning: Window; blueEvening: Window; moonrise: string | null; moonset: string | null; moonIllumination: number; sunAlwaysUp: boolean; sunAlwaysDown: boolean }`;
+  - `lightTimes(lat: number, lng: number, date?: string): LightTimes`. `date` is `YYYY-MM-DD` in the place's zone, and the default is today there. The day is computed from local noon in that zone.
+- Rules:
+  - Throws `RangeError` for latitude outside −90..90, longitude outside −180..180, or a malformed date.
+  - A window with a missing end (the sun never reaches the angle) is `null`, never half-filled.
+  - `suncalc.addTime` runs once at module load, for −4° and −8°. The implementer reads the suncalc 2.x README first, because 2.0 changed units and conventions.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('Melbourne CBD on 18 Oct 2026 matches the reference within 2 minutes', () => {
+  const t = lightTimes(-37.8136, 144.9631, '2026-10-18');
+  expect(t.timezone).toBe('Australia/Melbourne');
+  expect(minutesApart(t.sunrise!, '2026-10-18T06:29:34+11:00')).toBeLessThanOrEqual(2);
+  expect(minutesApart(t.sunset!, '2026-10-18T19:41:10+11:00')).toBeLessThanOrEqual(2);
+});
+test('the evening runs golden, then sunset, then blue, in order', () => { /* goldenEvening.start < sunset < goldenEvening.end === blueEvening.start < blueEvening.end */ });
+test('times carry the offset of the day itself across a DST change', () => {
+  // Melbourne DST ends 4 Apr 2027: sunset on 3 Apr has +11:00, on 5 Apr +10:00
+});
+test('polar day in Tromsø gives null sun times, not an exception', () => {
+  const t = lightTimes(69.6492, 18.9553, '2026-06-21');
+  expect(t).toMatchObject({ sunrise: null, sunset: null, sunAlwaysUp: true, goldenEvening: null });
+});
+test('the default date is today in the place, not on the server', () => { /* fake time 2026-10-18T14:00Z: Melbourne is already 19 Oct */ });
+test('bad coordinates and dates throw RangeError', () => { /* lat 91, lng -181, '2026-13-01' */ });
+test('timezoneAt and toZonedIso agree on a known instant', () => { /* 2026-10-18T08:41:10Z in Australia/Melbourne → 2026-10-18T19:41:10+11:00 */ });
+```
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+  - Run: `pnpm --filter @fotoai/core test`
+  - Expected: FAIL, because the module is missing.
+
+- [ ] **Step 3: Implement** `zoned.ts` (with `Intl.DateTimeFormat` and `timeZoneName: 'longOffset'`) and `light.ts`.
+
+- [ ] **Step 4: Run and confirm they pass.**
+  - Run: `pnpm typecheck && pnpm lint && pnpm test`
+  - Expected: all pass.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(core): light times in the place's timezone"`
+
+### Task D2: Weather with a fallback
+
+**Files:**
+- Create: `packages/places/package.json` (`@fotoai/places`; it depends on `@fotoai/contracts` and `@fotoai/core`), plus `tsconfig.json`, `vitest.config.ts` and `eslint` setup copied from `@fotoai/api`
+- Create: `packages/places/src/weather.ts`, `packages/places/src/index.ts`
+- Create: `packages/contracts/src/conditions.ts` (zod `LightTimesDto`, `WeatherDto`)
+- Test: `packages/places/test/weather.test.ts`, `packages/places/test/fixtures/open-meteo-melbourne.json`, `packages/places/test/fixtures/met-norway-melbourne.json`, `packages/contracts/test/conditions.test.ts`
+
+**Interfaces:**
+- `type FetchLike = (url: string, init?: RequestInit) => Promise<Response>`.
+- `WeatherDto = { source: 'open-meteo' | 'met-norway'; attribution: string; fetchedAt: string; timezone: string; current: { time; temperatureC; windKph; cloudPct; precipitationMm: number | null; humidityPct: number | null; condition: Condition }; hourly: Array<{ time; temperatureC; cloudPct; precipitationMm: number | null; condition: Condition }> }`. `hourly` covers the next 24 hours, because cloud at sunset matters for golden hour.
+- `Condition = 'clear' | 'partly_cloudy' | 'cloudy' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'thunder' | 'unknown'`.
+- `createWeatherService({ fetch, now, log }): { get(lat: number, lng: number): Promise<WeatherDto | null> }`.
+- Rules:
+  - Open-Meteo first: metric defaults, `timeformat=unixtime`, `forecast_days=2`, one retry on a timeout or network error (the live app's rule). HTTP errors are not retried.
+  - On any Open-Meteo failure (network, non-2xx, or a body that fails to parse), MET Norway `locationforecast/2.0/compact` is called. Coordinates are rounded to 4 decimals. The User-Agent is `FotoAI-Coach/2 (+https://myfoto.topues.com)`. Wind is converted from m/s to km/h.
+  - All times are converted with `toZonedIso` into `timezoneAt(lat, lng)`.
+  - Both down: `null`, and exactly one warning log line that names both failures (no URL with coordinates beyond 2 decimals, no body).
+  - Cache: keyed on coordinates rounded to 2 decimals. It lives 15 minutes, or until MET's `Expires` header when MET answered. At most 500 entries; the oldest goes first. A `null` result is not cached.
+
+- [ ] **Step 1: Write the failing tests** (with an injected fetch that records calls):
+
+```ts
+test('Open-Meteo answers: metric current values and 24 hourly rows in the place zone', () => {});
+test('Open-Meteo 503: MET Norway is used, with 4-decimal coordinates and the contact User-Agent', () => {});
+test('Open-Meteo times out twice: MET Norway is used', () => {});
+test('both down: null and one warning log', () => {});
+test('a second call within 15 minutes is served from the cache; after 16 minutes it fetches again', () => {});
+test('MET Expires is respected: no new MET call before it', () => {});
+test('WMO and MET symbol codes map to the same conditions', () => { /* WMO 2 and partlycloudy_day → partly_cloudy; WMO 95 and heavyrainandthunder → thunder */ });
+```
+
+  - The contract test checks that `WeatherDto.parse` accepts both fixtures' service output and rejects a reply without `attribution`.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+- [ ] **Step 3: Implement.** The fixtures are written from the documented response shapes; Task D8's live smoke confirms them.
+- [ ] **Step 4: Run and confirm they pass** (full gate).
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(places): metric weather from Open-Meteo with MET Norway fallback"`
+
+### Task D3: Google Places client
+
+**Files:**
+- Modify: `packages/env/src/server.ts` (add optional `GOOGLE_MAPS_SERVER_API_KEY`), `.env.example`
+- Create: `packages/places/src/google.ts`
+- Create: `packages/contracts/src/places.ts` (zod `PlaceSummary`, `PlaceDetail`, `PhotoRef`, `PHOTO_TYPES`)
+- Test: `packages/places/test/google.test.ts`, fixtures `packages/places/test/fixtures/places-nearby.json`, `places-search.json`, `places-details.json`, `places-photo.json`; `packages/env/test/*` (extended)
+
+**Interfaces:**
+- `PhotoRef = { name: string; attributions: Array<{ displayName: string; uri: string | null }> }`.
+- `PlaceSummary = { placeId; name; location: { lat; lng }; primaryType: string | null; types: string[]; distanceM: number | null; photo: PhotoRef | null }` (first photo only).
+- `PlaceDetail = PlaceSummary & { formattedAddress: string | null; googleMapsUri: string | null; photos: PhotoRef[] }` (up to 5 photos).
+- `createPlacesClient({ key, fetch, log }): { nearby(lat, lng, radiusM, types?): Promise<PlaceSummary[]>; search(text, near?: { lat; lng; radiusM }): Promise<PlaceSummary[]>; details(placeId, fields?: 'summary' | 'detail'): Promise<PlaceDetail | null>; photoUri(photoName, maxPx): Promise<{ photoUri: string }> }`.
+- **Field masks are constants** and Pro fields only: `id`, `displayName`, `location`, `types`, `primaryType`, `photos`, plus `formattedAddress` and `googleMapsUri` for details. Never `rating`, `userRatingCount`, `reviews`, `editorialSummary`, `regularOpeningHours` or `priceLevel`.
+- Rules:
+  - `key` is `undefined` → every method throws `ApiError('config', 'Places is not configured')`. The key is sent only in the `X-Goog-Api-Key` header, never in a URL.
+  - `nearby`: radius 1..50,000 m, `maxResultCount` 20. The default types are `tourist_attraction`, `park`, `beach`, `national_park`, `hiking_area`, `observation_deck`, `garden`, `historical_landmark`, `marina`, `plaza`, `scenic_spot`. `distanceM` is computed from the request point.
+  - `search`: text 1..120 characters; `pageSize` 20; `locationBias` circle when `near` is given.
+  - `details` returns `null` on 404; other non-2xx answers throw `ApiError('upstream')` with no Google text in the message.
+  - `photoUri`: the photo name must match `^places/[A-Za-z0-9_-]{10,300}/photos/[A-Za-z0-9_-]{10,1000}$`; `maxPx` 1..1600; `skipHttpRedirect=true`. If the returned `photoUri` contains the key, it throws `ApiError('upstream')` and logs a warning, so a key can never reach a client.
+  - Every call logs one line: `places call sku=<nearby_pro|search_pro|details_pro|photo_enterprise> status=<n>`, with no key, text or coordinates.
+
+- [ ] **Step 1: Write the failing tests:**
+
+```ts
+test('no key: every method is a config error and fetch is never called', () => {});
+test('the key goes in the header only, and field masks hold no Enterprise fields', () => { /* inspect recorded requests: URL has no key; mask ⊆ PRO_FIELDS */ });
+test('nearby maps the fixture to summaries with distance and the first photo', () => {});
+test('search sends a location bias when given a point', () => {});
+test('details 404 is null; details 500 is upstream without Google text', () => {});
+test('a photo name for another path or with ../ is rejected before any fetch', () => {});
+test('a photoUri that contains the key is refused', () => {});
+test('every call logs its sku and status, never the key or the query text', () => {});
+```
+
+  - The env test checks that `GOOGLE_MAPS_SERVER_API_KEY` is optional, trimmed, and that an empty string means "not set".
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run and confirm they pass** (full gate).
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(places): Google Places client with minimal field masks"`
+
+### Task D4: `fotoai_places` table
+
+**Files:**
+- Create: `supabase/migrations/20261019100002_places.sql`, `supabase/undo/20261019100002_places.undo.sql`
+- Regenerate: types and the Drizzle baseline (2B process).
+- Test: `packages/db/test/places.integration.test.ts`
+
+**Interfaces:**
+- `fotoai_places`:
+  - `id uuid primary key default gen_random_uuid()`, `user_id uuid not null references auth.users on delete cascade`;
+  - `source text not null check (source in ('google', 'user'))`;
+  - `place_id text null`, `name text null`, `lat double precision null`, `lng double precision null`;
+  - `notes text null check (char_length(notes) <= 2000)`, `favourite boolean not null default true`;
+  - `created_at`, `updated_at timestamptz not null default now()`.
+- Checks:
+  - a Google row has a `place_id` and no `name`, `lat` or `lng`;
+  - a user row has no `place_id`, and has a `name` (1..80 characters), `lat` (−90..90) and `lng` (−180..180);
+  - unique `(user_id, place_id)` where `place_id` is not null.
+- RLS: owner-only select, insert, update and delete (`user_id = auth.uid()`). `revoke all ... from anon, authenticated`, then `grant select, insert, update, delete ... to authenticated`.
+- Undo: atomic header, a `Discards:` line, and a guard that refuses while the table has any row.
+
+- [ ] **Step 1: Write the failing tests** (local stack):
+  - `a user pin with a name and coordinates and no place_id is accepted`;
+  - `a Google row with a name or coordinates is rejected by the check`;
+  - `the same Google place twice for one user is rejected; two users may save it`;
+  - `another user cannot read, change or delete my spots`;
+  - `anon has no access`.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+- [ ] **Step 3: Write the migration and the undo.** Apply locally. Regenerate the types and re-pull the Drizzle baseline. The migration guard and undo-script tests must pass.
+- [ ] **Step 4: Run and confirm they pass.** Run the full gate plus both integration suites; 0 skipped.
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(db): fotoai_places for saved Google places and own pins"`
+
+### Task D5: v2 rate limiter
+
+**Files:**
+- Create: `packages/api/src/rate-limit.ts`
+- Test: `packages/api/test/rate-limit.integration.test.ts`
+
+**Interfaces:**
+- `V2_RATE_LIMITS = { places: 120, place_photos: 30 }` per user per hour; `type V2RateRoute = keyof typeof V2_RATE_LIMITS`.
+- `reserveCalls(env, principal, route, count = 1, now = new Date()): Promise<void>`. It throws `ApiError('rate_limited')` (429) with a message that names the limit.
+- The same reserve-first pattern as `nextjs_space/lib/fotoai/rate-limit.ts`, through `createUserClient`:
+  - count the caller's rows of `action_type = 'API_REQUEST_<ROUTE>'` in the last hour; refuse if `count + n` passes the limit;
+  - insert `n` rows in one insert; count again; refuse if a parallel request won.
+
+- [ ] **Step 1: Write the failing tests** (local stack):
+  - `the 121st places call within an hour is a 429` (seed 120 rows for the test user with their token, then reserve once);
+  - `a batch of 5 is refused when only 4 are left, and writes nothing`;
+  - `rows older than an hour do not count`;
+  - `one user's calls do not count against another`.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run and confirm they pass** (full gate plus integration).
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(api): per-user hourly limits for paid Google calls"`
+
+### Task D6: v2 my spots
+
+**Files:**
+- Modify: `packages/api/src/handler.ts` (`V2Deps` gains `fetch: FetchLike` and `weather: WeatherService`; `defaultV2Deps` creates them once)
+- Modify: `packages/api/package.json` (depend on `@fotoai/places`), `nextjs_space/next.config.js` (`transpilePackages` gains `@fotoai/places`)
+- Modify: `packages/contracts/src/places.ts` (add `SpotDto`, `SpotInput`, `SpotPatch`)
+- Create: `packages/api/src/spots.ts`
+- Create the route files: `nextjs_space/app/api/v2/me/spots/route.ts` (`GET`, `POST`), `nextjs_space/app/api/v2/me/spots/[id]/route.ts` (`PATCH`, `DELETE`)
+- Test: `packages/contracts/test/places.test.ts`, `packages/api/test/spots.integration.test.ts`
+
+**Interfaces:**
+- `SpotInput = { placeId: string; notes?: string } | { pin: { name: string; lat: number; lng: number }; notes?: string }` (strict; picked by shape, as `parseAddGear` does).
+- `SpotPatch = { notes?: string | null; favourite?: boolean; name?: string }` (`name` for user pins only; a 400 on a Google row).
+- `SpotDto = { id; source: 'google' | 'user'; placeId: string | null; name: string | null; location: { lat; lng } | null; notes: string | null; favourite: boolean; createdAt; unavailable: boolean }`.
+- Handlers:
+  - `listMySpots` → `{ spots }`, newest first, at most 50. Google spots are resolved fresh with `details(placeId, 'summary')` in parallel, with one batch reservation of `places` for their count. A lookup that fails gives `name: null`, `location: null` and `unavailable: true` for that spot only; the list still answers 200.
+  - `addMySpot` → 201 `{ spot }`. A Google `placeId` is checked with `details` first (404 if Google does not know it). Saving the same Google place again returns 200 with the existing row, not a duplicate.
+  - `updateMySpot` → `{ spot }`; `deleteMySpot` → `{ success: true }`. Both 404 when the row is not the caller's.
+  - All go through the user client and reject identity keys.
+
+- [ ] **Step 1: Write the failing tests.**
+  - Contract: `a spot is a Google place id or a named pin, not both`; `a pin outside the coordinate ranges is rejected`.
+  - Integration (local stack, injected fetch):
+    - `a pin is saved and listed with its own name and coordinates`;
+    - `a Google spot stores only the place id and lists with the fresh name`;
+    - `one failed Google lookup marks that spot unavailable and the list still answers`;
+    - `saving the same Google place twice returns the first row`;
+    - `renaming a Google spot is a 400`;
+    - `another user's spot is a 404 for update and delete`.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run and confirm they pass** (full gate, integration, `next build`).
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(api): v2 my spots for saved places and own pins"`
+
+### Task D7: v2 conditions, explore and place endpoints
+
+**Files:**
+- Create: `packages/api/src/explore.ts`
+- Create the route files:
+  - `nextjs_space/app/api/v2/conditions/route.ts` (`GET ?lat&lng&date`)
+  - `nextjs_space/app/api/v2/explore/nearby/route.ts` (`GET ?lat&lng&radiusM&type`)
+  - `nextjs_space/app/api/v2/explore/search/route.ts` (`GET ?q&lat&lng`)
+  - `nextjs_space/app/api/v2/places/[placeId]/route.ts` (`GET`)
+  - `nextjs_space/app/api/v2/places/[placeId]/photo/route.ts` (`GET ?name&maxPx`)
+- Test: `packages/api/test/explore.test.ts` (unit, injected fetch and a fake principal), `packages/api/test/explore.integration.test.ts`
+
+**Interfaces:**
+- `getConditions` → `{ light: LightTimesDto, weather: WeatherDto | null }`. No Google call, so no rate limit.
+- `exploreNearby` → `{ places: PlaceSummary[] }`; one `places` reservation.
+- `exploreSearch` → `{ places: PlaceSummary[] }`; one `places` reservation.
+- `getPlace` → `{ place: PlaceDetail, light, weather: WeatherDto | null, spot: SpotDto | null }` (`spot` is the caller's saved row for this `place_id`, if any, from Task D6); one `places` reservation; 404 when Google has no such place.
+- `getPlacePhoto` → `{ photoUri, attributions }`; one `place_photos` reservation. The photo name must start with `places/<placeId>/photos/`.
+- Rules: every handler calls `requirePrincipal` first, then rejects identity keys, then validates the query (zod, numbers coerced, ranges checked), then reserves, then calls out. The order matters: a bad request costs no Google call and no reservation.
+
+- [ ] **Step 1: Write the failing tests.**
+  - Unit (fixtures, no network):
+    - `conditions returns light and weather; weather down gives weather null with 200`;
+    - `nearby without a token is 401 and makes no outside call`;
+    - `bad coordinates are 400 before any reservation or outside call`;
+    - `no Google key is a 500 config error, not a crash`;
+    - `a photo name from another place is 400`;
+    - `responses never contain the Google key` (scan every JSON body for the fake key);
+    - `importing the route modules does not read env` (as 2A Task 3).
+  - Integration (local stack, injected fetch): `the 121st nearby call in an hour is 429`; `getPlace returns my saved spot for that place`.
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run and confirm they pass.** Run the full gate, all integration suites and `next build`; the build lists the 5 new routes.
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(api): v2 conditions, explore and place endpoints"`
+
+### Task D8: Review, PR, approvals, production migration, env, deploy and smoke
+
+Same pattern as C6:
+1. Run the whole-branch review (fresh reviewer) and the fix pass. Then open the PR; CI must be green.
+2. Stop for Seun's yes.
+3. Run a read-only pre-check, then apply `20261019100002_places.sql` with `psql -1 -v ON_ERROR_STOP=1`. Verify: the table exists with RLS on; grants for `authenticated` are select, insert, update and delete, and none for `anon`; the 4 policies exist; it has 0 rows. Then `notify pgrst, 'reload schema'`.
+4. Pin `rollback/pre-2d` at the live commit, then merge and deploy.
+5. Smoke: the 26 existing checks, plus 401 for `/api/v2/conditions`, `/api/v2/explore/nearby`, `/api/v2/places/<id>` and `/api/v2/me/spots`. Watch the log for 10 minutes.
+6. **When Seun has added the Google key** (it can come later; the deploy does not wait for it): a live check that needs a session. It needs Seun's own sign-in on the phone or web, because agents do not type passwords. In the app, nearby search near Flinders Street Station (-37.8183, 144.9671) returns real `place_id`s, and one photo loads with its attribution.
+7. On failure: redeploy the pinned rollback branch. The migration stays, because it only adds.
 
 ## Sub-phase 2E — AI layer, shoot plans, rolls and frames (task level)
 
@@ -917,6 +1221,7 @@ Same pattern as B7:
 |---|---|---|
 | 1. AI layer | `packages/ai`: `generateObject` through the Vercel AI SDK, with the OpenAI provider, a 30-second timeout, one retry, a zod-validated output, versioned prompt files, and optional Langfuse tracing that records token use and never sends images. | Tests with a mock provider: invalid JSON → one retry, then `ApiError('upstream')`; user text is placed in the user message only. |
 | 2. Plan generator | `generateShootPlan(input: { place; light; weather \| null; loadout; skills; recentWeaknesses: string[] }): Promise<ShootPlanDraft>`. `recentWeaknesses` comes from the user's last critiques, which is the learning loop in spec 5.8. Every step passes `validateSettings`; an invalid step is re-asked once, then dropped with a note. | Tests: a model that suggests 1/4000 on the ME Super gets clamped or re-asked; the plan never names a place outside its input. |
+| 2b. Place explanation (moved from 2D) | `explainPlace(input: { place: PlaceDetail \| SpotDto; light; weather \| null })`: best light and best angle in a few lines. A user pin is marked as user-provided; the prompt holds only its notes, coordinates, light and weather. | Tests: the prompt holds only the facts given (no Google text beyond the details fields, no invented names); a user pin with no notes gets a light-and-weather-only answer. |
 | 3. Plans tables + endpoints | `fotoai_shoot_plans` and `fotoai_plan_steps`, each with a step `place_id` and a client-generated `id`. `POST /api/v2/plans` (generate), `GET /api/v2/plans/:id`, `PATCH /api/v2/plans/:id/steps/:stepId` (status, last change wins by `updated_at`). | RLS integration; a stale `updated_at` loses. |
 | 4. Rolls and frames | `fotoai_film_rolls` and `fotoai_film_frames` (append-only, unique `(roll_id, frame_no)` and a client `id`). `POST /api/v2/rolls`, `POST /api/v2/rolls/:id/frames` (upsert by client id), `PATCH /api/v2/rolls/:id` (status). | Test `replaying the same client id is a no-op that returns the stored record`; a frame beyond the exposure count is a 400. |
 | 5. Scan matching + XP | `POST /api/v2/rolls/:id/scans` pairs scans to frames in order, with explicit overrides. Plan-step XP is awarded through `fotoai_award_skill_xp(..., 'plan_step', step_id)` only when a photo or frame is linked. | Tests: a step marked done with no photo or frame earns 0 XP; re-linking does not double-award. |

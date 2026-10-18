@@ -1,4 +1,4 @@
-import { pgTable, pgPolicy, check, text, numeric, foreignKey, boolean, jsonb, integer, index, unique, uuid, timestamp, bigint, date, doublePrecision, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, pgPolicy, check, text, numeric, foreignKey, boolean, jsonb, integer, index, uniqueIndex, uuid, doublePrecision, timestamp, unique, bigint, date } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import { authUsers } from "drizzle-orm/supabase"
 
@@ -57,6 +57,33 @@ export const fotoaiGearBodies = pgTable("fotoai_gear_bodies", {
 	check("fotoai_gear_bodies_shutter_fastest_s_check", sql`shutter_fastest_s > (0)::numeric`),
 	check("fotoai_gear_bodies_sources_check", sql`cardinality(sources) > 0`),
 	check("fotoai_gear_bodies_type_check", sql`type = ANY (ARRAY['digital'::text, 'film'::text])`),
+]).enableRLS();
+
+export const fotoaiPlaces = pgTable("fotoai_places", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	source: text().notNull(),
+	placeId: text("place_id"),
+	name: text(),
+	lat: doublePrecision(),
+	lng: doublePrecision(),
+	notes: text(),
+	favourite: boolean().default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("fotoai_places_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	uniqueIndex("fotoai_places_user_place_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.placeId.asc().nullsLast().op("text_ops")).where(sql`(place_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_places_user_id_fkey"
+		}).onDelete("cascade"),
+	check("fotoai_places_lat_check", sql`(lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)`),
+	check("fotoai_places_lng_check", sql`(lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)`),
+	check("fotoai_places_notes_check", sql`char_length(notes) <= 2000`),
+	check("fotoai_places_source_check", sql`source = ANY (ARRAY['google'::text, 'user'::text])`),
+	check("fotoai_places_source_shape_check", sql`((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND (name IS NOT NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL))`),
 ]).enableRLS();
 
 export const fotoaiUserGear = pgTable("fotoai_user_gear", {

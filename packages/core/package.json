@@ -10,5 +10,9 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@photostructure/tz-lookup": "11.7.0",
+    "suncalc": "2.1.0"
   }
 }

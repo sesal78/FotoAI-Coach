@@ -1,0 +1,63 @@
+{
+ "places": [
+  {
+   "id": "ChIJ0T2NLmJC1moRbU6M9oX9mWQ",
+   "displayName": {
+    "text": "Federation Square",
+    "languageCode": "en"
+   },
+   "location": {
+    "latitude": -37.8179789,
+    "longitude": 144.9690576
+   },
+   "types": [
+    "tourist_attraction",
+    "point_of_interest",
+    "establishment"
+   ],
+   "primaryType": "tourist_attraction",
+   "photos": [
+    {
+     "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q1photoRef0123456789abcdef",
+     "widthPx": 4032,
+     "heightPx": 3024,
+     "authorAttributions": [
+      {
+       "displayName": "Photographer 1",
+       "uri": "https://maps.google.com/maps/contrib/101",
+       "photoUri": "https://lh3.googleusercontent.com/a/x"
+      }
+     ]
+    },
+    {
+     "name": "places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photos/AXCi2Q2photoRef0123456789abcdef",
+     "widthPx": 4032,
+     "heightPx": 3024,
+     "authorAttributions": [
+      {
+       "displayName": "Photographer 2",
+       "uri": "https://maps.google.com/maps/contrib/102",
+       "photoUri": "https://lh3.googleusercontent.com/a/x"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ChIJiYrPnj5d1moRk5nGq2b0F4w",
+   "displayName": {
+    "text": "Royal Botanic Gardens Victoria",
+    "languageCode": "en"
+   },
+   "location": {
+    "latitude": -37.8303689,
+    "longitude": 144.9796066
+   },
+   "types": [
+    "park",
+    "tourist_attraction"
+   ],
+   "primaryType": "botanical_garden"
+  }
+ ]
+}

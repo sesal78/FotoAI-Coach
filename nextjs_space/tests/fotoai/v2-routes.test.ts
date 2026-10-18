@@ -29,3 +29,24 @@ test('GET /api/v2/me rejects a browser-supplied user id with 400', async () => {
   assert.equal(res.status, 400);
   assert.equal((await res.json()).code, 'validation');
 });
+
+test('the 2D route modules load and answer 401 without a token (no network call)', async () => {
+  const routes = [
+    ['../../app/api/v2/conditions/route.ts', 'http://localhost/api/v2/conditions?lat=-37.8&lng=144.9'],
+    ['../../app/api/v2/explore/nearby/route.ts', 'http://localhost/api/v2/explore/nearby?lat=-37.8&lng=144.9'],
+    ['../../app/api/v2/explore/search/route.ts', 'http://localhost/api/v2/explore/search?q=beach'],
+    ['../../app/api/v2/places/[placeId]/route.ts', 'http://localhost/api/v2/places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ'],
+    ['../../app/api/v2/places/[placeId]/photo/route.ts', 'http://localhost/api/v2/places/ChIJ0T2NLmJC1moRbU6M9oX9mWQ/photo'],
+    ['../../app/api/v2/me/spots/route.ts', 'http://localhost/api/v2/me/spots'],
+  ];
+  for (const [path, url] of routes) {
+    const { GET } = await import(path);
+    const res = await GET(new Request(url), { params: { placeId: 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ' } });
+    assert.equal(res.status, 401, path);
+  }
+
+  const { PATCH, DELETE } = await import('../../app/api/v2/me/spots/[id]/route.ts');
+  const params = { params: { id: '11111111-2222-4333-8444-555555555555' } };
+  assert.equal((await PATCH(new Request('http://localhost/api/v2/me/spots/x', { method: 'PATCH', body: '{}' }), params)).status, 401);
+  assert.equal((await DELETE(new Request('http://localhost/api/v2/me/spots/x', { method: 'DELETE' }), params)).status, 401);
+});

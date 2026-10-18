@@ -23,7 +23,7 @@ describe.skipIf(!db)('v2 challenges against the local Supabase', () => {
 
   beforeAll(async () => {
     const env = testEnv(db!);
-    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env) };
+    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch, weather: { get: async () => null } };
     [a, b, other] = await Promise.all([createTestUser(db!, 'v2ch-a'), createTestUser(db!, 'v2ch-b'), createTestUser(db!, 'v2ch-o')]);
     const tie = '2026-10-18T05:00:00+00:00';
     const base = { challenge_type: 'AFTER_WORK', challenge_text: 'x' };
