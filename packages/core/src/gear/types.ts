@@ -12,11 +12,20 @@ export interface Body {
   /** null for a fixed-lens body. */
   mount: string | null;
   modes: ExposureMode[];
-  /** Timed shutter range in seconds; `bulb` allows longer exposures. */
-  shutter: { slowestSeconds: number; fastestSeconds: number; bulb: boolean };
+  /**
+   * Timed shutter range in seconds; `bulb` allows longer exposures (null = not sourced).
+   * `apertureLimits`: leaf shutters that cannot reach `fastestSeconds` at wide apertures; at any
+   * aperture wider (smaller f-number) than `belowAperture`, the fastest speed is the limit's.
+   */
+  shutter: {
+    slowestSeconds: number | null;
+    fastestSeconds: number;
+    bulb: boolean | null;
+    apertureLimits?: Array<{ belowAperture: number; fastestSeconds: number }>;
+  };
   flashSyncSeconds: number | null;
-  /** Digital: standard ISO range. Film: the film-speed dial range. */
-  iso: { min: number; max: number };
+  /** Digital: standard ISO range. Film: the film-speed dial range. null = not sourced. */
+  iso: { min: number; max: number } | null;
   /** Short description for the guide (e.g. "centre-weighted"); never used for checks. */
   metering: string | null;
   fixedLensId: string | null;
