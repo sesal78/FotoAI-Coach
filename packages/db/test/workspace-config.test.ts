@@ -6,14 +6,17 @@ import { expect, test } from 'vitest';
 // Workspace-level config that the @fotoai/db tests and scripts depend on.
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
-test('turbo hashes the root files that package tasks read, so a cached pass cannot hide an edit', () => {
-  const dry = execFileSync('pnpm', ['exec', 'turbo', 'run', 'test', '--dry=json'], {
+function turboDry(tasks: string[]): string {
+  return execFileSync('pnpm', ['exec', 'turbo', 'run', ...tasks, '--dry=json'], {
     cwd: repoRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
     shell: process.platform === 'win32',
   });
-  const files = Object.keys(JSON.parse(dry).globalCacheInputs.files as Record<string, string>);
+}
+
+test('turbo hashes the root files that package tasks read, so a cached pass cannot hide an edit', () => {
+  const files = Object.keys(JSON.parse(turboDry(['test'])).globalCacheInputs.files as Record<string, string>);
   expect(files).toEqual(
     expect.arrayContaining([
       'eslint.config.mjs',
@@ -28,3 +31,8 @@ test('Node floor allows running scripts/fix-pull.ts without flags (type strippin
   const pkg = JSON.parse(readFileSync(repoRoot + 'package.json', 'utf8'));
   expect(pkg.engines.node).toBe('>=22.18');
 });
+
+test("turbo runs the legacy app's typecheck and test tasks", () => {
+  const ids = (JSON.parse(turboDry(['typecheck', 'test'])).tasks as Array<{ taskId: string }>).map((t) => t.taskId);
+  expect(ids).toEqual(expect.arrayContaining(['@fotoai/legacy-web#typecheck', '@fotoai/legacy-web#test']));
+}, 60_000);

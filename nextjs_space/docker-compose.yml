@@ -9,8 +9,9 @@ services:
   # Next.js App
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # pnpm workspace: build from the repo root
+      context: ..
+      dockerfile: nextjs_space/Dockerfile
       args:
         NEXT_PUBLIC_APPWRITE_ENDPOINT: ${NEXT_PUBLIC_APPWRITE_ENDPOINT}
         NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${NEXT_PUBLIC_APPWRITE_PROJECT_ID}

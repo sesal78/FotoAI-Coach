@@ -7,30 +7,29 @@ on:
 
 jobs:
   verify:
+    # The live app (@fotoai/legacy-web, nextjs_space/) inside the pnpm workspace.
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: nextjs_space
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: nextjs_space/package-lock.json
+          cache: pnpm
 
-      - name: Install (clean, from the one lockfile)
-        run: npm ci
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: pnpm --filter @fotoai/legacy-web typecheck
 
       - name: FotoAI tests
-        run: npm run test:fotoai
+        run: pnpm --filter @fotoai/legacy-web test
 
       - name: Next build
-        run: npm run build
+        run: pnpm --filter @fotoai/legacy-web build
         env:
           NEXT_TELEMETRY_DISABLED: 1
 
@@ -83,3 +82,18 @@ jobs:
         run: |
           pnpm --filter @fotoai/db db:types
           git diff --exit-code packages/db/src/types.gen.ts
+
+  image:
+    # Builds the live app's production image from the repo root and smoke-tests it (no push).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f nextjs_space/Dockerfile -t fotoai-web:ci .
+
+      - name: Run and smoke-test
+        run: |
+          docker run -d --rm -p 3011:3000             -e FOTOAI_SUPABASE_URL=http://127.0.0.1:1             -e FOTOAI_SUPABASE_ANON_KEY=dummy             -e FOTOAI_SUPABASE_SERVICE_ROLE_KEY=dummy             --name fotoai-ci fotoai-web:ci
+          bash scripts/smoke-image.sh http://localhost:3011
+          docker stop fotoai-ci

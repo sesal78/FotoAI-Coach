@@ -7,8 +7,10 @@ A self-hosted, AI-powered photography coaching platform. Generates personalized 
 ## Workspace (refactor)
 
 The refactor (design: `docs/superpowers/specs/2026-10-18-fotoai-refactor-design.md`, plans: `docs/superpowers/plans/`)
-lives in a pnpm + Turborepo workspace next to the live app. `nextjs_space/` is the live app: it keeps npm and its own
-lockfile, and Dokploy still builds it from `./nextjs_space`.
+lives in a pnpm + Turborepo workspace. `nextjs_space/` is the live app, workspace package `@fotoai/legacy-web`.
+Its image builds from the repo root: Dokploy uses build path `./` and Dockerfile `nextjs_space/Dockerfile`
+(switched in refactor sub-phase 2A). Rollback is the pair build path `./nextjs_space` + Dockerfile `Dockerfile`
+with commit `8c388c3`; the old build path cannot build later commits.
 
 | Path | What |
 |---|---|
@@ -22,7 +24,9 @@ Never install inside the canonical repo folder; use a Sandbox worktree (Homebase
 ```bash
 git worktree add D:/Homebase/Sandbox/fotoai-coach-refactor <branch>
 cd D:/Homebase/Sandbox/fotoai-coach-refactor
-npm_config_store_dir=D:/Homebase/Sandbox/pnpm-store pnpm install
+export npm_config_store_dir=D:/Homebase/Sandbox/pnpm-store
+export TURBO_CACHE_DIR=D:/Homebase/Sandbox/turbo-cache   # else turbo writes .turbo/ into the main repo folder
+pnpm install
 pnpm typecheck && pnpm lint && pnpm test
 ```
 

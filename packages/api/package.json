@@ -1,0 +1,19 @@
+{
+  "name": "@fotoai/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fotoai/contracts": "workspace:*",
+    "@fotoai/db": "workspace:*",
+    "@fotoai/env": "workspace:*"
+  }
+}
