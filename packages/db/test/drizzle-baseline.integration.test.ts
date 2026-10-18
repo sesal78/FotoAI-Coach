@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, test } from 'vitest';
 
-import { fixPulledRelations, fixPulledSchema } from '../scripts/fix-pull.ts';
+import { comparableSnapshot } from './support/drizzle-snapshot.ts';
 import { resolveDatabaseUrl } from './support/local-db.ts';
 
 const pkgRoot = fileURLToPath(new URL('../', import.meta.url));
@@ -23,15 +23,19 @@ describe.skipIf(!databaseUrl)('drizzle baseline', () => {
   const out = mkdtempSync(join(tmpdir(), 'drizzle-pull-'));
   afterAll(() => rmSync(out, { recursive: true, force: true }));
 
-  test('drizzle pull output matches the committed baseline', () => {
+  // Compares drizzle's snapshot (constraints keyed by name), not the generated TypeScript:
+  // pull orders foreign keys, checks and policies by catalog order, which differs between a
+  // fresh database (CI) and a long-lived one. The generate test below ties schema.ts to it.
+  test('drizzle pull of the database matches the committed baseline snapshot', () => {
     execFileSync('pnpm', ['exec', 'drizzle-kit', 'pull', '--config', 'drizzle.config.ts'], {
       cwd: pkgRoot,
       env: { ...process.env, DRIZZLE_OUT: out },
       stdio: 'pipe',
       shell: process.platform === 'win32',
     });
-    expect(fixPulledSchema(read(join(out, 'schema.ts')))).toBe(read(join(pkgRoot, 'src/schema/schema.ts')));
-    expect(fixPulledRelations(read(join(out, 'relations.ts')))).toBe(read(join(pkgRoot, 'src/schema/relations.ts')));
+    expect(comparableSnapshot(read(join(out, 'meta', '0000_snapshot.json')))).toEqual(
+      comparableSnapshot(read(join(pkgRoot, 'drizzle', 'meta', '0000_snapshot.json'))),
+    );
   }, 120_000);
 
   test('drizzle-kit generate finds no changes against the committed baseline', () => {
