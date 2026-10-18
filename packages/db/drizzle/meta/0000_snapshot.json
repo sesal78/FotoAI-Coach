@@ -4,6 +4,253 @@
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.fotoai_gear_lenses": {
+      "name": "fotoai_gear_lenses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "make": {
+          "name": "make",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mount": {
+          "name": "mount",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "focal_min_mm": {
+          "name": "focal_min_mm",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "focal_max_mm": {
+          "name": "focal_max_mm",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_aperture_wide": {
+          "name": "max_aperture_wide",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_aperture_tele": {
+          "name": "max_aperture_tele",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "min_aperture": {
+          "name": "min_aperture",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sources": {
+          "name": "sources",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "fotoai_gear_lenses_check": {
+          "name": "fotoai_gear_lenses_check",
+          "value": "focal_max_mm >= focal_min_mm"
+        },
+        "fotoai_gear_lenses_check1": {
+          "name": "fotoai_gear_lenses_check1",
+          "value": "max_aperture_tele >= max_aperture_wide"
+        },
+        "fotoai_gear_lenses_check2": {
+          "name": "fotoai_gear_lenses_check2",
+          "value": "min_aperture > max_aperture_tele"
+        },
+        "fotoai_gear_lenses_focal_min_mm_check": {
+          "name": "fotoai_gear_lenses_focal_min_mm_check",
+          "value": "focal_min_mm > (0)::numeric"
+        },
+        "fotoai_gear_lenses_max_aperture_wide_check": {
+          "name": "fotoai_gear_lenses_max_aperture_wide_check",
+          "value": "max_aperture_wide > (0)::numeric"
+        },
+        "fotoai_gear_lenses_sources_check": {
+          "name": "fotoai_gear_lenses_sources_check",
+          "value": "cardinality(sources) > 0"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_gear_bodies": {
+      "name": "fotoai_gear_bodies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "make": {
+          "name": "make",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mount": {
+          "name": "mount",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modes": {
+          "name": "modes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shutter_slowest_s": {
+          "name": "shutter_slowest_s",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shutter_fastest_s": {
+          "name": "shutter_fastest_s",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bulb": {
+          "name": "bulb",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shutter_aperture_limits": {
+          "name": "shutter_aperture_limits",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flash_sync_s": {
+          "name": "flash_sync_s",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "iso_min": {
+          "name": "iso_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "iso_max": {
+          "name": "iso_max",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metering": {
+          "name": "metering",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fixed_lens_id": {
+          "name": "fixed_lens_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sources": {
+          "name": "sources",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fotoai_gear_bodies_fixed_lens_id_fkey": {
+          "name": "fotoai_gear_bodies_fixed_lens_id_fkey",
+          "tableFrom": "fotoai_gear_bodies",
+          "tableTo": "fotoai_gear_lenses",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "fixed_lens_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "fotoai_gear_bodies_check": {
+          "name": "fotoai_gear_bodies_check",
+          "value": "(shutter_slowest_s IS NULL) OR (shutter_slowest_s > shutter_fastest_s)"
+        },
+        "fotoai_gear_bodies_check1": {
+          "name": "fotoai_gear_bodies_check1",
+          "value": "((iso_min IS NULL) = (iso_max IS NULL)) AND ((iso_min IS NULL) OR (iso_min <= iso_max))"
+        },
+        "fotoai_gear_bodies_modes_check": {
+          "name": "fotoai_gear_bodies_modes_check",
+          "value": "(cardinality(modes) > 0) AND (modes <@ ARRAY['P'::text, 'A'::text, 'S'::text, 'M'::text])"
+        },
+        "fotoai_gear_bodies_shutter_fastest_s_check": {
+          "name": "fotoai_gear_bodies_shutter_fastest_s_check",
+          "value": "shutter_fastest_s > (0)::numeric"
+        },
+        "fotoai_gear_bodies_sources_check": {
+          "name": "fotoai_gear_bodies_sources_check",
+          "value": "cardinality(sources) > 0"
+        },
+        "fotoai_gear_bodies_type_check": {
+          "name": "fotoai_gear_bodies_type_check",
+          "value": "type = ANY (ARRAY['digital'::text, 'film'::text])"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
     "public.fotoai_user_gear": {
       "name": "fotoai_user_gear",
       "schema": "",
@@ -64,6 +311,24 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "body_id": {
+          "name": "body_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lens_id": {
+          "name": "lens_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "custom": {
+          "name": "custom",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -85,6 +350,34 @@
         }
       },
       "foreignKeys": {
+        "fotoai_user_gear_body_id_fkey": {
+          "name": "fotoai_user_gear_body_id_fkey",
+          "tableFrom": "fotoai_user_gear",
+          "tableTo": "fotoai_gear_bodies",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "body_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "fotoai_user_gear_lens_id_fkey": {
+          "name": "fotoai_user_gear_lens_id_fkey",
+          "tableFrom": "fotoai_user_gear",
+          "tableTo": "fotoai_gear_lenses",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "lens_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "fotoai_user_gear_user_id_fkey": {
           "name": "fotoai_user_gear_user_id_fkey",
           "tableFrom": "fotoai_user_gear",
@@ -110,7 +403,12 @@
           "name": "fotoai_user_gear_legacy_appwrite_id_key"
         }
       },
-      "checkConstraints": {},
+      "checkConstraints": {
+        "fotoai_user_gear_one_link_check": {
+          "name": "fotoai_user_gear_one_link_check",
+          "value": "num_nonnulls(body_id, lens_id, custom) <= 1"
+        }
+      },
       "policies": {},
       "isRLSEnabled": true
     },
@@ -1617,6 +1915,261 @@
       "policies": {},
       "isRLSEnabled": true
     },
+    "public.fotoai_user_preferences": {
+      "name": "fotoai_user_preferences",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skill_level": {
+          "name": "skill_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'intermediate'"
+        },
+        "photography_interests": {
+          "name": "photography_interests",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "avoids_styles": {
+          "name": "avoids_styles",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "work_days": {
+          "name": "work_days",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "work_start_time": {
+          "name": "work_start_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'09:00'"
+        },
+        "work_end_time": {
+          "name": "work_end_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'17:00'"
+        },
+        "lunch_start_time": {
+          "name": "lunch_start_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'12:00'"
+        },
+        "lunch_end_time": {
+          "name": "lunch_end_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'13:00'"
+        },
+        "primary_photo_day": {
+          "name": "primary_photo_day",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Saturday'"
+        },
+        "secondary_photo_days": {
+          "name": "secondary_photo_days",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "lunch_break_photography": {
+          "name": "lunch_break_photography",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "evening_photography": {
+          "name": "evening_photography",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "wfh_flexibility": {
+          "name": "wfh_flexibility",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "adapt_to_weather": {
+          "name": "adapt_to_weather",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "adapt_to_calendar": {
+          "name": "adapt_to_calendar",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "office_location": {
+          "name": "office_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_location": {
+          "name": "home_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_location": {
+          "name": "current_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'golden'"
+        },
+        "units": {
+          "name": "units",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'metric'"
+        },
+        "home_lat": {
+          "name": "home_lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_lng": {
+          "name": "home_lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "loadout": {
+          "name": "loadout",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fotoai_user_preferences_user_id_fkey": {
+          "name": "fotoai_user_preferences_user_id_fkey",
+          "tableFrom": "fotoai_user_preferences",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_user_preferences_user_id_key": {
+          "columns": [
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_preferences_user_id_key"
+        },
+        "fotoai_user_preferences_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_preferences_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_user_preferences_home_lat_check": {
+          "name": "fotoai_user_preferences_home_lat_check",
+          "value": "(home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))"
+        },
+        "fotoai_user_preferences_home_lng_check": {
+          "name": "fotoai_user_preferences_home_lng_check",
+          "value": "(home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))"
+        },
+        "fotoai_user_preferences_home_pair_check": {
+          "name": "fotoai_user_preferences_home_pair_check",
+          "value": "(home_lat IS NULL) = (home_lng IS NULL)"
+        },
+        "fotoai_user_preferences_skill_level_check": {
+          "name": "fotoai_user_preferences_skill_level_check",
+          "value": "skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])"
+        },
+        "fotoai_user_preferences_theme_check": {
+          "name": "fotoai_user_preferences_theme_check",
+          "value": "theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text])"
+        },
+        "fotoai_user_preferences_units_check": {
+          "name": "fotoai_user_preferences_units_check",
+          "value": "units = ANY (ARRAY['metric'::text, 'imperial'::text])"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
     "public.fotoai_daily_challenges": {
       "name": "fotoai_daily_challenges",
       "schema": "",
@@ -2012,255 +2565,6 @@
       },
       "policies": {},
       "isRLSEnabled": true
-    },
-    "public.fotoai_user_preferences": {
-      "name": "fotoai_user_preferences",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "legacy_appwrite_id": {
-          "name": "legacy_appwrite_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "skill_level": {
-          "name": "skill_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'intermediate'"
-        },
-        "photography_interests": {
-          "name": "photography_interests",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "avoids_styles": {
-          "name": "avoids_styles",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "work_days": {
-          "name": "work_days",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "work_start_time": {
-          "name": "work_start_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'09:00'"
-        },
-        "work_end_time": {
-          "name": "work_end_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'17:00'"
-        },
-        "lunch_start_time": {
-          "name": "lunch_start_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'12:00'"
-        },
-        "lunch_end_time": {
-          "name": "lunch_end_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'13:00'"
-        },
-        "primary_photo_day": {
-          "name": "primary_photo_day",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'Saturday'"
-        },
-        "secondary_photo_days": {
-          "name": "secondary_photo_days",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "lunch_break_photography": {
-          "name": "lunch_break_photography",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "evening_photography": {
-          "name": "evening_photography",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "wfh_flexibility": {
-          "name": "wfh_flexibility",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "adapt_to_weather": {
-          "name": "adapt_to_weather",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "adapt_to_calendar": {
-          "name": "adapt_to_calendar",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "office_location": {
-          "name": "office_location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "home_location": {
-          "name": "home_location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_location": {
-          "name": "current_location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "theme": {
-          "name": "theme",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'golden'"
-        },
-        "units": {
-          "name": "units",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'metric'"
-        },
-        "home_lat": {
-          "name": "home_lat",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "home_lng": {
-          "name": "home_lng",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "fotoai_user_preferences_user_id_fkey": {
-          "name": "fotoai_user_preferences_user_id_fkey",
-          "tableFrom": "fotoai_user_preferences",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "fotoai_user_preferences_user_id_key": {
-          "columns": [
-            "user_id"
-          ],
-          "nullsNotDistinct": false,
-          "name": "fotoai_user_preferences_user_id_key"
-        },
-        "fotoai_user_preferences_legacy_appwrite_id_key": {
-          "columns": [
-            "legacy_appwrite_id"
-          ],
-          "nullsNotDistinct": false,
-          "name": "fotoai_user_preferences_legacy_appwrite_id_key"
-        }
-      },
-      "checkConstraints": {
-        "fotoai_user_preferences_home_lat_check": {
-          "name": "fotoai_user_preferences_home_lat_check",
-          "value": "(home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))"
-        },
-        "fotoai_user_preferences_home_lng_check": {
-          "name": "fotoai_user_preferences_home_lng_check",
-          "value": "(home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))"
-        },
-        "fotoai_user_preferences_home_pair_check": {
-          "name": "fotoai_user_preferences_home_pair_check",
-          "value": "(home_lat IS NULL) = (home_lng IS NULL)"
-        },
-        "fotoai_user_preferences_skill_level_check": {
-          "name": "fotoai_user_preferences_skill_level_check",
-          "value": "skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])"
-        },
-        "fotoai_user_preferences_theme_check": {
-          "name": "fotoai_user_preferences_theme_check",
-          "value": "theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text])"
-        },
-        "fotoai_user_preferences_units_check": {
-          "name": "fotoai_user_preferences_units_check",
-          "value": "units = ANY (ARRAY['metric'::text, 'imperial'::text])"
-        }
-      },
-      "policies": {},
-      "isRLSEnabled": true
     }
   },
   "enums": {},
@@ -2276,6 +2580,29 @@
   },
   "internal": {
     "tables": {
+      "fotoai_gear_lenses": {
+        "columns": {
+          "sources": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
+      "fotoai_gear_bodies": {
+        "columns": {
+          "modes": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "sources": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
       "fotoai_itineraries": {
         "columns": {
           "suggested_times": {
@@ -2318,20 +2645,6 @@
           }
         }
       },
-      "fotoai_daily_challenges": {
-        "columns": {
-          "recommended_gear": {
-            "isArray": true,
-            "dimensions": 1,
-            "rawType": "text"
-          },
-          "shot_list": {
-            "isArray": true,
-            "dimensions": 1,
-            "rawType": "text"
-          }
-        }
-      },
       "fotoai_user_preferences": {
         "columns": {
           "photography_interests": {
@@ -2350,6 +2663,20 @@
             "rawType": "text"
           },
           "secondary_photo_days": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
+      "fotoai_daily_challenges": {
+        "columns": {
+          "recommended_gear": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "shot_list": {
             "isArray": true,
             "dimensions": 1,
             "rawType": "text"

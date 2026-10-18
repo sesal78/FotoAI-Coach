@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.11",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "@fotoai/core": "workspace:*"
   }
 }

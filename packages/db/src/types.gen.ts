@@ -63,6 +63,38 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"fotoai_gear_bodies": {
+                  Row: {
+                    "bulb": boolean | null,"fixed_lens_id": string | null,"flash_sync_s": number | null,"id": string,"iso_max": number | null,"iso_min": number | null,"make": string,"metering": string | null,"model": string,"modes": (string)[],"mount": string | null,"shutter_aperture_limits": Json | null,"shutter_fastest_s": number,"shutter_slowest_s": number | null,"sources": (string)[],"type": string
+                  }
+                  Insert: {
+                    "bulb"?: boolean | null,"fixed_lens_id"?: string | null,"flash_sync_s"?: number | null,"id": string,"iso_max"?: number | null,"iso_min"?: number | null,"make": string,"metering"?: string | null,"model": string,"modes": (string)[],"mount"?: string | null,"shutter_aperture_limits"?: Json | null,"shutter_fastest_s": number,"shutter_slowest_s"?: number | null,"sources": (string)[],"type": string
+                  }
+                  Update: {
+                    "bulb"?: boolean | null,"fixed_lens_id"?: string | null,"flash_sync_s"?: number | null,"id"?: string,"iso_max"?: number | null,"iso_min"?: number | null,"make"?: string,"metering"?: string | null,"model"?: string,"modes"?: (string)[],"mount"?: string | null,"shutter_aperture_limits"?: Json | null,"shutter_fastest_s"?: number,"shutter_slowest_s"?: number | null,"sources"?: (string)[],"type"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fotoai_gear_bodies_fixed_lens_id_fkey"
+      columns: ["fixed_lens_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_gear_lenses"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"fotoai_gear_lenses": {
+                  Row: {
+                    "focal_max_mm": number,"focal_min_mm": number,"id": string,"make": string,"max_aperture_tele": number,"max_aperture_wide": number,"min_aperture": number,"model": string,"mount": string | null,"sources": (string)[]
+                  }
+                  Insert: {
+                    "focal_max_mm": number,"focal_min_mm": number,"id": string,"make": string,"max_aperture_tele": number,"max_aperture_wide": number,"min_aperture": number,"model": string,"mount"?: string | null,"sources": (string)[]
+                  }
+                  Update: {
+                    "focal_max_mm"?: number,"focal_min_mm"?: number,"id"?: string,"make"?: string,"max_aperture_tele"?: number,"max_aperture_wide"?: number,"min_aperture"?: number,"model"?: string,"mount"?: string | null,"sources"?: (string)[]
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"fotoai_itineraries": {
                   Row: {
                     "completed_date": string | null,"created_at": string,"description": string | null,"duration": string | null,"gear_recommendations": (string)[],"generated_date": string,"id": string,"legacy_appwrite_id": string | null,"location": string,"scheduled_date": string | null,"spots": NonNullable<Json>,"status": string,"suggested_times": (string)[],"title": string | null,"user_id": string,"weather_conditions": string | null
@@ -123,26 +155,38 @@ isOneToOne: false
                   ]
                 },"fotoai_user_gear": {
                   Row: {
-                    "brand": string,"category": string,"created_at": string,"id": string,"is_primary": boolean,"legacy_appwrite_id": string | null,"model": string,"specs": string | null,"user_id": string
+                    "body_id": string | null,"brand": string,"category": string,"created_at": string,"custom": Json | null,"id": string,"is_primary": boolean,"legacy_appwrite_id": string | null,"lens_id": string | null,"model": string,"specs": string | null,"user_id": string
                   }
                   Insert: {
-                    "brand": string,"category": string,"created_at"?: string,"id"?: string,"is_primary"?: boolean,"legacy_appwrite_id"?: string | null,"model": string,"specs"?: string | null,"user_id": string
+                    "body_id"?: string | null,"brand": string,"category": string,"created_at"?: string,"custom"?: Json | null,"id"?: string,"is_primary"?: boolean,"legacy_appwrite_id"?: string | null,"lens_id"?: string | null,"model": string,"specs"?: string | null,"user_id": string
                   }
                   Update: {
-                    "brand"?: string,"category"?: string,"created_at"?: string,"id"?: string,"is_primary"?: boolean,"legacy_appwrite_id"?: string | null,"model"?: string,"specs"?: string | null,"user_id"?: string
+                    "body_id"?: string | null,"brand"?: string,"category"?: string,"created_at"?: string,"custom"?: Json | null,"id"?: string,"is_primary"?: boolean,"legacy_appwrite_id"?: string | null,"lens_id"?: string | null,"model"?: string,"specs"?: string | null,"user_id"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "fotoai_user_gear_body_id_fkey"
+      columns: ["body_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_gear_bodies"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "fotoai_user_gear_lens_id_fkey"
+      columns: ["lens_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_gear_lenses"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"fotoai_user_preferences": {
                   Row: {
-                    "adapt_to_calendar": boolean,"adapt_to_weather": boolean,"avoids_styles": (string)[],"created_at": string,"current_location": string | null,"evening_photography": boolean,"home_lat": number | null,"home_lng": number | null,"home_location": string | null,"id": string,"legacy_appwrite_id": string | null,"lunch_break_photography": boolean,"lunch_end_time": string,"lunch_start_time": string,"office_location": string | null,"photography_interests": (string)[],"primary_photo_day": string,"secondary_photo_days": (string)[],"skill_level": string,"theme": string,"units": string,"updated_at": string | null,"user_id": string,"wfh_flexibility": boolean,"work_days": (string)[],"work_end_time": string,"work_start_time": string
+                    "adapt_to_calendar": boolean,"adapt_to_weather": boolean,"avoids_styles": (string)[],"created_at": string,"current_location": string | null,"evening_photography": boolean,"home_lat": number | null,"home_lng": number | null,"home_location": string | null,"id": string,"legacy_appwrite_id": string | null,"loadout": Json | null,"lunch_break_photography": boolean,"lunch_end_time": string,"lunch_start_time": string,"office_location": string | null,"photography_interests": (string)[],"primary_photo_day": string,"secondary_photo_days": (string)[],"skill_level": string,"theme": string,"units": string,"updated_at": string | null,"user_id": string,"wfh_flexibility": boolean,"work_days": (string)[],"work_end_time": string,"work_start_time": string
                   }
                   Insert: {
-                    "adapt_to_calendar"?: boolean,"adapt_to_weather"?: boolean,"avoids_styles"?: (string)[],"created_at"?: string,"current_location"?: string | null,"evening_photography"?: boolean,"home_lat"?: number | null,"home_lng"?: number | null,"home_location"?: string | null,"id"?: string,"legacy_appwrite_id"?: string | null,"lunch_break_photography"?: boolean,"lunch_end_time"?: string,"lunch_start_time"?: string,"office_location"?: string | null,"photography_interests"?: (string)[],"primary_photo_day"?: string,"secondary_photo_days"?: (string)[],"skill_level"?: string,"theme"?: string,"units"?: string,"updated_at"?: string | null,"user_id": string,"wfh_flexibility"?: boolean,"work_days"?: (string)[],"work_end_time"?: string,"work_start_time"?: string
+                    "adapt_to_calendar"?: boolean,"adapt_to_weather"?: boolean,"avoids_styles"?: (string)[],"created_at"?: string,"current_location"?: string | null,"evening_photography"?: boolean,"home_lat"?: number | null,"home_lng"?: number | null,"home_location"?: string | null,"id"?: string,"legacy_appwrite_id"?: string | null,"loadout"?: Json | null,"lunch_break_photography"?: boolean,"lunch_end_time"?: string,"lunch_start_time"?: string,"office_location"?: string | null,"photography_interests"?: (string)[],"primary_photo_day"?: string,"secondary_photo_days"?: (string)[],"skill_level"?: string,"theme"?: string,"units"?: string,"updated_at"?: string | null,"user_id": string,"wfh_flexibility"?: boolean,"work_days"?: (string)[],"work_end_time"?: string,"work_start_time"?: string
                   }
                   Update: {
-                    "adapt_to_calendar"?: boolean,"adapt_to_weather"?: boolean,"avoids_styles"?: (string)[],"created_at"?: string,"current_location"?: string | null,"evening_photography"?: boolean,"home_lat"?: number | null,"home_lng"?: number | null,"home_location"?: string | null,"id"?: string,"legacy_appwrite_id"?: string | null,"lunch_break_photography"?: boolean,"lunch_end_time"?: string,"lunch_start_time"?: string,"office_location"?: string | null,"photography_interests"?: (string)[],"primary_photo_day"?: string,"secondary_photo_days"?: (string)[],"skill_level"?: string,"theme"?: string,"units"?: string,"updated_at"?: string | null,"user_id"?: string,"wfh_flexibility"?: boolean,"work_days"?: (string)[],"work_end_time"?: string,"work_start_time"?: string
+                    "adapt_to_calendar"?: boolean,"adapt_to_weather"?: boolean,"avoids_styles"?: (string)[],"created_at"?: string,"current_location"?: string | null,"evening_photography"?: boolean,"home_lat"?: number | null,"home_lng"?: number | null,"home_location"?: string | null,"id"?: string,"legacy_appwrite_id"?: string | null,"loadout"?: Json | null,"lunch_break_photography"?: boolean,"lunch_end_time"?: string,"lunch_start_time"?: string,"office_location"?: string | null,"photography_interests"?: (string)[],"primary_photo_day"?: string,"secondary_photo_days"?: (string)[],"skill_level"?: string,"theme"?: string,"units"?: string,"updated_at"?: string | null,"user_id"?: string,"wfh_flexibility"?: boolean,"work_days"?: (string)[],"work_end_time"?: string,"work_start_time"?: string
                   }
                   Relationships: [
                     
