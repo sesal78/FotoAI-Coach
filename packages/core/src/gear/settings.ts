@@ -61,6 +61,9 @@ function cameraPicksShutter(body: Body, mode: ExposureMode): boolean {
   return mode === 'A' || mode === 'P' || !body.modes.some((m) => m === 'M' || m === 'S');
 }
 
+/** In S or P mode the camera picks the aperture. */
+const cameraPicksAperture = (mode: ExposureMode) => mode === 'S' || mode === 'P';
+
 /** Fastest timed speed at this aperture (leaf shutters are slower wide open); the tightest limit when unknown. */
 function fastestAt(body: Body, aperture: number | undefined): number {
   let fastest = body.shutter.fastestSeconds;
@@ -106,7 +109,9 @@ function issuesFor(loadout: Loadout, s: Settings): SettingIssue[] {
   if (s.focalMm !== undefined && (s.focalMm < lens.focalMm.min || s.focalMm > lens.focalMm.max)) {
     issues.push({ field: 'focalMm', message: `${lens.model} covers ${lens.focalMm.min}–${lens.focalMm.max}mm` });
   }
-  if (s.aperture !== undefined) {
+  if (s.aperture !== undefined && cameraPicksAperture(s.mode)) {
+    issues.push({ field: 'aperture', message: `${body.model} chooses the aperture itself in ${s.mode} mode` });
+  } else if (s.aperture !== undefined) {
     const widest = maxApertureAt(lens, focalFor(lens, s));
     if (s.aperture < widest || s.aperture > lens.minAperture) {
       issues.push({ field: 'aperture', message: `${lens.model} stops f/${fmt(widest)} to f/${fmt(lens.minAperture)} here` });
@@ -135,26 +140,77 @@ export function validateSettings(
   return issues.length === 0 ? { ok: true, settings } : { ok: false, issues };
 }
 
+// Third-stop scales used when exposure is moved between shutter, aperture and ISO.
+const F_STOPS = [1, 1.1, 1.2, 1.4, 1.6, 1.8, 2, 2.2, 2.5, 2.8, 3.2, 3.5, 4, 4.5, 5, 5.6, 6.3, 7.1, 8, 9, 10, 11, 13, 14, 16, 18, 20, 22, 25, 29, 32];
+const ISOS = [12, 16, 20, 25, 32, 40, 50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800, 16000, 20000, 25600, 32000, 40000, 51200, 64000, 80000, 102400];
+const nearest = (scale: number[], value: number) =>
+  scale.reduce((best, v) => (Math.abs(Math.log2(v / value)) < Math.abs(Math.log2(best / value)) ? v : best), scale[0]!);
+
+/**
+ * How many stops brighter `b` is than `a` (negative: darker). Longer shutter, wider aperture
+ * and higher ISO all add light; a field missing on either side counts as unchanged.
+ */
+export function exposureStops(a: Settings, b: Settings): number {
+  let stops = 0;
+  if (a.shutterSeconds !== undefined && b.shutterSeconds !== undefined) stops += Math.log2(b.shutterSeconds / a.shutterSeconds);
+  if (a.aperture !== undefined && b.aperture !== undefined) stops -= 2 * Math.log2(b.aperture / a.aperture);
+  if (a.iso !== undefined && b.iso !== undefined) stops += Math.log2(b.iso / a.iso);
+  return stops;
+}
+
+const stopsText = (stops: number) => {
+  const n = Math.round(Math.abs(stops) * 3) / 3;
+  const amount = Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return `${amount} stop${n === 1 ? '' : 's'} ${stops > 0 ? 'brighter' : 'darker'} than asked`;
+};
+
 export function clampSettings(loadout: Loadout, settings: Settings): { settings: Settings; changes: SettingIssue[] } {
-  const changes = issuesFor(loadout, settings);
-  if (changes.length === 0) return { settings, changes };
+  const issues = issuesFor(loadout, settings);
+  if (issues.length === 0) return { settings, changes: issues };
   const { body, lens } = loadout;
   const s: Settings = { ...settings };
 
   if (!body.modes.includes(s.mode)) s.mode = MODE_FALLBACK.find((m) => body.modes.includes(m)) ?? body.modes[0]!;
   if (s.focalMm !== undefined) s.focalMm = clamp(s.focalMm, lens.focalMm.min, lens.focalMm.max);
   if (s.aperture !== undefined) {
-    s.aperture = clamp(s.aperture, maxApertureAt(lens, focalFor(lens, s)), lens.minAperture);
-  }
-  if (s.shutterSeconds !== undefined) {
-    if (cameraPicksShutter(body, s.mode)) delete s.shutterSeconds;
-    else if (s.shutterSeconds < fastestAt(body, s.aperture)) s.shutterSeconds = fastestAt(body, s.aperture);
-    else if (tooSlow(body, s.shutterSeconds)) s.shutterSeconds = body.shutter.slowestSeconds!;
+    if (cameraPicksAperture(s.mode)) delete s.aperture;
+    else s.aperture = clamp(s.aperture, maxApertureAt(lens, focalFor(lens, s)), lens.minAperture);
   }
   const fixedIso = requiredIso(loadout);
   if (fixedIso !== null && s.iso !== undefined) s.iso = fixedIso;
   else if (body.type === 'digital' && body.iso && s.iso !== undefined) s.iso = clamp(s.iso, body.iso.min, body.iso.max);
+
+  let shutterNote = '';
+  if (s.shutterSeconds !== undefined) {
+    const asked = s.shutterSeconds;
+    if (cameraPicksShutter(body, s.mode)) delete s.shutterSeconds;
+    else if (s.shutterSeconds < fastestAt(body, s.aperture)) s.shutterSeconds = fastestAt(body, s.aperture);
+    else if (tooSlow(body, s.shutterSeconds)) s.shutterSeconds = body.shutter.slowestSeconds!;
+    if (s.shutterSeconds !== undefined && s.shutterSeconds !== asked) {
+      // Keep the exposure: the shutter gave `moved` stops; the aperture, then ISO, take them back.
+      const before: Settings = { ...s, shutterSeconds: asked };
+      const moved = Math.log2(s.shutterSeconds / asked);
+      if (s.aperture !== undefined) {
+        const widest = maxApertureAt(lens, focalFor(lens, s));
+        s.aperture = clamp(nearest(F_STOPS, clamp(s.aperture * 2 ** (moved / 2), widest, lens.minAperture)), widest, lens.minAperture);
+      }
+      const afterAperture = exposureStops(before, s);
+      if (Math.abs(afterAperture) >= 0.15 && body.type === 'digital' && body.iso && s.iso !== undefined) {
+        s.iso = clamp(nearest(ISOS, s.iso * 2 ** -afterAperture), body.iso.min, body.iso.max);
+      }
+      const left = exposureStops(before, s);
+      if (Math.abs(left) >= 0.15) shutterNote = `; ${stopsText(left)}`;
+    }
+  }
   if (s.filmSimulation !== undefined && !(body.type === 'digital' && body.make === 'Fujifilm')) delete s.filmSimulation;
 
+  // Every field that changed is listed, even when it follows from another fix (2C M8).
+  const changes = issues.map((issue) => (issue.field === 'shutterSeconds' && shutterNote ? { ...issue, message: issue.message + shutterNote } : issue));
+  const FIELDS = ['mode', 'aperture', 'shutterSeconds', 'iso', 'focalMm', 'filmSimulation'] as const;
+  for (const field of FIELDS) {
+    if (settings[field] !== s[field] && !changes.some((c) => c.field === field)) {
+      changes.push({ field, message: s[field] === undefined ? `${field} left to the camera` : `${field} changed to keep the exposure` });
+    }
+  }
   return { settings: s, changes };
 }

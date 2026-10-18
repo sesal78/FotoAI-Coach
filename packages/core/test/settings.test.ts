@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { clampSettings, findBody, findLens, maxApertureAt, validateSettings, type Loadout, type Settings } from '../src/index.ts';
+import { clampSettings, exposureStops, findBody, findLens, maxApertureAt, validateSettings, type Loadout, type Settings } from '../src/index.ts';
 
 const loadout = (bodyId: string, lensId: string | null, film?: Loadout['film']): Loadout => {
   const body = findBody(bodyId)!;
@@ -130,4 +130,49 @@ test('a GR IIIx shutter with no aperture is held to the leaf-shutter limit', () 
   const s: Settings = { mode: 'M', shutterSeconds: 1 / 4000, iso: 400 };
   expect(fields(validateSettings(gr, s))).toEqual(['shutterSeconds']);
   expect(clampSettings(gr, s).settings.shutterSeconds).toBe(1 / 2500);
+});
+
+test('an aperture in S or P mode is an issue, and clamping drops it', () => {
+  const l = loadout('fujifilm-x-t5', 'fujifilm-xf-23mm-f2-8');
+  for (const mode of ['S', 'P'] as const) {
+    const s: Settings = { mode, aperture: 8, shutterSeconds: mode === 'S' ? 1 / 250 : undefined, iso: 125 };
+    if (mode === 'P') delete s.shutterSeconds;
+    expect(fields(validateSettings(l, s)), mode).toEqual(['aperture']);
+    expect(clampSettings(l, s).settings.aperture, mode).toBeUndefined();
+  }
+});
+
+test('a mode change that drops the shutter lists the shutter in changes', () => {
+  const l = loadout('nikon-fe2', 'nikon-ai-s-50mm-f1-4', portra400);
+  const s: Settings = { mode: 'S', shutterSeconds: 1 / 250, aperture: 8, iso: 400, focalMm: 50 };
+  const { settings, changes } = clampSettings(l, s);
+  expect(settings.mode).toBe('A');
+  expect(settings.shutterSeconds).toBeUndefined();
+  expect(changes.map((c) => c.field)).toEqual(expect.arrayContaining(['mode', 'shutterSeconds']));
+});
+
+test('1/4000 at f/2 on the ME Super becomes 1/2000 at f/2.8: same exposure', () => {
+  const l = loadout('pentax-me-super', 'pentax-m-50mm-f1-7', portra400);
+  const s: Settings = { mode: 'M', aperture: 2, shutterSeconds: 1 / 4000, iso: 400, focalMm: 50 };
+  const clamped = clampSettings(l, s).settings;
+  expect(clamped).toMatchObject({ shutterSeconds: 1 / 2000, aperture: 2.8, iso: 400 });
+  expect(Math.abs(exposureStops(s, clamped))).toBeLessThan(0.1);
+  expect(validateSettings(l, clamped).ok).toBe(true);
+});
+
+test('when the aperture runs out, a digital body takes the rest in ISO', () => {
+  const l = loadout('fujifilm-x-t5', 'fujifilm-xf-23mm-f2-8');
+  const s: Settings = { mode: 'M', aperture: 11, shutterSeconds: 1 / 32000, iso: 500, focalMm: 23 };
+  const { settings, changes } = clampSettings(l, s);
+  expect(settings).toMatchObject({ shutterSeconds: 1 / 8000, aperture: 16, iso: 250 });
+  expect(Math.abs(exposureStops(s, settings))).toBeLessThan(0.2);
+  expect(changes.map((c) => c.field)).toEqual(expect.arrayContaining(['shutterSeconds', 'aperture', 'iso']));
+});
+
+test('a film body cannot take stops in ISO; the message names what is left', () => {
+  const l = loadout('pentax-me-super', 'pentax-m-50mm-f1-7', portra400);
+  const s: Settings = { mode: 'M', aperture: 16, shutterSeconds: 1 / 8000, iso: 400, focalMm: 50 };
+  const { settings, changes } = clampSettings(l, s);
+  expect(settings).toMatchObject({ shutterSeconds: 1 / 2000, aperture: 22, iso: 400 });
+  expect(changes.find((c) => c.field === 'shutterSeconds')!.message).toContain('1 stop brighter than asked');
 });
