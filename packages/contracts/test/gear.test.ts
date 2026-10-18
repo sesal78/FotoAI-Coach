@@ -42,3 +42,11 @@ test('a loadout needs a body gear id; lens and film are optional', () => {
     expect(() => LoadoutInput.parse(bad), JSON.stringify(bad)).toThrow();
   }
 });
+
+test('custom bodies need a mount (fixed-lens custom bodies are not supported yet)', () => {
+  expect(AddGearInput.safeParse({ custom: { ...customBody, mount: null } }).success).toBe(false);
+});
+
+test('a catalog id longer than 80 characters is rejected', () => {
+  expect(AddGearInput.safeParse({ catalogId: 'a'.repeat(81) }).success).toBe(false);
+});

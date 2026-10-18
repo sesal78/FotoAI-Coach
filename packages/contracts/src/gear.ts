@@ -62,7 +62,8 @@ export const CustomBodyInput = z
     make: name,
     model: name,
     type: z.enum(['digital', 'film']),
-    mount: z.string().trim().min(1).max(40).nullable(),
+    // A mount is required: a custom body cannot carry its own fixed lens yet.
+    mount: z.string().trim().min(1).max(40),
     modes: z.array(z.enum(EXPOSURE_MODES)).min(1),
     shutter: z
       .object({ slowestSeconds: z.number().positive(), fastestSeconds: z.number().positive(), bulb: z.boolean().optional() })
@@ -89,7 +90,7 @@ export const CustomLensInput = z
   .refine((l) => l.minAperture > l.maxAperture.tele && l.maxAperture.wide <= l.maxAperture.tele, 'aperture range is not possible');
 
 export const AddGearInput = z.union([
-  z.object({ catalogId: z.string().regex(/^[a-z0-9-]+$/) }).strict(),
+  z.object({ catalogId: z.string().max(80).regex(/^[a-z0-9-]+$/) }).strict(),
   z.object({ custom: z.union([CustomBodyInput, CustomLensInput]) }).strict(),
 ]);
 

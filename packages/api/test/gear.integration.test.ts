@@ -1,4 +1,4 @@
-import { createTokenVerifier } from '@fotoai/db';
+import { createTokenVerifier, createUserClient } from '@fotoai/db';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 import { localDbFromEnv } from '../../db/test/support/local-db.ts';
@@ -58,8 +58,29 @@ describe.skipIf(!db)('v2 gear and loadout against the local Supabase', () => {
     const list = await (await call(listMyGear, a)).json();
     expect(list.items.map((i: { id: string }) => i.id)).toContain(item.id);
     // The live app reads category/brand/model: they are filled.
-    const row = list.items.find((i: { id: string }) => i.id === item.id);
-    expect(row.capability.model).toBe('FE2');
+    const { data: row } = await createUserClient(deps.env, a.token)
+      .from('fotoai_user_gear')
+      .select('category, brand, model')
+      .eq('id', item.id)
+      .single();
+    expect(row).toEqual({ category: 'camera', brand: 'Nikon', model: 'FE2' });
+  });
+
+  test('an unknown catalog id is a 400 that does not echo the id', async () => {
+    const res = await add(a, { catalogId: 'no-such-camera' });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).not.toContain('no-such-camera');
+  });
+
+  test('a malformed stored custom row does not break the gear list', async () => {
+    const { error } = await createUserClient(deps.env, a.token)
+      .from('fotoai_user_gear')
+      .insert({ user_id: a.id, category: 'camera', brand: 'Odd', model: 'Body', custom: { kind: 'body', make: 'Odd' } } as never);
+    expect(error).toBeNull();
+    const res = await call(listMyGear, a);
+    expect(res.status).toBe(200);
+    const odd = (await res.json()).items.find((i: { name: string }) => i.name === 'Odd Body');
+    expect(odd).toMatchObject({ kind: 'body', capability: null });
   });
 
   test('custom gear missing the shutter range is a 400 that names the field', async () => {

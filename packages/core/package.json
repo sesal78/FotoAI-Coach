@@ -10,8 +10,5 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "@fotoai/contracts": "workspace:*"
   }
 }

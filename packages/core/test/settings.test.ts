@@ -103,3 +103,31 @@ test('unknown limits are not enforced: the Electro 35 GL accepts any rated film 
   const gl = loadout('yashica-electro-35-gl', null, { stock: 'Ilford HP5 Plus', boxIso: 400, ratedIso: 1600 });
   expect(validateSettings(gl, { mode: 'A', aperture: 8, iso: 1600, focalMm: 40 }).ok).toBe(true);
 });
+
+test('the 70-300 is held to f/5.6 past 70mm, since its aperture steps are not recorded', () => {
+  const zoom = findLens('fujifilm-xf-70-300mm-f4-5-6')!;
+  expect(maxApertureAt(zoom, 200)).toBe(5.6);
+  const l = loadout('fujifilm-x-t5', 'fujifilm-xf-70-300mm-f4-5-6');
+  expect(fields(validateSettings(l, { mode: 'A', aperture: 5, iso: 125, focalMm: 220 }))).toEqual(['aperture']);
+  expect(validateSettings(loadout('fujifilm-x-t5', 'sigma-18-50mm-f2-8-dc-dn-x'), { mode: 'A', aperture: 2.8, iso: 125, focalMm: 35 }).ok).toBe(true);
+});
+
+test('a zoom aperture with no focal length is checked at the long end', () => {
+  const l = loadout('fujifilm-x-t5', 'fujifilm-xf-70-300mm-f4-5-6');
+  const s: Settings = { mode: 'A', aperture: 4, iso: 125 };
+  expect(fields(validateSettings(l, s))).toEqual(['aperture']);
+  expect(clampSettings(l, s).settings.aperture).toBe(5.6);
+});
+
+test('mount names match without regard to case or spacing', () => {
+  const fe2 = findBody('nikon-fe2')!;
+  const custom = { ...findLens('nikon-ai-s-50mm-f1-4')!, id: 'custom', mount: ' nikon  f ' };
+  expect(validateSettings({ body: fe2, lens: custom, film: portra400 }, { mode: 'A', aperture: 8, iso: 400, focalMm: 50 }).ok).toBe(true);
+});
+
+test('a GR IIIx shutter with no aperture is held to the leaf-shutter limit', () => {
+  const gr = loadout('ricoh-gr-iiix', null);
+  const s: Settings = { mode: 'M', shutterSeconds: 1 / 4000, iso: 400 };
+  expect(fields(validateSettings(gr, s))).toEqual(['shutterSeconds']);
+  expect(clampSettings(gr, s).settings.shutterSeconds).toBe(1 / 2500);
+});

@@ -37,30 +37,35 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 const shutterText = (s: number) => (s >= 1 ? `${fmt(s)} s` : `1/${Math.round(1 / s)} s`);
 
-/** Largest aperture (smallest f-number) at a focal length; linear between the zoom ends. */
+/**
+ * Largest aperture (smallest f-number) at a focal length. A variable-aperture zoom gives its
+ * wide value only at the wide end: its real steps are not recorded, and a straight line between
+ * the ends would suggest apertures the lens cannot reach (the 70-300 is f/5.6 from about 200mm).
+ */
 export function maxApertureAt(lens: Lens, focalMm: number): number {
-  const { min, max } = lens.focalMm;
-  if (max === min || focalMm <= min) return lens.maxAperture.wide;
-  if (focalMm >= max) return lens.maxAperture.tele;
-  const t = (focalMm - min) / (max - min);
-  return Math.round((lens.maxAperture.wide + t * (lens.maxAperture.tele - lens.maxAperture.wide)) * 10) / 10;
+  return focalMm <= lens.focalMm.min ? lens.maxAperture.wide : lens.maxAperture.tele;
 }
 
+const mountKey = (mount: string) => mount.trim().replace(/\s+/g, ' ').toLowerCase();
+
 function lensFits(body: Body, lens: Lens): boolean {
-  return body.fixedLensId ? lens.id === body.fixedLensId : lens.mount !== null && lens.mount === body.mount;
+  if (body.fixedLensId) return lens.id === body.fixedLensId;
+  return lens.mount !== null && body.mount !== null && mountKey(lens.mount) === mountKey(body.mount);
 }
+
+/** The focal length an aperture is checked at: the long end when none is given (reachable at every length). */
+const focalFor = (lens: Lens, s: Settings) => clamp(s.focalMm ?? lens.focalMm.max, lens.focalMm.min, lens.focalMm.max);
 
 /** In A or P mode, or on a body with no M or S mode, the camera picks the shutter speed. */
 function cameraPicksShutter(body: Body, mode: ExposureMode): boolean {
   return mode === 'A' || mode === 'P' || !body.modes.some((m) => m === 'M' || m === 'S');
 }
 
-/** Fastest timed speed at this aperture (leaf shutters are slower wide open). */
+/** Fastest timed speed at this aperture (leaf shutters are slower wide open); the tightest limit when unknown. */
 function fastestAt(body: Body, aperture: number | undefined): number {
   let fastest = body.shutter.fastestSeconds;
-  if (aperture === undefined) return fastest;
   for (const limit of body.shutter.apertureLimits ?? []) {
-    if (aperture < limit.belowAperture) fastest = Math.max(fastest, limit.fastestSeconds);
+    if (aperture === undefined || aperture < limit.belowAperture) fastest = Math.max(fastest, limit.fastestSeconds);
   }
   return fastest;
 }
@@ -102,7 +107,7 @@ function issuesFor(loadout: Loadout, s: Settings): SettingIssue[] {
     issues.push({ field: 'focalMm', message: `${lens.model} covers ${lens.focalMm.min}–${lens.focalMm.max}mm` });
   }
   if (s.aperture !== undefined) {
-    const widest = maxApertureAt(lens, clamp(s.focalMm ?? lens.focalMm.min, lens.focalMm.min, lens.focalMm.max));
+    const widest = maxApertureAt(lens, focalFor(lens, s));
     if (s.aperture < widest || s.aperture > lens.minAperture) {
       issues.push({ field: 'aperture', message: `${lens.model} stops f/${fmt(widest)} to f/${fmt(lens.minAperture)} here` });
     }
@@ -139,7 +144,7 @@ export function clampSettings(loadout: Loadout, settings: Settings): { settings:
   if (!body.modes.includes(s.mode)) s.mode = MODE_FALLBACK.find((m) => body.modes.includes(m)) ?? body.modes[0]!;
   if (s.focalMm !== undefined) s.focalMm = clamp(s.focalMm, lens.focalMm.min, lens.focalMm.max);
   if (s.aperture !== undefined) {
-    s.aperture = clamp(s.aperture, maxApertureAt(lens, s.focalMm ?? lens.focalMm.min), lens.minAperture);
+    s.aperture = clamp(s.aperture, maxApertureAt(lens, focalFor(lens, s)), lens.minAperture);
   }
   if (s.shutterSeconds !== undefined) {
     if (cameraPicksShutter(body, s.mode)) delete s.shutterSeconds;

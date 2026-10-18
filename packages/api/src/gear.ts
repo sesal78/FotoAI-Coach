@@ -44,23 +44,28 @@ function validationFrom(issues: Array<{ path: PropertyKey[] }>): ApiError {
   return new ApiError('validation', `Invalid gear: ${fields.join(', ')}`);
 }
 
-/** A custom body or lens as stored in the row's `custom` column, shaped like a catalog item. */
+/**
+ * A custom body or lens as stored in the row's `custom` column, shaped like a catalog item.
+ * The stored value is parsed again: an owner can write any jsonb, and a bad row must show as
+ * gear without capability data, not break the list.
+ */
 function customCapability(row: GearRow): BodyDto | LensDto | null {
-  const c = row.custom as (Record<string, unknown> & { kind?: string }) | null;
-  if (!c || typeof c !== 'object') return null;
-  if (c.kind === 'body') {
-    const shutter = c.shutter as { slowestSeconds: number; fastestSeconds: number; bulb?: boolean };
+  const kind = (row.custom as { kind?: unknown } | null)?.kind;
+  if (kind === 'body') {
+    const parsed = CustomBodyInput.safeParse(row.custom);
+    if (!parsed.success) return null;
+    const c = parsed.data;
     return {
-      id: row.id, make: String(c.make), model: String(c.model), type: c.type as Body['type'], mount: (c.mount as string | null) ?? null,
-      modes: c.modes as Body['modes'], shutter: { slowestSeconds: shutter.slowestSeconds, fastestSeconds: shutter.fastestSeconds, bulb: shutter.bulb ?? null },
-      flashSyncSeconds: null, iso: c.iso as Body['iso'], metering: null, fixedLensId: null, sources: [],
+      id: row.id, make: c.make, model: c.model, type: c.type, mount: c.mount, modes: c.modes,
+      shutter: { slowestSeconds: c.shutter.slowestSeconds, fastestSeconds: c.shutter.fastestSeconds, bulb: c.shutter.bulb ?? null },
+      flashSyncSeconds: null, iso: c.iso, metering: null, fixedLensId: null, sources: [],
     };
   }
-  if (c.kind === 'lens') {
-    return {
-      id: row.id, make: String(c.make), model: String(c.model), mount: String(c.mount),
-      focalMm: c.focalMm as Lens['focalMm'], maxAperture: c.maxAperture as Lens['maxAperture'], minAperture: Number(c.minAperture), sources: [],
-    };
+  if (kind === 'lens') {
+    const parsed = CustomLensInput.safeParse(row.custom);
+    if (!parsed.success) return null;
+    const c = parsed.data;
+    return { id: row.id, make: c.make, model: c.model, mount: c.mount, focalMm: c.focalMm, maxAperture: c.maxAperture, minAperture: c.minAperture, sources: [] };
   }
   return null;
 }
@@ -122,7 +127,7 @@ export const addMyGear: V2Body = async (request, deps) => {
   if ('catalogId' in input) {
     const catalogBody = findBody(input.catalogId);
     const catalogLens = catalogBody ? undefined : findLens(input.catalogId);
-    if (!catalogBody && !catalogLens) throw new ApiError('validation', `Unknown catalog id: ${input.catalogId}`);
+    if (!catalogBody && !catalogLens) throw new ApiError('validation', 'Unknown catalog id');
     row = catalogBody
       ? { category: 'camera', brand: catalogBody.make, model: catalogBody.model, body_id: catalogBody.id }
       : { category: 'lens', brand: catalogLens!.make, model: catalogLens!.model, lens_id: catalogLens!.id };
