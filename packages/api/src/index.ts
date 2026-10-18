@@ -19,3 +19,4 @@ export {
   toV2Challenge,
 } from './challenges.ts';
 export { getPreferences, patchPreferences } from './preferences.ts';
+export { addMyGear, deleteMyGear, getGearCatalog, getLoadout, listMyGear, putLoadout } from './gear.ts';

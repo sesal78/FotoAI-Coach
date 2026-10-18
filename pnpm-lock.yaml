@@ -357,6 +357,9 @@ importers:
       '@fotoai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@fotoai/core':
+        specifier: workspace:*
+        version: link:../core
       '@fotoai/db':
         specifier: workspace:*
         version: link:../db
@@ -366,6 +369,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.76.0
         version: 2.118.0
+      zod:
+        specifier: ^3.25.0
+        version: 3.25.76
 
   packages/contracts:
     dependencies:

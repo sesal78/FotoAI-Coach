@@ -7,10 +7,10 @@ import { createUserClient } from '@fotoai/db';
 
 import { rejectBrowserIdentity, requirePrincipal } from './auth.ts';
 import { ApiError, json, type V2Body } from './handler.ts';
+import { readJsonObject } from './http.ts';
 
 const TABLE = 'fotoai_user_preferences';
 const COLUMNS = 'theme, units, home_lat, home_lng, home_location';
-const MAX_BODY = 4096;
 
 const DEFAULTS: Preferences = { theme: 'golden', units: 'metric', home: null };
 
@@ -29,19 +29,6 @@ function toPreferences(row: PreferenceRow | null): Preferences {
     units: row.units as Preferences['units'],
     home: row.home_lat !== null && row.home_lng !== null ? { lat: row.home_lat, lng: row.home_lng, label: row.home_location } : null,
   };
-}
-
-async function readJsonObject(request: Request): Promise<Record<string, unknown>> {
-  const text = await request.text();
-  if (text.length > MAX_BODY) throw new ApiError('validation', 'Request body is too large');
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    throw new ApiError('validation', 'Request body must be JSON');
-  }
-  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ApiError('validation', 'Request body must be a JSON object');
-  return body as Record<string, unknown>;
 }
 
 const saveFailed = () => new ApiError('upstream', 'Could not save preferences');

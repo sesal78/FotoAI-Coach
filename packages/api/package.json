@@ -14,8 +14,10 @@
   },
   "dependencies": {
     "@fotoai/contracts": "workspace:*",
+    "@fotoai/core": "workspace:*",
     "@fotoai/db": "workspace:*",
     "@fotoai/env": "workspace:*",
-    "@supabase/supabase-js": "^2.76.0"
+    "@supabase/supabase-js": "^2.76.0",
+    "zod": "^3.25.0"
   }
 }

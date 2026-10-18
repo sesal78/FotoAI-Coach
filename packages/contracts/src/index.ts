@@ -8,4 +8,16 @@ export {
   type ChallengeStatus,
 } from './challenges.ts';
 export { Preferences, PreferencesPatch, THEMES, UNITS, type Theme, type Units } from './preferences.ts';
-export { EXPOSURE_MODES, SettingsDto } from './gear.ts';
+export {
+  AddGearInput,
+  BodyDto,
+  CustomBodyInput,
+  CustomLensInput,
+  EXPOSURE_MODES,
+  FilmLoadDto,
+  GearItem,
+  LensDto,
+  LoadoutDto,
+  LoadoutInput,
+  SettingsDto,
+} from './gear.ts';
