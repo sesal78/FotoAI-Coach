@@ -1,16 +1,15 @@
 import { relations } from "drizzle-orm/relations";
 import { authUsers as usersInAuth } from "drizzle-orm/supabase";
-import { fotoaiUserPreferences, fotoaiUserGear, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiXpEvents } from "./schema.ts";
+import { fotoaiUserGear, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiXpEvents, fotoaiUserPreferences } from "./schema.ts";
 
-export const fotoaiUserPreferencesRelations = relations(fotoaiUserPreferences, ({one}) => ({
+export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
-		fields: [fotoaiUserPreferences.userId],
+		fields: [fotoaiUserGear.userId],
 		references: [usersInAuth.id]
 	}),
 }));
 
 export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
-	fotoaiUserPreferences: many(fotoaiUserPreferences),
 	fotoaiUserGears: many(fotoaiUserGear),
 	fotoaiChallengeSubmissions: many(fotoaiChallengeSubmissions),
 	fotoaiItineraries: many(fotoaiItineraries),
@@ -24,13 +23,7 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiUserSkills: many(fotoaiUserSkills),
 	fotoaiDailyChallenges: many(fotoaiDailyChallenges),
 	fotoaiXpEvents: many(fotoaiXpEvents),
-}));
-
-export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
-	usersInAuth: one(usersInAuth, {
-		fields: [fotoaiUserGear.userId],
-		references: [usersInAuth.id]
-	}),
+	fotoaiUserPreferences: many(fotoaiUserPreferences),
 }));
 
 export const fotoaiChallengeSubmissionsRelations = relations(fotoaiChallengeSubmissions, ({one, many}) => ({
@@ -123,6 +116,13 @@ export const fotoaiUserSkillsRelations = relations(fotoaiUserSkills, ({one}) => 
 export const fotoaiXpEventsRelations = relations(fotoaiXpEvents, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [fotoaiXpEvents.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const fotoaiUserPreferencesRelations = relations(fotoaiUserPreferences, ({one}) => ({
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiUserPreferences.userId],
 		references: [usersInAuth.id]
 	}),
 }));

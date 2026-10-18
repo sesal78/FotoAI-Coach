@@ -7,3 +7,4 @@ export {
   type ChallengeSource,
   type ChallengeStatus,
 } from './challenges.ts';
+export { Preferences, PreferencesPatch, THEMES, UNITS, type Theme, type Units } from './preferences.ts';
