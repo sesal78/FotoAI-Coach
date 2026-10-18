@@ -13,8 +13,8 @@ async function restricted(filePath: string): Promise<boolean> {
 test('importing @fotoai/db/service outside privileged/ fails lint', async () => {
   expect(await restricted('packages/core/src/challenges.ts')).toBe(true);
   expect(await restricted('apps/web/app/api/v2/route.ts')).toBe(true);
-});
+}, 30_000); // first ESLint start can take >5 s while the whole workspace tests in parallel
 
 test('importing @fotoai/db/service inside privileged/ passes lint', async () => {
   expect(await restricted('packages/core/src/privileged/xp.ts')).toBe(false);
-});
+}, 30_000);
