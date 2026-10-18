@@ -48,6 +48,8 @@ const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
  */
 export const FOTOAI_AUTH_REDIRECT_ORIGINS = ['https://myfoto.topues.com'] as const;
 export const FOTOAI_DEV_AUTH_REDIRECT_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'] as const;
+/** Outside production, any explicit local port is accepted too (local test runs use other ports). */
+const DEV_LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/;
 
 export const FOTOAI_RESET_PATH = '/reset-password';
 export const FOTOAI_CONFIRM_PATH = '/verify-email/confirm';
@@ -69,7 +71,9 @@ export function authRedirectOrigin(request: Request, nodeEnv: string | undefined
   const allowed: readonly string[] = nodeEnv === 'production'
     ? FOTOAI_AUTH_REDIRECT_ORIGINS
     : [...FOTOAI_AUTH_REDIRECT_ORIGINS, ...FOTOAI_DEV_AUTH_REDIRECT_ORIGINS];
-  return allowed.includes(origin) ? origin : FOTOAI_AUTH_REDIRECT_ORIGINS[0];
+  if (allowed.includes(origin)) return origin;
+  if (nodeEnv !== 'production' && DEV_LOCAL_ORIGIN.test(origin)) return origin;
+  return FOTOAI_AUTH_REDIRECT_ORIGINS[0];
 }
 
 /** A cross-site HTML form cannot send application/json without a CORS preflight. */

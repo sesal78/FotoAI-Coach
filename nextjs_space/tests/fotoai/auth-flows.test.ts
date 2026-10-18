@@ -486,3 +486,11 @@ test('supabase HTTP: GoTrue email-flow errors map to 401/400/502 and never carry
   ));
   await assert.rejects(createFotoaiSupabaseClient(TEST_ENV, reply(503, {})).updateUserPassword('at', 'pw'), (err: any) => err.status === 502);
 });
+
+test('auth redirects: any explicit localhost port works in development, never in production', () => {
+  const req = (origin: string) => new Request(`${origin}/api/fotoai/auth/forgot-password`, { method: 'POST' });
+  assert.equal(authRedirectOrigin(req('http://localhost:3007'), 'development'), 'http://localhost:3007');
+  assert.equal(authRedirectOrigin(req('http://127.0.0.1:3007'), 'development'), 'http://127.0.0.1:3007');
+  assert.equal(authRedirectOrigin(req('http://localhost:3007'), 'production'), 'https://myfoto.topues.com');
+  assert.equal(authRedirectOrigin(req('http://evil.test:3007'), 'development'), 'https://myfoto.topues.com');
+});
