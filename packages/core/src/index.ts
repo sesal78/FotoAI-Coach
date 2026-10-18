@@ -10,3 +10,5 @@ export {
 } from './gear/settings.ts';
 export type { Body, BodyType, ExposureMode, Lens } from './gear/types.ts';
 export { framesLeft, nearestShutter, pushPullStops, STANDARD_SHUTTER_SECONDS, sunny16, type Scene } from './film/exposure.ts';
+export { lightTimes, type LightTimes, type Window } from './light/light.ts';
+export { localDate, offsetMinutes, timezoneAt, toZonedIso } from './light/zoned.ts';
