@@ -18,7 +18,7 @@ describe.skipIf(!db)('gear catalog tables', () => {
   afterAll(async () => {
     await deleteTestUsers(db!, [user]);
   });
-  const asUser = () => createUserClient(testEnv(db!), user.token) as unknown as { from: (t: string) => any };
+  const asUser = () => createUserClient(testEnv(db!), user.token);
 
   test('the database catalog equals catalog.ts', async () => {
     const { data: bodies, error: e1 } = await asUser().from('fotoai_gear_bodies').select('*').order('id');
@@ -51,7 +51,7 @@ describe.skipIf(!db)('gear catalog tables', () => {
     const del = await asUser().from('fotoai_gear_lenses').delete().eq('id', 'nikon-ai-s-50mm-f1-4').select();
     expect(del.error !== null || (del.data as Row[]).length === 0).toBe(true);
     const still = await createServiceClient(testEnv(db!)).from('fotoai_gear_bodies' as never).select('model').eq('id', 'nikon-fe2').single();
-    expect((still.data as Row).model).toBe('FE2');
+    expect((still.data as unknown as Row).model).toBe('FE2');
   });
 
   test('a gear row may link a catalog body or lens, or carry custom data, but not two of them', async () => {
