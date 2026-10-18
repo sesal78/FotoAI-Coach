@@ -40,12 +40,8 @@ export const fotoaiUserPreferences = pgTable("fotoai_user_preferences", {
 		}).onDelete("cascade"),
 	unique("fotoai_user_preferences_user_id_key").on(table.userId),
 	unique("fotoai_user_preferences_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_user_preferences_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_user_preferences_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_user_preferences_update", { as: "permissive", for: "update", to: ["authenticated"] }),
-	pgPolicy("fotoai_user_preferences_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_user_preferences_skill_level_check", sql`skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])`),
-]);
+]).enableRLS();
 
 export const fotoaiUserGear = pgTable("fotoai_user_gear", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -65,11 +61,7 @@ export const fotoaiUserGear = pgTable("fotoai_user_gear", {
 			name: "fotoai_user_gear_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_user_gear_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_user_gear_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_user_gear_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_user_gear_update", { as: "permissive", for: "update", to: ["authenticated"] }),
-	pgPolicy("fotoai_user_gear_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
-]);
+]).enableRLS();
 
 export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -104,13 +96,9 @@ export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
 		}).onDelete("cascade"),
 	unique("fotoai_daily_challenges_id_user_key").on(table.id, table.userId),
 	unique("fotoai_daily_challenges_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_daily_challenges_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_daily_challenges_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_daily_challenges_update", { as: "permissive", for: "update", to: ["authenticated"] }),
-	pgPolicy("fotoai_daily_challenges_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_daily_challenges_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text])`),
 	check("fotoai_daily_challenges_technical_level_check", sql`(technical_level >= 1) AND (technical_level <= 5)`),
-]);
+]).enableRLS();
 
 export const fotoaiChallengeSubmissions = pgTable("fotoai_challenge_submissions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -142,15 +130,11 @@ export const fotoaiChallengeSubmissions = pgTable("fotoai_challenge_submissions"
 		}).onDelete("cascade"),
 	unique("fotoai_challenge_submissions_id_user_key").on(table.id, table.userId),
 	unique("fotoai_challenge_submissions_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_challenge_submissions_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_challenge_submissions_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_challenge_submissions_update", { as: "permissive", for: "update", to: ["authenticated"] }),
-	pgPolicy("fotoai_challenge_submissions_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_challenge_submissions_check", sql`(photo_object_key IS NULL) OR ((photo_object_key ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/submissions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[a-z0-9-]+\\.(jpg|jpeg|png|webp|heic|cr2|cr3|nef|arw|dng|raf|orf|rw2|pef|srw|raw)$'::text) AND (split_part(photo_object_key, '/'::text, 1) = (user_id)::text))`),
 	check("fotoai_challenge_submissions_feedback_status_check", sql`feedback_status = ANY (ARRAY['pending'::text, 'ready'::text])`),
 	check("fotoai_challenge_submissions_photo_bytes_check", sql`(photo_bytes IS NULL) OR ((photo_bytes >= 1) AND (photo_bytes <= 52428800))`),
 	check("fotoai_challenge_submissions_rating_check", sql`(rating IS NULL) OR ((rating >= 1) AND (rating <= 5))`),
-]);
+]).enableRLS();
 
 export const fotoaiItineraries = pgTable("fotoai_itineraries", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -177,12 +161,8 @@ export const fotoaiItineraries = pgTable("fotoai_itineraries", {
 			name: "fotoai_itineraries_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_itineraries_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_itineraries_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_itineraries_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_itineraries_update", { as: "permissive", for: "update", to: ["authenticated"] }),
-	pgPolicy("fotoai_itineraries_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_itineraries_status_check", sql`status = ANY (ARRAY['generated'::text, 'scheduled'::text, 'completed'::text])`),
-]);
+]).enableRLS();
 
 export const fotoaiUserProgress = pgTable("fotoai_user_progress", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -215,10 +195,6 @@ export const fotoaiUserProgress = pgTable("fotoai_user_progress", {
 		}).onDelete("cascade"),
 	unique("fotoai_user_progress_user_id_key").on(table.userId),
 	unique("fotoai_user_progress_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_user_progress_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_user_progress_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_user_progress_update", { as: "permissive", for: "update", to: ["authenticated"] }),
-	pgPolicy("fotoai_user_progress_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_user_progress_after_work_completed_check", sql`after_work_completed >= 0`),
 	check("fotoai_user_progress_after_work_issued_check", sql`after_work_issued >= 0`),
 	check("fotoai_user_progress_current_streak_check", sql`current_streak >= 0`),
@@ -231,7 +207,7 @@ export const fotoaiUserProgress = pgTable("fotoai_user_progress", {
 	check("fotoai_user_progress_total_challenges_issued_check", sql`total_challenges_issued >= 0`),
 	check("fotoai_user_progress_wfh_completed_check", sql`wfh_completed >= 0`),
 	check("fotoai_user_progress_wfh_issued_check", sql`wfh_issued >= 0`),
-]);
+]).enableRLS();
 
 export const fotoaiAgentActions = pgTable("fotoai_agent_actions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -250,9 +226,7 @@ export const fotoaiAgentActions = pgTable("fotoai_agent_actions", {
 			name: "fotoai_agent_actions_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_agent_actions_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_agent_actions_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_agent_actions_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-]);
+]).enableRLS();
 
 export const fotoaiPhotoCritiques = pgTable("fotoai_photo_critiques", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -287,15 +261,12 @@ export const fotoaiPhotoCritiques = pgTable("fotoai_photo_critiques", {
 		}).onDelete("cascade"),
 	unique("fotoai_photo_critiques_id_user_key").on(table.id, table.userId),
 	unique("fotoai_photo_critiques_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_photo_critiques_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_photo_critiques_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_photo_critiques_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_photo_critiques_check", sql`split_part(photo_object_key, '/'::text, 1) = (user_id)::text`),
 	check("fotoai_photo_critiques_composition_score_check", sql`(composition_score >= 0) AND (composition_score <= 100)`),
 	check("fotoai_photo_critiques_creative_score_check", sql`(creative_score >= 0) AND (creative_score <= 100)`),
 	check("fotoai_photo_critiques_overall_score_check", sql`(overall_score >= 0) AND (overall_score <= 100)`),
 	check("fotoai_photo_critiques_technical_score_check", sql`(technical_score >= 0) AND (technical_score <= 100)`),
-]);
+]).enableRLS();
 
 export const fotoaiReverseAnalyses = pgTable("fotoai_reverse_analyses", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -313,11 +284,8 @@ export const fotoaiReverseAnalyses = pgTable("fotoai_reverse_analyses", {
 			name: "fotoai_reverse_analyses_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_reverse_analyses_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_reverse_analyses_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_reverse_analyses_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_reverse_analyses_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_reverse_analyses_check", sql`split_part(photo_object_key, '/'::text, 1) = (user_id)::text`),
-]);
+]).enableRLS();
 
 export const fotoaiEditingRecipes = pgTable("fotoai_editing_recipes", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -336,12 +304,9 @@ export const fotoaiEditingRecipes = pgTable("fotoai_editing_recipes", {
 			name: "fotoai_editing_recipes_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_editing_recipes_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_editing_recipes_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_editing_recipes_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_editing_recipes_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_editing_recipes_check", sql`(original_photo_object_key IS NULL) OR (split_part(original_photo_object_key, '/'::text, 1) = (user_id)::text)`),
 	check("fotoai_editing_recipes_check1", sql`(edited_photo_object_key IS NULL) OR (split_part(edited_photo_object_key, '/'::text, 1) = (user_id)::text)`),
-]);
+]).enableRLS();
 
 export const fotoaiWeeklyReports = pgTable("fotoai_weekly_reports", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -361,9 +326,8 @@ export const fotoaiWeeklyReports = pgTable("fotoai_weekly_reports", {
 		}).onDelete("cascade"),
 	unique("fotoai_weekly_reports_user_week_key").on(table.userId, table.weekStart),
 	unique("fotoai_weekly_reports_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_weekly_reports_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
 	check("fotoai_weekly_reports_check", sql`week_end >= week_start`),
-]);
+]).enableRLS();
 
 export const fotoaiPortfolioAnalyses = pgTable("fotoai_portfolio_analyses", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -381,11 +345,8 @@ export const fotoaiPortfolioAnalyses = pgTable("fotoai_portfolio_analyses", {
 			name: "fotoai_portfolio_analyses_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_portfolio_analyses_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_portfolio_analyses_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
-	pgPolicy("fotoai_portfolio_analyses_insert", { as: "permissive", for: "insert", to: ["authenticated"] }),
-	pgPolicy("fotoai_portfolio_analyses_delete", { as: "permissive", for: "delete", to: ["authenticated"] }),
 	check("fotoai_portfolio_analyses_photo_count_check", sql`photo_count > 0`),
-]);
+]).enableRLS();
 
 export const fotoaiUserSkills = pgTable("fotoai_user_skills", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -405,10 +366,9 @@ export const fotoaiUserSkills = pgTable("fotoai_user_skills", {
 		}).onDelete("cascade"),
 	unique("fotoai_user_skills_user_skill_key").on(table.userId, table.skillId),
 	unique("fotoai_user_skills_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_user_skills_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
 	check("fotoai_user_skills_current_xp_check", sql`current_xp >= 0`),
 	check("fotoai_user_skills_status_check", sql`status = ANY (ARRAY['locked'::text, 'available'::text, 'learned'::text, 'practiced'::text, 'mastered'::text])`),
-]);
+]).enableRLS();
 
 export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -429,7 +389,6 @@ export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
 			name: "fotoai_xp_events_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_xp_events_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	pgPolicy("fotoai_xp_events_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = auth.uid())` }),
 	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text])`),
 	check("fotoai_xp_events_xp_amount_check", sql`xp_amount > 0`),
-]);
+]).enableRLS();

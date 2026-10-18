@@ -24,7 +24,7 @@
 
 ## Global Constraints
 
-- Node 22 (`"engines": { "node": ">=22.6" }`), the same as CI and the Dockerfile.
+- Node 22 (`"engines": { "node": ">=22.18" }`; 22.18 is the first 22.x that runs `.ts` scripts without flags), the same major as CI and the Dockerfile.
 - pnpm: pin the latest stable 10.x exactly in the root `packageManager`. Turborepo 2.x.
 - zod stays on major 3, the same major as `nextjs_space` (zod 3.23.8). Phase 2 imports `@fotoai/contracts` into the live app.
 - **`nextjs_space/` must not change.** `git diff --stat origin/master -- nextjs_space` prints nothing at the end of every task.

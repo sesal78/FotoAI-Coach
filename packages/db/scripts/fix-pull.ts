@@ -7,6 +7,9 @@
 //   backslashes in sql`...` templates are not escaped     (a CHECK regex loses its \.)
 //   auth.users is referenced (foreign keys, relations) but not emitted (schemaFilter: public)
 //   relations.ts imports "./schema" without the extension NodeNext requires
+//   RLS policies come out in pg_policy storage order (differs per database) with USING /
+//   WITH CHECK clauses missing, so they are dropped: RLS lives in supabase/migrations/*.sql,
+//   and the baseline only records that RLS is enabled on those tables
 // Usage: node scripts/fix-pull.ts <dir>   (rewrites <dir>/schema.ts, relations.ts, meta/0000_snapshot.json)
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -25,9 +28,21 @@ function escapeSqlTemplates(text: string): string {
   return text.replace(/sql`([^`]*)`/g, (_match, body: string) => 'sql`' + body.replace(/\\\\|\\/g, (s) => (s.length === 2 ? s : '\\\\')) + '`');
 }
 
+/** Removes pulled pgPolicy(...) lines; a table that had any gets .enableRLS() instead. */
+function dropPolicies(text: string): string {
+  return text
+    .split(/(?=^export const )/m)
+    .map((chunk) => {
+      if (!/^\tpgPolicy\(/m.test(chunk)) return chunk;
+      return chunk.replace(/^\tpgPolicy\(.*\n/gm, '').replace(/\n\]\);(\n|$)/, '\n]).enableRLS();$1');
+    })
+    .join('');
+}
+
 export function fixPulledSchema(text: string): string {
   let fixed = text.replace(/\.default\('\)/g, ".default('')").replace(/\.array\(\)\.default\(\[""\]\)/g, '.array().default([])');
   fixed = escapeSqlTemplates(fixed);
+  fixed = dropPolicies(fixed);
   if (!fixed.includes(AUTH_USERS)) fixed = fixed.replace(SQL_IMPORT, SQL_IMPORT + AUTH_USERS);
   return fixed;
 }
@@ -43,7 +58,16 @@ export function fixPulledRelations(text: string): string {
 }
 
 export function fixPulledSnapshot(text: string): string {
-  return text.split(String.raw`"'{\"\"}'"`).join(`"'{}'"`);
+  const fixed = text.split(String.raw`"'{\"\"}'"`).join(`"'{}'"`);
+  let snapshot: { tables?: Record<string, { policies?: Record<string, unknown> }> };
+  try {
+    snapshot = JSON.parse(fixed);
+  } catch {
+    return fixed; // a fragment, not a whole snapshot
+  }
+  if (!snapshot.tables) return fixed;
+  for (const table of Object.values(snapshot.tables)) if (table.policies) table.policies = {};
+  return JSON.stringify(snapshot, null, 2);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
