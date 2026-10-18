@@ -7,30 +7,29 @@ on:
 
 jobs:
   verify:
+    # The live app (@fotoai/legacy-web, nextjs_space/) inside the pnpm workspace.
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: nextjs_space
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: nextjs_space/package-lock.json
+          cache: pnpm
 
-      - name: Install (clean, from the one lockfile)
-        run: npm ci
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: pnpm --filter @fotoai/legacy-web typecheck
 
       - name: FotoAI tests
-        run: npm run test:fotoai
+        run: pnpm --filter @fotoai/legacy-web test
 
       - name: Next build
-        run: npm run build
+        run: pnpm --filter @fotoai/legacy-web build
         env:
           NEXT_TELEMETRY_DISABLED: 1
 
