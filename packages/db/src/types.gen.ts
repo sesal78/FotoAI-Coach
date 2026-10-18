@@ -140,6 +140,25 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"fotoai_plan_steps": {
+                  Row: {
+                    "created_at": string,"id": string,"instruction": string,"plan_id": string,"position": number,"settings": NonNullable<Json>,"starts_at": string | null,"status": string,"tip": string | null,"title": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"instruction": string,"plan_id": string,"position": number,"settings": NonNullable<Json>,"starts_at"?: string | null,"status"?: string,"tip"?: string | null,"title": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"instruction"?: string,"plan_id"?: string,"position"?: number,"settings"?: NonNullable<Json>,"starts_at"?: string | null,"status"?: string,"tip"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fotoai_plan_steps_plan_fkey"
+      columns: ["plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_shoot_plans"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"fotoai_portfolio_analyses": {
                   Row: {
                     "analysis": NonNullable<Json>,"analysis_date": string,"created_at": string,"id": string,"legacy_appwrite_id": string | null,"photo_count": number,"user_id": string
@@ -165,6 +184,25 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"fotoai_shoot_plans": {
+                  Row: {
+                    "created_at": string,"id": string,"loadout": NonNullable<Json>,"model": string,"notes": (string)[],"place_id": string | null,"place_source": string,"plan_date": string,"prompt_id": string,"prompt_version": number,"spot_id": string | null,"status": string,"summary": string,"timezone": string,"title": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"loadout": NonNullable<Json>,"model": string,"notes"?: (string)[],"place_id"?: string | null,"place_source": string,"plan_date": string,"prompt_id": string,"prompt_version": number,"spot_id"?: string | null,"status"?: string,"summary": string,"timezone": string,"title": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"loadout"?: NonNullable<Json>,"model"?: string,"notes"?: (string)[],"place_id"?: string | null,"place_source"?: string,"plan_date"?: string,"prompt_id"?: string,"prompt_version"?: number,"spot_id"?: string | null,"status"?: string,"summary"?: string,"timezone"?: string,"title"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fotoai_shoot_plans_spot_fkey"
+      columns: ["spot_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_places"
+      referencedColumns: ["id","user_id"]
+    }
                   ]
                 },"fotoai_user_gear": {
                   Row: {

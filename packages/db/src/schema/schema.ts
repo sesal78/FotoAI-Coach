@@ -1,4 +1,4 @@
-import { pgTable, pgPolicy, check, text, numeric, foreignKey, boolean, jsonb, integer, index, uniqueIndex, uuid, doublePrecision, timestamp, unique, bigint, date } from "drizzle-orm/pg-core"
+import { pgTable, pgPolicy, check, text, numeric, foreignKey, boolean, jsonb, integer, index, uniqueIndex, unique, uuid, doublePrecision, timestamp, date, bigint } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import { authUsers } from "drizzle-orm/supabase"
 
@@ -72,18 +72,91 @@ export const fotoaiPlaces = pgTable("fotoai_places", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("fotoai_places_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
-	uniqueIndex("fotoai_places_user_place_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.placeId.asc().nullsLast().op("text_ops")).where(sql`(place_id IS NOT NULL)`),
+	index("fotoai_places_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	uniqueIndex("fotoai_places_user_place_key").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.placeId.asc().nullsLast().op("text_ops")).where(sql`(place_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "fotoai_places_user_id_fkey"
 		}).onDelete("cascade"),
+	unique("fotoai_places_id_user_key").on(table.id, table.userId),
 	check("fotoai_places_lat_check", sql`(lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)`),
 	check("fotoai_places_lng_check", sql`(lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)`),
 	check("fotoai_places_notes_check", sql`char_length(notes) <= 2000`),
 	check("fotoai_places_source_check", sql`source = ANY (ARRAY['google'::text, 'user'::text])`),
 	check("fotoai_places_source_shape_check", sql`((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND (name IS NOT NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL))`),
+]).enableRLS();
+
+export const fotoaiShootPlans = pgTable("fotoai_shoot_plans", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	placeSource: text("place_source").notNull(),
+	placeId: text("place_id"),
+	spotId: uuid("spot_id"),
+	planDate: date("plan_date").notNull(),
+	timezone: text().notNull(),
+	title: text().notNull(),
+	summary: text().notNull(),
+	loadout: jsonb().notNull(),
+	notes: text().array().default([]).notNull(),
+	promptId: text("prompt_id").notNull(),
+	promptVersion: integer("prompt_version").notNull(),
+	model: text().notNull(),
+	status: text().default('active').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("fotoai_shoot_plans_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId, table.spotId],
+			foreignColumns: [fotoaiPlaces.id, fotoaiPlaces.userId],
+			name: "fotoai_shoot_plans_spot_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_shoot_plans_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_shoot_plans_id_user_key").on(table.id, table.userId),
+	check("fotoai_shoot_plans_place_check", sql`((place_source = 'google'::text) AND (place_id IS NOT NULL)) OR ((place_source = 'user'::text) AND (place_id IS NULL))`),
+	check("fotoai_shoot_plans_place_source_check", sql`place_source = ANY (ARRAY['google'::text, 'user'::text])`),
+	check("fotoai_shoot_plans_prompt_version_check", sql`prompt_version > 0`),
+	check("fotoai_shoot_plans_status_check", sql`status = ANY (ARRAY['active'::text, 'done'::text, 'archived'::text])`),
+	check("fotoai_shoot_plans_summary_check", sql`char_length(summary) <= 400`),
+	check("fotoai_shoot_plans_timezone_check", sql`(char_length(timezone) >= 1) AND (char_length(timezone) <= 64)`),
+	check("fotoai_shoot_plans_title_check", sql`(char_length(title) >= 1) AND (char_length(title) <= 80)`),
+]).enableRLS();
+
+export const fotoaiPlanSteps = pgTable("fotoai_plan_steps", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	planId: uuid("plan_id").notNull(),
+	userId: uuid("user_id").notNull(),
+	position: integer().notNull(),
+	title: text().notNull(),
+	instruction: text().notNull(),
+	tip: text(),
+	startsAt: timestamp("starts_at", { withTimezone: true, mode: 'string' }),
+	settings: jsonb().notNull(),
+	status: text().default('todo').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.planId, table.userId],
+			foreignColumns: [fotoaiShootPlans.id, fotoaiShootPlans.userId],
+			name: "fotoai_plan_steps_plan_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_plan_steps_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_plan_steps_plan_position_key").on(table.planId, table.position),
+	check("fotoai_plan_steps_instruction_check", sql`(char_length(instruction) >= 1) AND (char_length(instruction) <= 600)`),
+	check("fotoai_plan_steps_position_check", sql`("position" >= 1) AND ("position" <= 20)`),
+	check("fotoai_plan_steps_status_check", sql`status = ANY (ARRAY['todo'::text, 'done'::text, 'skipped'::text])`),
+	check("fotoai_plan_steps_tip_check", sql`char_length(tip) <= 200`),
+	check("fotoai_plan_steps_title_check", sql`(char_length(title) >= 1) AND (char_length(title) <= 80)`),
 ]).enableRLS();
 
 export const fotoaiUserGear = pgTable("fotoai_user_gear", {

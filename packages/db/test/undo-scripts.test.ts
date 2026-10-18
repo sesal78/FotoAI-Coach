@@ -36,3 +36,10 @@ test('the places undo refuses to start while any saved spot exists', () => {
   expect(guard).toBeGreaterThan(-1);
   expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
 });
+
+test('the shoot-plans undo refuses to start while any plan exists', () => {
+  const text = read('20261019100003_shoot_plans.undo.sql');
+  const guard = firstIndex(text, /raise exception[^;]*plan/i);
+  expect(guard).toBeGreaterThan(-1);
+  expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
+});
