@@ -8,3 +8,4 @@ export {
   type V2DepsProvider,
   type V2Route,
 } from './handler.ts';
+export { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';

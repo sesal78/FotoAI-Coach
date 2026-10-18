@@ -11,6 +11,7 @@ const fakeDeps = {
     NODE_ENV: 'test',
   },
   now: () => new Date('2026-10-18T00:00:00Z'),
+  verifyToken: async () => null,
 } as V2Deps;
 
 test('importing a v2 route module does not read env or build deps', async () => {

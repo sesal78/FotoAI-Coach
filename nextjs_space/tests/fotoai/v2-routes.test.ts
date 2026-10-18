@@ -10,3 +10,20 @@ test('GET /api/v2/health answers ok without any FotoAI env', async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { status: 'ok', api: 'v2' });
 });
+
+test('GET /api/v2/me without a token is a 401 envelope (no network call)', async () => {
+  process.env.FOTOAI_SUPABASE_URL ??= 'http://127.0.0.1:1';
+  process.env.FOTOAI_SUPABASE_ANON_KEY ??= 'test-anon';
+  process.env.FOTOAI_SUPABASE_SERVICE_ROLE_KEY ??= 'test-service';
+  const { GET: me } = await import('../../app/api/v2/me/route.ts');
+  const res = await me(new Request('http://localhost/api/v2/me'));
+  assert.equal(res.status, 401);
+  assert.deepEqual(await res.json(), { error: 'Not authenticated', code: 'unauthenticated' });
+});
+
+test('GET /api/v2/me rejects a browser-supplied user id with 400', async () => {
+  const { GET: me } = await import('../../app/api/v2/me/route.ts');
+  const res = await me(new Request('http://localhost/api/v2/me?user_id=abc', { headers: { authorization: 'Bearer x' } }));
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).code, 'validation');
+});

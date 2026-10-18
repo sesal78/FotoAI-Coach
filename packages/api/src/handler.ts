@@ -3,6 +3,7 @@
 // module (as `next build` does, with no secrets) never reads env.
 
 import { HTTP_STATUS_BY_CODE, type ErrorCode } from '@fotoai/contracts';
+import { createTokenVerifier, type TokenVerifier } from '@fotoai/db';
 import { createServerEnv, type ServerEnv } from '@fotoai/env';
 
 export class ApiError extends Error {
@@ -22,6 +23,7 @@ export class ApiError extends Error {
 export interface V2Deps {
   env: ServerEnv;
   now: () => Date;
+  verifyToken: TokenVerifier;
 }
 
 export type V2DepsProvider = () => V2Deps;
@@ -54,4 +56,10 @@ export function defineV2Handler(provider: V2DepsProvider, body: V2Body): V2Route
 let memo: V2Deps | null = null;
 
 /** Production deps: env validated once, on the first request that needs it. */
-export const defaultV2Deps: V2DepsProvider = () => (memo ??= { env: createServerEnv(), now: () => new Date() });
+export const defaultV2Deps: V2DepsProvider = () => {
+  if (!memo) {
+    const env = createServerEnv();
+    memo = { env, now: () => new Date(), verifyToken: createTokenVerifier(env) };
+  }
+  return memo;
+};
