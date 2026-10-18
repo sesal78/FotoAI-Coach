@@ -29,3 +29,10 @@ test('the plan_step undo refuses to start while plan_step XP events exist', () =
   expect(guard).toBeGreaterThan(-1);
   expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
 });
+
+test('the places undo refuses to start while any saved spot exists', () => {
+  const text = read('20261019100002_places.undo.sql');
+  const guard = firstIndex(text, /raise exception[^;]*spot/i);
+  expect(guard).toBeGreaterThan(-1);
+  expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
+});
