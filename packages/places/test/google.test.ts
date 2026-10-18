@@ -151,3 +151,12 @@ test('every call logs its sku and status, never the key or the query text', asyn
   expect(logs).toEqual(['places call sku=search_pro status=200', 'places call sku=nearby_pro status=503']);
   expect(logs.join('\n')).not.toMatch(/secret|AIza|-37\.8/);
 });
+
+test('one malformed place in a list is skipped, not a failure of the whole list', async () => {
+  const body = JSON.parse(fixture('places-nearby.json'));
+  body.places.push({ id: 'ChIJnoLocation00000000000', displayName: { text: 'No location' } });
+  const { client, logs } = setup(() => ok(JSON.stringify(body)));
+  const places = await client.nearby(FLINDERS.lat, FLINDERS.lng, 2000);
+  expect(places.map((p) => p.placeId)).toEqual([FED, 'ChIJiYrPnj5d1moRk5nGq2b0F4w']);
+  expect(logs).toContain('places skipped 1 incomplete result(s)');
+});

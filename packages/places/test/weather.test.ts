@@ -128,3 +128,14 @@ test('WMO and MET symbol codes map to the same conditions', () => {
   expect(conditionFromWmo(1234)).toBe('unknown');
   expect(conditionFromMet('martian_dust')).toBe('unknown');
 });
+
+test('the cache holds at most 500 cells; the oldest goes first', async () => {
+  const { service, calls } = setup({ openMeteo: [ok(OPEN_METEO)], met: [] });
+  await service.get(-37.8136, 144.9631);
+  for (let i = 1; i <= 500; i++) await service.get(-37.8136 + i * 0.01, 144.9631);
+  const before = calls.length;
+  await service.get(-37.8136 + 500 * 0.01, 144.9631); // newest: still cached
+  expect(calls.length).toBe(before);
+  await service.get(-37.8136, 144.9631); // oldest: evicted
+  expect(calls.length).toBe(before + 1);
+});

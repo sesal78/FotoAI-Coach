@@ -412,7 +412,7 @@
         },
         "fotoai_places_source_shape_check": {
           "name": "fotoai_places_source_shape_check",
-          "value": "((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL))"
+          "value": "((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND (name IS NOT NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL))"
         }
       },
       "policies": {},

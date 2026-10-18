@@ -64,7 +64,7 @@ CREATE TABLE "fotoai_places" (
 	CONSTRAINT "fotoai_places_lng_check" CHECK ((lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)),
 	CONSTRAINT "fotoai_places_notes_check" CHECK (char_length(notes) <= 2000),
 	CONSTRAINT "fotoai_places_source_check" CHECK (source = ANY (ARRAY['google'::text, 'user'::text])),
-	CONSTRAINT "fotoai_places_source_shape_check" CHECK (((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL)))
+	CONSTRAINT "fotoai_places_source_shape_check" CHECK (((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND (name IS NOT NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL)))
 );
 --> statement-breakpoint
 ALTER TABLE "fotoai_places" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -412,49 +412,49 @@ CREATE UNIQUE INDEX "fotoai_xp_events_dedupe_idx" ON "fotoai_xp_events" USING bt
 CREATE INDEX "fotoai_xp_events_user_awarded_idx" ON "fotoai_xp_events" USING btree ("user_id" timestamptz_ops,"awarded_at" timestamptz_ops);--> statement-breakpoint
 CREATE POLICY "fotoai_gear_lenses_read" ON "fotoai_gear_lenses" AS PERMISSIVE FOR SELECT TO "authenticated" USING (true);--> statement-breakpoint
 CREATE POLICY "fotoai_gear_bodies_read" ON "fotoai_gear_bodies" AS PERMISSIVE FOR SELECT TO "authenticated" USING (true);--> statement-breakpoint
-CREATE POLICY "fotoai_places_select" ON "fotoai_places" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_places_insert" ON "fotoai_places" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_places_delete" ON "fotoai_places" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_places_update" ON "fotoai_places" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_places_delete" ON "fotoai_places" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_gear_select" ON "fotoai_user_gear" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_user_gear_insert" ON "fotoai_user_gear" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_places_insert" ON "fotoai_places" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_places_select" ON "fotoai_places" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_gear_delete" ON "fotoai_user_gear" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_user_gear_update" ON "fotoai_user_gear" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_gear_delete" ON "fotoai_user_gear" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_challenge_submissions_select" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_challenge_submissions_insert" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_gear_insert" ON "fotoai_user_gear" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_gear_select" ON "fotoai_user_gear" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_challenge_submissions_delete" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_challenge_submissions_update" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_challenge_submissions_delete" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_itineraries_select" ON "fotoai_itineraries" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_itineraries_insert" ON "fotoai_itineraries" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_challenge_submissions_insert" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_challenge_submissions_select" ON "fotoai_challenge_submissions" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_itineraries_delete" ON "fotoai_itineraries" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_itineraries_update" ON "fotoai_itineraries" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_itineraries_delete" ON "fotoai_itineraries" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_progress_select" ON "fotoai_user_progress" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_user_progress_insert" ON "fotoai_user_progress" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_itineraries_insert" ON "fotoai_itineraries" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_itineraries_select" ON "fotoai_itineraries" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_progress_delete" ON "fotoai_user_progress" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_user_progress_update" ON "fotoai_user_progress" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_progress_delete" ON "fotoai_user_progress" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_agent_actions_select" ON "fotoai_agent_actions" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_agent_actions_insert" ON "fotoai_agent_actions" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_photo_critiques_select" ON "fotoai_photo_critiques" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_user_progress_insert" ON "fotoai_user_progress" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_progress_select" ON "fotoai_user_progress" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_agent_actions_insert" ON "fotoai_agent_actions" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_agent_actions_select" ON "fotoai_agent_actions" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_photo_critiques_delete" ON "fotoai_photo_critiques" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_photo_critiques_insert" ON "fotoai_photo_critiques" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_photo_critiques_delete" ON "fotoai_photo_critiques" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_reverse_analyses_select" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_photo_critiques_select" ON "fotoai_photo_critiques" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_reverse_analyses_delete" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_reverse_analyses_insert" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_reverse_analyses_delete" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_editing_recipes_select" ON "fotoai_editing_recipes" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_reverse_analyses_select" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_editing_recipes_delete" ON "fotoai_editing_recipes" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_editing_recipes_insert" ON "fotoai_editing_recipes" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_editing_recipes_delete" ON "fotoai_editing_recipes" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_editing_recipes_select" ON "fotoai_editing_recipes" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_weekly_reports_select" ON "fotoai_weekly_reports" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_portfolio_analyses_select" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_portfolio_analyses_delete" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_portfolio_analyses_insert" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_portfolio_analyses_delete" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_portfolio_analyses_select" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_user_skills_select" ON "fotoai_user_skills" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_select" ON "fotoai_user_preferences" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_insert" ON "fotoai_user_preferences" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_delete" ON "fotoai_user_preferences" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_user_preferences_update" ON "fotoai_user_preferences" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_delete" ON "fotoai_user_preferences" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_daily_challenges_select" ON "fotoai_daily_challenges" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_daily_challenges_insert" ON "fotoai_daily_challenges" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_insert" ON "fotoai_user_preferences" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_select" ON "fotoai_user_preferences" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_daily_challenges_delete" ON "fotoai_daily_challenges" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_daily_challenges_update" ON "fotoai_daily_challenges" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_daily_challenges_delete" ON "fotoai_daily_challenges" AS PERMISSIVE FOR DELETE TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_daily_challenges_insert" ON "fotoai_daily_challenges" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_daily_challenges_select" ON "fotoai_daily_challenges" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_xp_events_select" ON "fotoai_xp_events" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));
 */

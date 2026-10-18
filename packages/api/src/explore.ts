@@ -3,15 +3,15 @@
 // every handler matters: sign-in, identity keys, query checks, then the rate limit, then the
 // outside call, so a bad request costs no Google call and no reservation.
 
-import { PLACE_ID_RE } from '@fotoai/contracts';
+import { PHOTO_TYPES, PLACE_ID_RE } from '@fotoai/contracts';
 import { lightTimes } from '@fotoai/core';
 import { createUserClient } from '@fotoai/db';
 import { PHOTO_NAME } from '@fotoai/places';
 import { z } from 'zod';
 
 import { rejectBrowserIdentity, requirePrincipal } from './auth.ts';
-import { ApiError, json, type V2Body, type V2Deps } from './handler.ts';
-import { placesConfigured, placesFor } from './places-client.ts';
+import { ApiError, json, type V2Body } from './handler.ts';
+import { placesFor, requirePlaces } from './places-client.ts';
 import { reserveCalls } from './rate-limit.ts';
 import { SPOT_COLUMNS, toSpot, type SpotRow } from './spots.ts';
 
@@ -27,12 +27,15 @@ const NearbyQuery = z.object({
   lat,
   lng,
   radiusM: num(1, 50_000).optional(),
-  type: z.string().regex(/^[a-z_]{2,40}$/).optional(),
+  type: z.enum(PHOTO_TYPES).optional(),
 });
 const SearchQuery = z
   .object({ q: z.string().trim().min(1).max(120), lat: lat.optional(), lng: lng.optional(), radiusM: num(1, 50_000).optional() })
   .refine((v) => (v.lat === undefined) === (v.lng === undefined), { message: 'lat and lng go together', path: ['lat'] });
-const PhotoQuery = z.object({ name: z.string().regex(PHOTO_NAME), maxPx: num(1, 1600).optional() });
+const PhotoQuery = z.object({
+  name: z.string().regex(PHOTO_NAME),
+  maxPx: z.string().trim().min(1).transform(Number).pipe(z.number().int().min(1).max(1600)).optional(),
+});
 
 function readQuery<T extends z.ZodTypeAny>(request: Request, schema: T): z.infer<T> {
   const params = new URL(request.url).searchParams;
@@ -49,10 +52,6 @@ function placeIdFrom(params: Record<string, string>): string {
   const id = params.placeId ?? '';
   if (!PLACE_ID_RE.test(id)) throw new ApiError('validation', 'placeId is not a Google place id');
   return id;
-}
-
-function requirePlaces(deps: V2Deps): void {
-  if (!placesConfigured(deps)) throw new ApiError('config', 'Places is not configured');
 }
 
 function light(latValue: number, lngValue: number, day?: string) {

@@ -1,7 +1,7 @@
 import { LightTimesDto, WeatherDto } from '@fotoai/contracts';
 import { expect, test } from 'vitest';
 
-import { defineV2Handler, exploreNearby, exploreSearch, getConditions, getPlace, getPlacePhoto, type V2Body, type V2Deps } from '../src/index.ts';
+import { addMySpot, defineV2Handler, exploreNearby, exploreSearch, getConditions, getPlace, getPlacePhoto, type V2Body, type V2Deps } from '../src/index.ts';
 
 const USER = '11111111-2222-4333-8444-555555555555';
 const FED = 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ';
@@ -104,5 +104,27 @@ test('a photo name from another place is 400', async () => {
   const big = `places/${FED}/photos/AXCi2Q1photoRef0123456789abcdef`;
   const tooBig = await call(getPlacePhoto, deps, `/api/v2/places/${FED}/photo?name=${encodeURIComponent(big)}&maxPx=5000`, { params: { placeId: FED } });
   expect(tooBig.status).toBe(400);
+  expect(outside).toHaveLength(0);
+});
+
+test('a non-integer maxPx and an unknown place type are 400 with no reservation', async () => {
+  const { deps, outside } = makeDeps({ key: 'AIzaFAKE' });
+  const name = encodeURIComponent(`places/${FED}/photos/AXCi2Q1photoRef0123456789abcdef`);
+  expect((await call(getPlacePhoto, deps, `/api/v2/places/${FED}/photo?name=${name}&maxPx=1.5`, { params: { placeId: FED } })).status).toBe(400);
+  expect((await call(exploreNearby, deps, '/api/v2/explore/nearby?lat=-37.8&lng=144.9&type=zoo_keeper')).status).toBe(400);
+  expect(outside).toHaveLength(0);
+});
+
+test('saving a Google spot with no key is a 500 config error before any reservation', async () => {
+  const { deps, outside } = makeDeps();
+  const res = await defineV2Handler(() => deps, addMySpot)(
+    new Request('http://localhost/api/v2/me/spots', {
+      method: 'POST',
+      headers: { authorization: 'Bearer good', 'content-type': 'application/json' },
+      body: JSON.stringify({ placeId: FED }),
+    }),
+  );
+  expect(res.status).toBe(500);
+  expect((await res.json()).code).toBe('config');
   expect(outside).toHaveLength(0);
 });

@@ -9,7 +9,7 @@ import { createUserClient } from '@fotoai/db';
 import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
 import { ApiError, json, type V2Body, type V2Deps } from './handler.ts';
 import { readJsonObject } from './http.ts';
-import { placesConfigured, placesFor } from './places-client.ts';
+import { placesConfigured, placesFor, requirePlaces } from './places-client.ts';
 import { reserveCalls } from './rate-limit.ts';
 
 const T_PLACES = 'fotoai_places';
@@ -55,13 +55,19 @@ export function toSpot(row: SpotRow, fresh?: Fresh): SpotDto {
 
 /**
  * Fresh name and coordinates for the Google rows, one reserved `places` call each. Without a
- * Google key nothing is called or reserved, and those spots come back unavailable.
+ * Google key, or with the hourly limit used up, nothing is called and those spots come back
+ * unavailable: the user's own list and edits are never withheld by the Google limit.
  */
 export async function resolveGoogle(deps: V2Deps, principal: Principal, rows: SpotRow[]): Promise<Map<string, Fresh>> {
   const ids = [...new Set(rows.filter((r) => r.source === 'google' && r.place_id).map((r) => r.place_id!))];
   const out = new Map<string, Fresh>();
   if (ids.length === 0 || !placesConfigured(deps)) return out;
-  await reserveCalls(deps.env, principal, 'places', ids.length, deps.now());
+  try {
+    await reserveCalls(deps.env, principal, 'places', ids.length, deps.now());
+  } catch (err) {
+    if (err instanceof ApiError && err.code === 'rate_limited') return out;
+    throw err;
+  }
   const places = placesFor(deps);
   await Promise.all(
     ids.map(async (id) => {
@@ -115,6 +121,7 @@ export const addMySpot: V2Body = async (request, deps) => {
   }
 
   // Google: the place must exist there; its name is shown fresh and never stored.
+  requirePlaces(deps);
   await reserveCalls(deps.env, principal, 'places', 1, deps.now());
   const place = await placesFor(deps).details(input.placeId, 'summary');
   if (!place) throw new ApiError('not_found', 'Google has no such place');
@@ -126,7 +133,18 @@ export const addMySpot: V2Body = async (request, deps) => {
     return data as unknown as SpotRow | null;
   };
   const before = await existing();
-  if (before) return json({ spot: toSpot(before, fresh) });
+  if (before) {
+    // Saved already: keep the row; new notes, when given, replace the old ones.
+    if (input.notes === undefined || input.notes === before.notes) return json({ spot: toSpot(before, fresh) });
+    const { data, error } = await db
+      .from(T_PLACES)
+      .update({ notes: input.notes, updated_at: deps.now().toISOString() } as never)
+      .eq('id', before.id)
+      .select(SPOT_COLUMNS)
+      .single();
+    if (error || !data) throw upstream('save the spot');
+    return json({ spot: toSpot(data as unknown as SpotRow, fresh) });
+  }
 
   const { data, error } = await db
     .from(T_PLACES)

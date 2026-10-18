@@ -140,6 +140,21 @@ export function createPlacesClient(opts: { key: string | undefined; fetch: Fetch
     }
   }
 
+  /** List results; an entry without an id or location is skipped (and counted in the log), not fatal. */
+  const summaries = (places: GooglePlace[] | undefined, from?: { lat: number; lng: number }): PlaceSummary[] => {
+    const out: PlaceSummary[] = [];
+    let skipped = 0;
+    for (const place of places ?? []) {
+      try {
+        out.push(toSummary(place, from));
+      } catch {
+        skipped++;
+      }
+    }
+    if (skipped > 0) log.warn(`places skipped ${skipped} incomplete result(s)`);
+    return out;
+  };
+
   return {
     async nearby(lat, lng, radiusM, types = PHOTO_TYPES) {
       requireKey();
@@ -151,7 +166,7 @@ export function createPlacesClient(opts: { key: string | undefined; fetch: Fetch
         locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: radiusM } },
       };
       const data = await call<{ places?: GooglePlace[] }>('nearby_pro', `${BASE}/places:searchNearby`, { method: 'POST', mask: listMask, body });
-      return (data?.places ?? []).map((p) => toSummary(p, { lat, lng }));
+      return summaries(data?.places, { lat, lng });
     },
 
     async search(text, near) {
@@ -168,7 +183,7 @@ export function createPlacesClient(opts: { key: string | undefined; fetch: Fetch
         ...(near ? { locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: near.radiusM } } } : {}),
       };
       const data = await call<{ places?: GooglePlace[] }>('search_pro', `${BASE}/places:searchText`, { method: 'POST', mask: listMask, body });
-      return (data?.places ?? []).map((p) => toSummary(p, near));
+      return summaries(data?.places, near);
     },
 
     async details(placeId, fields = 'detail') {

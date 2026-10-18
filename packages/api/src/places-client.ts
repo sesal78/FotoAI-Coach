@@ -32,3 +32,8 @@ export function placesFor(deps: V2Deps): PlacesClient {
 
 /** True when the Google key is set; callers skip Google (and its rate limit) when it is not. */
 export const placesConfigured = (deps: V2Deps) => Boolean(deps.env.GOOGLE_MAPS_SERVER_API_KEY);
+
+/** Throws 500 config before any reservation when the Google key is not set. */
+export function requirePlaces(deps: V2Deps): void {
+  if (!placesConfigured(deps)) throw new ApiError('config', 'Places is not configured');
+}

@@ -83,7 +83,7 @@ export const fotoaiPlaces = pgTable("fotoai_places", {
 	check("fotoai_places_lng_check", sql`(lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)`),
 	check("fotoai_places_notes_check", sql`char_length(notes) <= 2000`),
 	check("fotoai_places_source_check", sql`source = ANY (ARRAY['google'::text, 'user'::text])`),
-	check("fotoai_places_source_shape_check", sql`((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL))`),
+	check("fotoai_places_source_shape_check", sql`((source = 'google'::text) AND (place_id IS NOT NULL) AND (name IS NULL) AND (lat IS NULL) AND (lng IS NULL)) OR ((source = 'user'::text) AND (place_id IS NULL) AND (name IS NOT NULL) AND ((char_length(name) >= 1) AND (char_length(name) <= 80)) AND (lat IS NOT NULL) AND (lng IS NOT NULL))`),
 ]).enableRLS();
 
 export const fotoaiUserGear = pgTable("fotoai_user_gear", {

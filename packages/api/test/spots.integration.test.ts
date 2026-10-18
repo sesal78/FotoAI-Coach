@@ -100,6 +100,35 @@ describe.skipIf(!db)('v2 my spots against the local Supabase', () => {
     expect((await ok.json()).spot).toMatchObject({ notes: null, favourite: false, name: 'Federation Square' });
   });
 
+  test('saving a Google place again with notes updates the notes', async () => {
+    const again = await call(addMySpot, b, { method: 'POST', json: { placeId: FED, notes: 'golden hour from the steps' } });
+    expect(again.status).toBe(200);
+    expect((await again.json()).spot).toMatchObject({ placeId: FED, notes: 'golden hour from the steps' });
+  });
+
+  test('with the places limit used up, the list and an edit still answer 200 and Google spots are unavailable', async () => {
+    const c = await createTestUser(db!, 'spots-c');
+    try {
+      const pin = (await (await call(addMySpot, c, { method: 'POST', json: { pin: { name: 'Pier', lat: -37.86, lng: 144.97 } } })).json()).spot;
+      const google = (await (await call(addMySpot, c, { method: 'POST', json: { placeId: FED } })).json()).spot;
+      const at = new Date().toISOString();
+      const { error } = await createUserClient(deps.env, c.token)
+        .from('fotoai_agent_actions')
+        .insert(Array.from({ length: 120 }, () => ({ user_id: c.id, action_type: 'API_REQUEST_PLACES', details: {}, success: true, executed_at: at })) as never);
+      expect(error).toBeNull();
+      const list = await call(listMySpots, c);
+      expect(list.status).toBe(200);
+      const spots = (await list.json()).spots as Array<{ id: string; name: string | null; unavailable: boolean }>;
+      expect(spots.find((s) => s.id === pin.id)).toMatchObject({ name: 'Pier', unavailable: false });
+      expect(spots.find((s) => s.id === google.id)).toMatchObject({ name: null, unavailable: true });
+      const edit = await call(updateMySpot, c, { method: 'PATCH', json: { notes: 'saved anyway' }, params: { id: google.id } });
+      expect(edit.status).toBe(200);
+      expect((await edit.json()).spot).toMatchObject({ notes: 'saved anyway', unavailable: true });
+    } finally {
+      await deleteTestUsers(db!, [c]);
+    }
+  });
+
   test("another user's spot is a 404 for update and delete", async () => {
     const mine = (await (await call(listMySpots, a)).json()).spots[0] as { id: string };
     expect((await call(updateMySpot, b, { method: 'PATCH', json: { notes: 'x' }, params: { id: mine.id } })).status).toBe(404);

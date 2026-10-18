@@ -20,7 +20,7 @@ create table public.fotoai_places (
   updated_at timestamptz not null default now(),
   constraint fotoai_places_source_shape_check check (
     (source = 'google' and place_id is not null and name is null and lat is null and lng is null)
-    or (source = 'user' and place_id is null and char_length(name) between 1 and 80 and lat is not null and lng is not null)
+    or (source = 'user' and place_id is null and name is not null and char_length(name) between 1 and 80 and lat is not null and lng is not null)
   )
 );
 

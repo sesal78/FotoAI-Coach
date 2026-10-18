@@ -38,6 +38,8 @@ describe.skipIf(!db)('fotoai_places', () => {
     }
     const pinWithPlace = await as(a).insert({ user_id: a.id, source: 'user', place_id: PLACE, name: 'x', lat: 0, lng: 0 } as never);
     expect(pinWithPlace.error?.message).toMatch(/fotoai_places_source_shape_check/);
+    const namelessPin = await as(a).insert({ user_id: a.id, source: 'user', lat: 0, lng: 0 } as never);
+    expect(namelessPin.error?.message).toMatch(/fotoai_places_source_shape_check/);
     const pinOutOfRange = await as(a).insert({ user_id: a.id, source: 'user', name: 'x', lat: 91, lng: 0 } as never);
     expect(pinOutOfRange.error).not.toBeNull();
   });
