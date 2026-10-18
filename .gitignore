@@ -26,3 +26,8 @@ out
 !**/.env.example
 *.log
 *.pdf.tmp
+
+# refactor workspace (pnpm + turborepo)
+.turbo/
+coverage/
+.drizzle-check-*/

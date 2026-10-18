@@ -4,6 +4,35 @@ A self-hosted, AI-powered photography coaching platform. Generates personalized 
 
 **Live:** https://myfoto.topues.com
 
+## Workspace (refactor)
+
+The refactor (design: `docs/superpowers/specs/2026-10-18-fotoai-refactor-design.md`, plans: `docs/superpowers/plans/`)
+lives in a pnpm + Turborepo workspace next to the live app. `nextjs_space/` is the live app: it keeps npm and its own
+lockfile, and Dokploy still builds it from `./nextjs_space`.
+
+| Path | What |
+|---|---|
+| `packages/env` | `@fotoai/env`: server env validated at boot (`createServerEnv`) |
+| `packages/contracts` | `@fotoai/contracts`: shared zod contracts (API error envelope) |
+| `packages/db` | `@fotoai/db`: supabase-js user client (RLS) and `@fotoai/db/service` (privileged/ only), generated types, Drizzle baseline |
+| `supabase/` | local Supabase project (config + migrations) for development and CI |
+
+Never install inside the canonical repo folder; use a Sandbox worktree (Homebase rule):
+
+```bash
+git worktree add D:/Homebase/Sandbox/fotoai-coach-refactor <branch>
+cd D:/Homebase/Sandbox/fotoai-coach-refactor
+npm_config_store_dir=D:/Homebase/Sandbox/pnpm-store pnpm install
+pnpm typecheck && pnpm lint && pnpm test
+```
+
+Real-Postgres tests run against the **local** Supabase only (they refuse any other URL). Pass the local keys from
+`npx supabase@2.118.0 status -o env` as environment variables, never in files:
+`FOTOAI_TEST_SUPABASE_URL`, `FOTOAI_TEST_SUPABASE_ANON_KEY`, `FOTOAI_TEST_SUPABASE_SERVICE_ROLE_KEY`,
+`FOTOAI_TEST_DATABASE_URL` (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`), then
+`FOTOAI_REQUIRE_DB_TESTS=1 pnpm --filter @fotoai/db test:integration`. After a schema change, regenerate types with
+`pnpm --filter @fotoai/db db:types`; CI fails if they are stale.
+
 ## Features
 
 ### AI Photography Challenges

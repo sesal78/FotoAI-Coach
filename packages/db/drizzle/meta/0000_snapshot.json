@@ -1,0 +1,2304 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "prevId": "",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.fotoai_user_preferences": {
+      "name": "fotoai_user_preferences",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skill_level": {
+          "name": "skill_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'intermediate'"
+        },
+        "photography_interests": {
+          "name": "photography_interests",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "avoids_styles": {
+          "name": "avoids_styles",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "work_days": {
+          "name": "work_days",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "work_start_time": {
+          "name": "work_start_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'09:00'"
+        },
+        "work_end_time": {
+          "name": "work_end_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'17:00'"
+        },
+        "lunch_start_time": {
+          "name": "lunch_start_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'12:00'"
+        },
+        "lunch_end_time": {
+          "name": "lunch_end_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'13:00'"
+        },
+        "primary_photo_day": {
+          "name": "primary_photo_day",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Saturday'"
+        },
+        "secondary_photo_days": {
+          "name": "secondary_photo_days",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "lunch_break_photography": {
+          "name": "lunch_break_photography",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "evening_photography": {
+          "name": "evening_photography",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "wfh_flexibility": {
+          "name": "wfh_flexibility",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "adapt_to_weather": {
+          "name": "adapt_to_weather",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "adapt_to_calendar": {
+          "name": "adapt_to_calendar",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "office_location": {
+          "name": "office_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_location": {
+          "name": "home_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_location": {
+          "name": "current_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fotoai_user_preferences_user_id_fkey": {
+          "name": "fotoai_user_preferences_user_id_fkey",
+          "tableFrom": "fotoai_user_preferences",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_user_preferences_user_id_key": {
+          "columns": [
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_preferences_user_id_key"
+        },
+        "fotoai_user_preferences_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_preferences_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_user_preferences_skill_level_check": {
+          "name": "fotoai_user_preferences_skill_level_check",
+          "value": "skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_user_gear": {
+      "name": "fotoai_user_gear",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand": {
+          "name": "brand",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specs": {
+          "name": "specs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_user_gear_user_idx": {
+          "name": "fotoai_user_gear_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_user_gear_user_id_fkey": {
+          "name": "fotoai_user_gear_user_id_fkey",
+          "tableFrom": "fotoai_user_gear",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_user_gear_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_gear_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {},
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_daily_challenges": {
+      "name": "fotoai_daily_challenges",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "challenge_type": {
+          "name": "challenge_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "challenge_text": {
+          "name": "challenge_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "difficulty": {
+          "name": "difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration": {
+          "name": "duration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weather_conditions": {
+          "name": "weather_conditions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recommended_gear": {
+          "name": "recommended_gear",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "tips": {
+          "name": "tips",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_date": {
+          "name": "issued_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "completed_date": {
+          "name": "completed_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shot_list": {
+          "name": "shot_list",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "narrative_context": {
+          "name": "narrative_context",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "editing_direction": {
+          "name": "editing_direction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mastery_area": {
+          "name": "mastery_area",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "technical_level": {
+          "name": "technical_level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "success_criteria": {
+          "name": "success_criteria",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "what_to_look_for": {
+          "name": "what_to_look_for",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_daily_challenges_user_issued_idx": {
+          "name": "fotoai_daily_challenges_user_issued_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "issued_date",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_daily_challenges_user_id_fkey": {
+          "name": "fotoai_daily_challenges_user_id_fkey",
+          "tableFrom": "fotoai_daily_challenges",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_daily_challenges_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_daily_challenges_id_user_key"
+        },
+        "fotoai_daily_challenges_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_daily_challenges_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_daily_challenges_status_check": {
+          "name": "fotoai_daily_challenges_status_check",
+          "value": "status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text])"
+        },
+        "fotoai_daily_challenges_technical_level_check": {
+          "name": "fotoai_daily_challenges_technical_level_check",
+          "value": "(technical_level >= 1) AND (technical_level <= 5)"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_challenge_submissions": {
+      "name": "fotoai_challenge_submissions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "challenge_id": {
+          "name": "challenge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photo_object_key": {
+          "name": "photo_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_mime": {
+          "name": "photo_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_bytes": {
+          "name": "photo_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "feedback": {
+          "name": "feedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rating": {
+          "name": "rating",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "feedback_status": {
+          "name": "feedback_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_challenge_submissions_challenge_idx": {
+          "name": "fotoai_challenge_submissions_challenge_idx",
+          "columns": [
+            {
+              "expression": "challenge_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "fotoai_challenge_submissions_user_submitted_idx": {
+          "name": "fotoai_challenge_submissions_user_submitted_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "submitted_at",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_challenge_submissions_challenge_owner_fkey": {
+          "name": "fotoai_challenge_submissions_challenge_owner_fkey",
+          "tableFrom": "fotoai_challenge_submissions",
+          "tableTo": "fotoai_daily_challenges",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "user_id",
+            "challenge_id"
+          ],
+          "columnsTo": [
+            "id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "fotoai_challenge_submissions_user_id_fkey": {
+          "name": "fotoai_challenge_submissions_user_id_fkey",
+          "tableFrom": "fotoai_challenge_submissions",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_challenge_submissions_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_challenge_submissions_id_user_key"
+        },
+        "fotoai_challenge_submissions_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_challenge_submissions_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_challenge_submissions_check": {
+          "name": "fotoai_challenge_submissions_check",
+          "value": "(photo_object_key IS NULL) OR ((photo_object_key ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/submissions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[a-z0-9-]+\\.(jpg|jpeg|png|webp|heic|cr2|cr3|nef|arw|dng|raf|orf|rw2|pef|srw|raw)$'::text) AND (split_part(photo_object_key, '/'::text, 1) = (user_id)::text))"
+        },
+        "fotoai_challenge_submissions_feedback_status_check": {
+          "name": "fotoai_challenge_submissions_feedback_status_check",
+          "value": "feedback_status = ANY (ARRAY['pending'::text, 'ready'::text])"
+        },
+        "fotoai_challenge_submissions_photo_bytes_check": {
+          "name": "fotoai_challenge_submissions_photo_bytes_check",
+          "value": "(photo_bytes IS NULL) OR ((photo_bytes >= 1) AND (photo_bytes <= 52428800))"
+        },
+        "fotoai_challenge_submissions_rating_check": {
+          "name": "fotoai_challenge_submissions_rating_check",
+          "value": "(rating IS NULL) OR ((rating >= 1) AND (rating <= 5))"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_itineraries": {
+      "name": "fotoai_itineraries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spots": {
+          "name": "spots",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "suggested_times": {
+          "name": "suggested_times",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "weather_conditions": {
+          "name": "weather_conditions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gear_recommendations": {
+          "name": "gear_recommendations",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "duration": {
+          "name": "duration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'generated'"
+        },
+        "generated_date": {
+          "name": "generated_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "scheduled_date": {
+          "name": "scheduled_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_date": {
+          "name": "completed_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_itineraries_user_idx": {
+          "name": "fotoai_itineraries_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_itineraries_user_id_fkey": {
+          "name": "fotoai_itineraries_user_id_fkey",
+          "tableFrom": "fotoai_itineraries",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_itineraries_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_itineraries_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_itineraries_status_check": {
+          "name": "fotoai_itineraries_status_check",
+          "value": "status = ANY (ARRAY['generated'::text, 'scheduled'::text, 'completed'::text])"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_user_progress": {
+      "name": "fotoai_user_progress",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_challenges_issued": {
+          "name": "total_challenges_issued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_challenges_completed": {
+          "name": "total_challenges_completed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "current_streak": {
+          "name": "current_streak",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "longest_streak": {
+          "name": "longest_streak",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "saturday_challenges_completed": {
+          "name": "saturday_challenges_completed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "saturday_challenges_issued": {
+          "name": "saturday_challenges_issued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "lunch_break_completed": {
+          "name": "lunch_break_completed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "lunch_break_issued": {
+          "name": "lunch_break_issued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "after_work_completed": {
+          "name": "after_work_completed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "after_work_issued": {
+          "name": "after_work_issued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "wfh_completed": {
+          "name": "wfh_completed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "wfh_issued": {
+          "name": "wfh_issued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "favorite_subjects": {
+          "name": "favorite_subjects",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "improvement_areas": {
+          "name": "improvement_areas",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "last_challenge_date": {
+          "name": "last_challenge_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_completion_date": {
+          "name": "last_completion_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_streak_update": {
+          "name": "last_streak_update",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fotoai_user_progress_user_id_fkey": {
+          "name": "fotoai_user_progress_user_id_fkey",
+          "tableFrom": "fotoai_user_progress",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_user_progress_user_id_key": {
+          "columns": [
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_progress_user_id_key"
+        },
+        "fotoai_user_progress_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_progress_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_user_progress_after_work_completed_check": {
+          "name": "fotoai_user_progress_after_work_completed_check",
+          "value": "after_work_completed >= 0"
+        },
+        "fotoai_user_progress_after_work_issued_check": {
+          "name": "fotoai_user_progress_after_work_issued_check",
+          "value": "after_work_issued >= 0"
+        },
+        "fotoai_user_progress_current_streak_check": {
+          "name": "fotoai_user_progress_current_streak_check",
+          "value": "current_streak >= 0"
+        },
+        "fotoai_user_progress_longest_streak_check": {
+          "name": "fotoai_user_progress_longest_streak_check",
+          "value": "longest_streak >= 0"
+        },
+        "fotoai_user_progress_lunch_break_completed_check": {
+          "name": "fotoai_user_progress_lunch_break_completed_check",
+          "value": "lunch_break_completed >= 0"
+        },
+        "fotoai_user_progress_lunch_break_issued_check": {
+          "name": "fotoai_user_progress_lunch_break_issued_check",
+          "value": "lunch_break_issued >= 0"
+        },
+        "fotoai_user_progress_saturday_challenges_completed_check": {
+          "name": "fotoai_user_progress_saturday_challenges_completed_check",
+          "value": "saturday_challenges_completed >= 0"
+        },
+        "fotoai_user_progress_saturday_challenges_issued_check": {
+          "name": "fotoai_user_progress_saturday_challenges_issued_check",
+          "value": "saturday_challenges_issued >= 0"
+        },
+        "fotoai_user_progress_total_challenges_completed_check": {
+          "name": "fotoai_user_progress_total_challenges_completed_check",
+          "value": "total_challenges_completed >= 0"
+        },
+        "fotoai_user_progress_total_challenges_issued_check": {
+          "name": "fotoai_user_progress_total_challenges_issued_check",
+          "value": "total_challenges_issued >= 0"
+        },
+        "fotoai_user_progress_wfh_completed_check": {
+          "name": "fotoai_user_progress_wfh_completed_check",
+          "value": "wfh_completed >= 0"
+        },
+        "fotoai_user_progress_wfh_issued_check": {
+          "name": "fotoai_user_progress_wfh_issued_check",
+          "value": "wfh_issued >= 0"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_agent_actions": {
+      "name": "fotoai_agent_actions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_type": {
+          "name": "action_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "success": {
+          "name": "success",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "executed_at": {
+          "name": "executed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_agent_actions_user_idx": {
+          "name": "fotoai_agent_actions_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "executed_at",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_agent_actions_user_id_fkey": {
+          "name": "fotoai_agent_actions_user_id_fkey",
+          "tableFrom": "fotoai_agent_actions",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_agent_actions_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_agent_actions_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {},
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_photo_critiques": {
+      "name": "fotoai_photo_critiques",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "submission_id": {
+          "name": "submission_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_object_key": {
+          "name": "photo_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "technical_score": {
+          "name": "technical_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "composition_score": {
+          "name": "composition_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creative_score": {
+          "name": "creative_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "overall_score": {
+          "name": "overall_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "technical_feedback": {
+          "name": "technical_feedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "composition_feedback": {
+          "name": "composition_feedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creative_feedback": {
+          "name": "creative_feedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "strengths": {
+          "name": "strengths",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "improvements": {
+          "name": "improvements",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "suggested_settings": {
+          "name": "suggested_settings",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "critique_date": {
+          "name": "critique_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_photo_critiques_submission_idx": {
+          "name": "fotoai_photo_critiques_submission_idx",
+          "columns": [
+            {
+              "expression": "submission_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "fotoai_photo_critiques_user_idx": {
+          "name": "fotoai_photo_critiques_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "critique_date",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_photo_critiques_submission_owner_fkey": {
+          "name": "fotoai_photo_critiques_submission_owner_fkey",
+          "tableFrom": "fotoai_photo_critiques",
+          "tableTo": "fotoai_challenge_submissions",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "user_id",
+            "submission_id"
+          ],
+          "columnsTo": [
+            "id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "fotoai_photo_critiques_user_id_fkey": {
+          "name": "fotoai_photo_critiques_user_id_fkey",
+          "tableFrom": "fotoai_photo_critiques",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_photo_critiques_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_photo_critiques_id_user_key"
+        },
+        "fotoai_photo_critiques_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_photo_critiques_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_photo_critiques_check": {
+          "name": "fotoai_photo_critiques_check",
+          "value": "split_part(photo_object_key, '/'::text, 1) = (user_id)::text"
+        },
+        "fotoai_photo_critiques_composition_score_check": {
+          "name": "fotoai_photo_critiques_composition_score_check",
+          "value": "(composition_score >= 0) AND (composition_score <= 100)"
+        },
+        "fotoai_photo_critiques_creative_score_check": {
+          "name": "fotoai_photo_critiques_creative_score_check",
+          "value": "(creative_score >= 0) AND (creative_score <= 100)"
+        },
+        "fotoai_photo_critiques_overall_score_check": {
+          "name": "fotoai_photo_critiques_overall_score_check",
+          "value": "(overall_score >= 0) AND (overall_score <= 100)"
+        },
+        "fotoai_photo_critiques_technical_score_check": {
+          "name": "fotoai_photo_critiques_technical_score_check",
+          "value": "(technical_score >= 0) AND (technical_score <= 100)"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_reverse_analyses": {
+      "name": "fotoai_reverse_analyses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_object_key": {
+          "name": "photo_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "analysis_date": {
+          "name": "analysis_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_reverse_analyses_user_idx": {
+          "name": "fotoai_reverse_analyses_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "analysis_date",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_reverse_analyses_user_id_fkey": {
+          "name": "fotoai_reverse_analyses_user_id_fkey",
+          "tableFrom": "fotoai_reverse_analyses",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_reverse_analyses_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_reverse_analyses_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_reverse_analyses_check": {
+          "name": "fotoai_reverse_analyses_check",
+          "value": "split_part(photo_object_key, '/'::text, 1) = (user_id)::text"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_editing_recipes": {
+      "name": "fotoai_editing_recipes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "original_photo_object_key": {
+          "name": "original_photo_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edited_photo_object_key": {
+          "name": "edited_photo_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recipe": {
+          "name": "recipe",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "analysis_date": {
+          "name": "analysis_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_editing_recipes_user_idx": {
+          "name": "fotoai_editing_recipes_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "analysis_date",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_editing_recipes_user_id_fkey": {
+          "name": "fotoai_editing_recipes_user_id_fkey",
+          "tableFrom": "fotoai_editing_recipes",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_editing_recipes_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_editing_recipes_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_editing_recipes_check": {
+          "name": "fotoai_editing_recipes_check",
+          "value": "(original_photo_object_key IS NULL) OR (split_part(original_photo_object_key, '/'::text, 1) = (user_id)::text)"
+        },
+        "fotoai_editing_recipes_check1": {
+          "name": "fotoai_editing_recipes_check1",
+          "value": "(edited_photo_object_key IS NULL) OR (split_part(edited_photo_object_key, '/'::text, 1) = (user_id)::text)"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_weekly_reports": {
+      "name": "fotoai_weekly_reports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "week_start": {
+          "name": "week_start",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "week_end": {
+          "name": "week_end",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stats": {
+          "name": "stats",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "insights": {
+          "name": "insights",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "report_date": {
+          "name": "report_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fotoai_weekly_reports_user_id_fkey": {
+          "name": "fotoai_weekly_reports_user_id_fkey",
+          "tableFrom": "fotoai_weekly_reports",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_weekly_reports_user_week_key": {
+          "columns": [
+            "user_id",
+            "week_start"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_weekly_reports_user_week_key"
+        },
+        "fotoai_weekly_reports_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_weekly_reports_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_weekly_reports_check": {
+          "name": "fotoai_weekly_reports_check",
+          "value": "week_end >= week_start"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_portfolio_analyses": {
+      "name": "fotoai_portfolio_analyses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_count": {
+          "name": "photo_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "analysis": {
+          "name": "analysis",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "analysis_date": {
+          "name": "analysis_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_portfolio_analyses_user_idx": {
+          "name": "fotoai_portfolio_analyses_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "analysis_date",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_portfolio_analyses_user_id_fkey": {
+          "name": "fotoai_portfolio_analyses_user_id_fkey",
+          "tableFrom": "fotoai_portfolio_analyses",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_portfolio_analyses_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_portfolio_analyses_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_portfolio_analyses_photo_count_check": {
+          "name": "fotoai_portfolio_analyses_photo_count_check",
+          "value": "photo_count > 0"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_user_skills": {
+      "name": "fotoai_user_skills",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skill_id": {
+          "name": "skill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_xp": {
+          "name": "current_xp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'available'"
+        },
+        "last_xp_date": {
+          "name": "last_xp_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fotoai_user_skills_user_id_fkey": {
+          "name": "fotoai_user_skills_user_id_fkey",
+          "tableFrom": "fotoai_user_skills",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_user_skills_user_skill_key": {
+          "columns": [
+            "user_id",
+            "skill_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_skills_user_skill_key"
+        },
+        "fotoai_user_skills_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_skills_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_user_skills_current_xp_check": {
+          "name": "fotoai_user_skills_current_xp_check",
+          "value": "current_xp >= 0"
+        },
+        "fotoai_user_skills_status_check": {
+          "name": "fotoai_user_skills_status_check",
+          "value": "status = ANY (ARRAY['locked'::text, 'available'::text, 'learned'::text, 'practiced'::text, 'mastered'::text])"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_xp_events": {
+      "name": "fotoai_xp_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skill_id": {
+          "name": "skill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "xp_amount": {
+          "name": "xp_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_kind": {
+          "name": "source_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "awarded_at": {
+          "name": "awarded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_xp_events_dedupe_idx": {
+          "name": "fotoai_xp_events_dedupe_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "skill_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "source_kind",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "source_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "where": "(source_id IS NOT NULL)",
+          "with": {}
+        },
+        "fotoai_xp_events_user_awarded_idx": {
+          "name": "fotoai_xp_events_user_awarded_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "awarded_at",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_xp_events_user_id_fkey": {
+          "name": "fotoai_xp_events_user_id_fkey",
+          "tableFrom": "fotoai_xp_events",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_xp_events_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_xp_events_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_xp_events_source_kind_check": {
+          "name": "fotoai_xp_events_source_kind_check",
+          "value": "source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text])"
+        },
+        "fotoai_xp_events_xp_amount_check": {
+          "name": "fotoai_xp_events_xp_amount_check",
+          "value": "xp_amount > 0"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "tables": {
+      "fotoai_user_preferences": {
+        "columns": {
+          "photography_interests": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "avoids_styles": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "work_days": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "secondary_photo_days": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
+      "fotoai_daily_challenges": {
+        "columns": {
+          "recommended_gear": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "shot_list": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
+      "fotoai_itineraries": {
+        "columns": {
+          "suggested_times": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "gear_recommendations": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
+      "fotoai_user_progress": {
+        "columns": {
+          "favorite_subjects": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "improvement_areas": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      },
+      "fotoai_photo_critiques": {
+        "columns": {
+          "strengths": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          },
+          "improvements": {
+            "isArray": true,
+            "dimensions": 1,
+            "rawType": "text"
+          }
+        }
+      }
+    }
+  }
+}

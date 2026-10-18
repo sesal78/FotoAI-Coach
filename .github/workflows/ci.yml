@@ -33,3 +33,53 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+
+  workspace:
+    # Refactor workspace (pnpm + Turborepo: packages/*). nextjs_space/ is checked by `verify` above.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck, lint, unit tests
+        run: pnpm typecheck && pnpm lint && pnpm test
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.118.0
+
+      - name: Start local Supabase (root supabase/ project, migrations applied)
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,realtime,supavisor
+
+      - name: Export local test credentials (CI-only local stack; masked, never echoed)
+        run: |
+          supabase status -o env | tr -d '"' | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY|DB_URL)=' > /tmp/sb.env
+          while IFS='=' read -r name value; do
+            echo "::add-mask::$value"
+            case "$name" in
+              API_URL) echo "FOTOAI_TEST_SUPABASE_URL=$value" >> "$GITHUB_ENV" ;;
+              ANON_KEY) echo "FOTOAI_TEST_SUPABASE_ANON_KEY=$value" >> "$GITHUB_ENV" ;;
+              SERVICE_ROLE_KEY) echo "FOTOAI_TEST_SUPABASE_SERVICE_ROLE_KEY=$value" >> "$GITHUB_ENV" ;;
+              DB_URL) echo "FOTOAI_TEST_DATABASE_URL=$value" >> "$GITHUB_ENV" ;;
+            esac
+          done < /tmp/sb.env
+          rm /tmp/sb.env
+
+      - name: Real-Postgres tests (RLS, Drizzle baseline)
+        run: pnpm --filter @fotoai/db test:integration
+        env:
+          FOTOAI_REQUIRE_DB_TESTS: '1'
+
+      - name: types are up to date
+        run: |
+          pnpm --filter @fotoai/db db:types
+          git diff --exit-code packages/db/src/types.gen.ts

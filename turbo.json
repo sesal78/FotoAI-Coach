@@ -1,0 +1,18 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "eslint.config.mjs",
+    "tsconfig.base.json",
+    "supabase/migrations/**",
+    "nextjs_space/supabase/migrations/fotoai/**"
+  ],
+  "tasks": {
+    "typecheck": {},
+    "lint": {},
+    "test": {
+      "dependsOn": [
+        "^typecheck"
+      ]
+    }
+  }
+}
