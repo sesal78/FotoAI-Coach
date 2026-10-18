@@ -30,6 +30,12 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/node@22.20.5)
 
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^3.25.0
+        version: 3.25.76
+
   packages/env:
     dependencies:
       '@t3-oss/env-core':
