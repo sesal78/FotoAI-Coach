@@ -20,3 +20,4 @@ export {
 } from './challenges.ts';
 export { getPreferences, patchPreferences } from './preferences.ts';
 export { addMyGear, deleteMyGear, getGearCatalog, getLoadout, listMyGear, putLoadout } from './gear.ts';
+export { reserveCalls, V2_RATE_LIMITS, V2_RATE_WINDOW_MS, type V2RateRoute } from './rate-limit.ts';
