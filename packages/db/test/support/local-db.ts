@@ -33,3 +33,16 @@ export function resolveDb(source: Source): LocalDb | null {
 export function localDbFromEnv(): LocalDb | null {
   return resolveDb(process.env);
 }
+
+const LOCAL_PG = /^postgres(ql)?:\/\/[^@/\s]+@(127\.0\.0\.1|localhost):\d{2,5}\/[\w-]+$/;
+
+/** Local Postgres URL for the Drizzle tests. Same rules: local only, and REQUIRE=1 fails instead of skipping. */
+export function resolveDatabaseUrl(source: Source): string | null {
+  const url = source.FOTOAI_TEST_DATABASE_URL?.trim();
+  if (!url) {
+    if (source.FOTOAI_REQUIRE_DB_TESTS === '1') throw new Error('Database tests required but missing: FOTOAI_TEST_DATABASE_URL');
+    return null;
+  }
+  if (!LOCAL_PG.test(url)) throw new Error('Drizzle tests only run against a local Postgres (127.0.0.1 or localhost)');
+  return url;
+}

@@ -30,3 +30,4 @@ out
 # refactor workspace (pnpm + turborepo)
 .turbo/
 coverage/
+.drizzle-check-*/

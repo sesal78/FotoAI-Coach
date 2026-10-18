@@ -5,17 +5,25 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./service": "./src/service-client.ts"
+    "./service": "./src/service-client.ts",
+    "./schema": "./src/schema/schema.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "db:types": "npx --yes supabase@2.118.0 gen types typescript --local --schema public --workdir ../.. > src/types.gen.ts"
+    "db:types": "npx --yes supabase@2.118.0 gen types typescript --local --schema public --workdir ../.. > src/types.gen.ts",
+    "db:pull": "drizzle-kit pull --config drizzle.config.ts && node scripts/fix-pull.ts drizzle",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts"
   },
   "dependencies": {
     "@fotoai/env": "workspace:*",
-    "@supabase/supabase-js": "^2.76.0"
+    "@supabase/supabase-js": "^2.76.0",
+    "drizzle-orm": "^0.44.7"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11",
+    "pg": "^8.23.1"
   }
 }

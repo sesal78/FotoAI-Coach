@@ -11,6 +11,9 @@ export default tseslint.config(
       '**/dist/**',
       '**/.turbo/**',
       'packages/db/src/types.gen.ts',
+      // drizzle-kit pull output: kept byte-identical so the baseline drift test stays exact
+      'packages/db/src/schema/**',
+      'packages/db/drizzle/**',
     ],
   },
   js.configs.recommended,
