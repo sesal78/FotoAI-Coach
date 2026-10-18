@@ -36,12 +36,9 @@ cd D:/Homebase/Sandbox/fotoai-coach-e2e/nextjs_space
 npm ci
 PLAYWRIGHT_BROWSERS_PATH=D:/Homebase/Sandbox/ms-playwright npx playwright install chromium
 
-# a local Supabase project in the Sandbox, using this repo's config and migrations
-mkdir -p D:/Homebase/Sandbox/fotoai-local-supabase/supabase/migrations
-cp tests/e2e/supabase/config.toml D:/Homebase/Sandbox/fotoai-local-supabase/supabase/config.toml
-cp supabase/migrations/fotoai/0001_fotoai_schema.sql D:/Homebase/Sandbox/fotoai-local-supabase/supabase/migrations/20261017000001_0001_fotoai_schema.sql
-cp supabase/migrations/fotoai/0002_fotoai_rls.sql    D:/Homebase/Sandbox/fotoai-local-supabase/supabase/migrations/20261017000002_0002_fotoai_rls.sql
-cp supabase/migrations/fotoai/0003_fotoai_storage.sql D:/Homebase/Sandbox/fotoai-local-supabase/supabase/migrations/20261017000003_0003_fotoai_storage.sql
+# a local Supabase project in the Sandbox, using the repo root's supabase/ folder (config + migrations)
+mkdir -p D:/Homebase/Sandbox/fotoai-local-supabase
+cp -r ../supabase D:/Homebase/Sandbox/fotoai-local-supabase/supabase
 cd D:/Homebase/Sandbox/fotoai-local-supabase
 npm_config_cache=D:/Homebase/Sandbox/npm-cache npx -y supabase@2.118.0 start
 ```
