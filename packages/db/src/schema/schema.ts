@@ -1,4 +1,4 @@
-import { pgTable, foreignKey, unique, pgPolicy, check, uuid, text, boolean, timestamp, index, integer, bigint, jsonb, date, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, unique, pgPolicy, check, uuid, text, boolean, timestamp, index, bigint, integer, jsonb, date, uniqueIndex } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import { authUsers } from "drizzle-orm/supabase"
 
@@ -61,43 +61,6 @@ export const fotoaiUserGear = pgTable("fotoai_user_gear", {
 			name: "fotoai_user_gear_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_user_gear_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-]).enableRLS();
-
-export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	legacyAppwriteId: text("legacy_appwrite_id"),
-	challengeType: text("challenge_type").notNull(),
-	challengeText: text("challenge_text").notNull(),
-	difficulty: text(),
-	category: text(),
-	duration: text(),
-	weatherConditions: text("weather_conditions"),
-	location: text(),
-	recommendedGear: text("recommended_gear").array().default([]).notNull(),
-	tips: text(),
-	issuedDate: timestamp("issued_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	status: text().default('pending').notNull(),
-	completedDate: timestamp("completed_date", { withTimezone: true, mode: 'string' }),
-	shotList: text("shot_list").array().default([]).notNull(),
-	narrativeContext: text("narrative_context"),
-	editingDirection: text("editing_direction"),
-	masteryArea: text("mastery_area"),
-	technicalLevel: integer("technical_level"),
-	successCriteria: text("success_criteria"),
-	whatToLookFor: text("what_to_look_for"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("fotoai_daily_challenges_user_issued_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.issuedDate.desc().nullsFirst().op("timestamptz_ops")),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "fotoai_daily_challenges_user_id_fkey"
-		}).onDelete("cascade"),
-	unique("fotoai_daily_challenges_id_user_key").on(table.id, table.userId),
-	unique("fotoai_daily_challenges_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_daily_challenges_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text])`),
-	check("fotoai_daily_challenges_technical_level_check", sql`(technical_level >= 1) AND (technical_level <= 5)`),
 ]).enableRLS();
 
 export const fotoaiChallengeSubmissions = pgTable("fotoai_challenge_submissions", {
@@ -391,4 +354,43 @@ export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
 	unique("fotoai_xp_events_legacy_appwrite_id_key").on(table.legacyAppwriteId),
 	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text])`),
 	check("fotoai_xp_events_xp_amount_check", sql`xp_amount > 0`),
+]).enableRLS();
+
+export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	legacyAppwriteId: text("legacy_appwrite_id"),
+	challengeType: text("challenge_type").notNull(),
+	challengeText: text("challenge_text").notNull(),
+	difficulty: text(),
+	category: text(),
+	duration: text(),
+	weatherConditions: text("weather_conditions"),
+	location: text(),
+	recommendedGear: text("recommended_gear").array().default([]).notNull(),
+	tips: text(),
+	issuedDate: timestamp("issued_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	status: text().default('pending').notNull(),
+	completedDate: timestamp("completed_date", { withTimezone: true, mode: 'string' }),
+	shotList: text("shot_list").array().default([]).notNull(),
+	narrativeContext: text("narrative_context"),
+	editingDirection: text("editing_direction"),
+	masteryArea: text("mastery_area"),
+	technicalLevel: integer("technical_level"),
+	successCriteria: text("success_criteria"),
+	whatToLookFor: text("what_to_look_for"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	source: text().default('dashboard').notNull(),
+}, (table) => [
+	index("fotoai_daily_challenges_user_issued_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.issuedDate.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_daily_challenges_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_daily_challenges_id_user_key").on(table.id, table.userId),
+	unique("fotoai_daily_challenges_legacy_appwrite_id_key").on(table.legacyAppwriteId),
+	check("fotoai_daily_challenges_source_check", sql`source = ANY (ARRAY['dashboard'::text, 'chat'::text, 'plan'::text, 'job'::text])`),
+	check("fotoai_daily_challenges_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text, 'superseded'::text])`),
+	check("fotoai_daily_challenges_technical_level_check", sql`(technical_level >= 1) AND (technical_level <= 5)`),
 ]).enableRLS();

@@ -12,7 +12,6 @@ export const fotoaiUserPreferencesRelations = relations(fotoaiUserPreferences, (
 export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiUserPreferences: many(fotoaiUserPreferences),
 	fotoaiUserGears: many(fotoaiUserGear),
-	fotoaiDailyChallenges: many(fotoaiDailyChallenges),
 	fotoaiChallengeSubmissions: many(fotoaiChallengeSubmissions),
 	fotoaiItineraries: many(fotoaiItineraries),
 	fotoaiUserProgresses: many(fotoaiUserProgress),
@@ -24,6 +23,7 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiPortfolioAnalyses: many(fotoaiPortfolioAnalyses),
 	fotoaiUserSkills: many(fotoaiUserSkills),
 	fotoaiXpEvents: many(fotoaiXpEvents),
+	fotoaiDailyChallenges: many(fotoaiDailyChallenges),
 }));
 
 export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
@@ -31,14 +31,6 @@ export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
 		fields: [fotoaiUserGear.userId],
 		references: [usersInAuth.id]
 	}),
-}));
-
-export const fotoaiDailyChallengesRelations = relations(fotoaiDailyChallenges, ({one, many}) => ({
-	usersInAuth: one(usersInAuth, {
-		fields: [fotoaiDailyChallenges.userId],
-		references: [usersInAuth.id]
-	}),
-	fotoaiChallengeSubmissions: many(fotoaiChallengeSubmissions),
 }));
 
 export const fotoaiChallengeSubmissionsRelations = relations(fotoaiChallengeSubmissions, ({one, many}) => ({
@@ -51,6 +43,14 @@ export const fotoaiChallengeSubmissionsRelations = relations(fotoaiChallengeSubm
 		references: [usersInAuth.id]
 	}),
 	fotoaiPhotoCritiques: many(fotoaiPhotoCritiques),
+}));
+
+export const fotoaiDailyChallengesRelations = relations(fotoaiDailyChallenges, ({one, many}) => ({
+	fotoaiChallengeSubmissions: many(fotoaiChallengeSubmissions),
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiDailyChallenges.userId],
+		references: [usersInAuth.id]
+	}),
 }));
 
 export const fotoaiItinerariesRelations = relations(fotoaiItineraries, ({one}) => ({
