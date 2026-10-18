@@ -333,29 +333,6 @@ export const fotoaiUserSkills = pgTable("fotoai_user_skills", {
 	check("fotoai_user_skills_status_check", sql`status = ANY (ARRAY['locked'::text, 'available'::text, 'learned'::text, 'practiced'::text, 'mastered'::text])`),
 ]).enableRLS();
 
-export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	legacyAppwriteId: text("legacy_appwrite_id"),
-	skillId: text("skill_id").notNull(),
-	xpAmount: integer("xp_amount").notNull(),
-	sourceKind: text("source_kind").notNull(),
-	sourceId: uuid("source_id"),
-	awardedAt: timestamp("awarded_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	uniqueIndex("fotoai_xp_events_dedupe_idx").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.skillId.asc().nullsLast().op("text_ops"), table.sourceKind.asc().nullsLast().op("text_ops"), table.sourceId.asc().nullsLast().op("text_ops")).where(sql`(source_id IS NOT NULL)`),
-	index("fotoai_xp_events_user_awarded_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.awardedAt.desc().nullsFirst().op("timestamptz_ops")),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "fotoai_xp_events_user_id_fkey"
-		}).onDelete("cascade"),
-	unique("fotoai_xp_events_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text])`),
-	check("fotoai_xp_events_xp_amount_check", sql`xp_amount > 0`),
-]).enableRLS();
-
 export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
@@ -393,4 +370,27 @@ export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
 	check("fotoai_daily_challenges_source_check", sql`source = ANY (ARRAY['dashboard'::text, 'chat'::text, 'plan'::text, 'job'::text])`),
 	check("fotoai_daily_challenges_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text, 'superseded'::text])`),
 	check("fotoai_daily_challenges_technical_level_check", sql`(technical_level >= 1) AND (technical_level <= 5)`),
+]).enableRLS();
+
+export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	legacyAppwriteId: text("legacy_appwrite_id"),
+	skillId: text("skill_id").notNull(),
+	xpAmount: integer("xp_amount").notNull(),
+	sourceKind: text("source_kind").notNull(),
+	sourceId: uuid("source_id"),
+	awardedAt: timestamp("awarded_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("fotoai_xp_events_dedupe_idx").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.skillId.asc().nullsLast().op("text_ops"), table.sourceKind.asc().nullsLast().op("text_ops"), table.sourceId.asc().nullsLast().op("text_ops")).where(sql`(source_id IS NOT NULL)`),
+	index("fotoai_xp_events_user_awarded_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.awardedAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_xp_events_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_xp_events_legacy_appwrite_id_key").on(table.legacyAppwriteId),
+	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text, 'plan_step'::text])`),
+	check("fotoai_xp_events_xp_amount_check", sql`xp_amount > 0`),
 ]).enableRLS();

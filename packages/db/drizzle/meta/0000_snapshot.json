@@ -1820,170 +1820,6 @@
       "policies": {},
       "isRLSEnabled": true
     },
-    "public.fotoai_xp_events": {
-      "name": "fotoai_xp_events",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "legacy_appwrite_id": {
-          "name": "legacy_appwrite_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "skill_id": {
-          "name": "skill_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "xp_amount": {
-          "name": "xp_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_kind": {
-          "name": "source_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "awarded_at": {
-          "name": "awarded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "fotoai_xp_events_dedupe_idx": {
-          "name": "fotoai_xp_events_dedupe_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            },
-            {
-              "expression": "skill_id",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            },
-            {
-              "expression": "source_kind",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            },
-            {
-              "expression": "source_id",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "where": "(source_id IS NOT NULL)",
-          "with": {}
-        },
-        "fotoai_xp_events_user_awarded_idx": {
-          "name": "fotoai_xp_events_user_awarded_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "timestamptz_ops",
-              "isExpression": false
-            },
-            {
-              "expression": "awarded_at",
-              "asc": false,
-              "nulls": "first",
-              "opclass": "timestamptz_ops",
-              "isExpression": false
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "fotoai_xp_events_user_id_fkey": {
-          "name": "fotoai_xp_events_user_id_fkey",
-          "tableFrom": "fotoai_xp_events",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "fotoai_xp_events_legacy_appwrite_id_key": {
-          "columns": [
-            "legacy_appwrite_id"
-          ],
-          "nullsNotDistinct": false,
-          "name": "fotoai_xp_events_legacy_appwrite_id_key"
-        }
-      },
-      "checkConstraints": {
-        "fotoai_xp_events_source_kind_check": {
-          "name": "fotoai_xp_events_source_kind_check",
-          "value": "source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text])"
-        },
-        "fotoai_xp_events_xp_amount_check": {
-          "name": "fotoai_xp_events_xp_amount_check",
-          "value": "xp_amount > 0"
-        }
-      },
-      "policies": {},
-      "isRLSEnabled": true
-    },
     "public.fotoai_daily_challenges": {
       "name": "fotoai_daily_challenges",
       "schema": "",
@@ -2211,6 +2047,170 @@
         "fotoai_daily_challenges_technical_level_check": {
           "name": "fotoai_daily_challenges_technical_level_check",
           "value": "(technical_level >= 1) AND (technical_level <= 5)"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_xp_events": {
+      "name": "fotoai_xp_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legacy_appwrite_id": {
+          "name": "legacy_appwrite_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skill_id": {
+          "name": "skill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "xp_amount": {
+          "name": "xp_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_kind": {
+          "name": "source_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "awarded_at": {
+          "name": "awarded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_xp_events_dedupe_idx": {
+          "name": "fotoai_xp_events_dedupe_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "skill_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "source_kind",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "source_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "where": "(source_id IS NOT NULL)",
+          "with": {}
+        },
+        "fotoai_xp_events_user_awarded_idx": {
+          "name": "fotoai_xp_events_user_awarded_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "awarded_at",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_xp_events_user_id_fkey": {
+          "name": "fotoai_xp_events_user_id_fkey",
+          "tableFrom": "fotoai_xp_events",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_xp_events_legacy_appwrite_id_key": {
+          "columns": [
+            "legacy_appwrite_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_xp_events_legacy_appwrite_id_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_xp_events_source_kind_check": {
+          "name": "fotoai_xp_events_source_kind_check",
+          "value": "source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text, 'plan_step'::text])"
+        },
+        "fotoai_xp_events_xp_amount_check": {
+          "name": "fotoai_xp_events_xp_amount_check",
+          "value": "xp_amount > 0"
         }
       },
       "policies": {},

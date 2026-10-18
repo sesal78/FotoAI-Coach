@@ -22,8 +22,8 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiWeeklyReports: many(fotoaiWeeklyReports),
 	fotoaiPortfolioAnalyses: many(fotoaiPortfolioAnalyses),
 	fotoaiUserSkills: many(fotoaiUserSkills),
-	fotoaiXpEvents: many(fotoaiXpEvents),
 	fotoaiDailyChallenges: many(fotoaiDailyChallenges),
+	fotoaiXpEvents: many(fotoaiXpEvents),
 }));
 
 export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
