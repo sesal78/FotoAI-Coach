@@ -33,6 +33,7 @@ function makeDeps(opts: { key?: string; weather?: WeatherDto | null } = {}) {
       return new Response('{}', { status: 500 });
     },
     weather: { get: async () => (opts.weather === undefined ? weather : opts.weather) },
+    ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } },
   } as V2Deps;
   return { deps, outside };
 }

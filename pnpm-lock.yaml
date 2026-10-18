@@ -372,6 +372,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@fotoai/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@fotoai/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -393,6 +396,10 @@ importers:
       zod:
         specifier: ^3.25.0
         version: 3.25.76
+    devDependencies:
+      ai:
+        specifier: 7.0.127
+        version: 7.0.127(zod@3.25.76)
 
   packages/contracts:
     dependencies:

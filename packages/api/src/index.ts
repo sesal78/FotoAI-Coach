@@ -23,3 +23,5 @@ export { addMyGear, deleteMyGear, getGearCatalog, getLoadout, listMyGear, putLoa
 export { reserveCalls, V2_RATE_LIMITS, V2_RATE_WINDOW_MS, type V2RateRoute } from './rate-limit.ts';
 export { addMySpot, deleteMySpot, listMySpots, updateMySpot } from './spots.ts';
 export { exploreNearby, exploreSearch, getConditions, getPlace, getPlacePhoto } from './explore.ts';
+export { generatePlan, getPlan, listPlans, patchPlan, patchPlanStep } from './plans.ts';
+export { loadSavedLoadout } from './gear.ts';

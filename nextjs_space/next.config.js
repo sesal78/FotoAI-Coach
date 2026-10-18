@@ -12,7 +12,7 @@ const nextConfig = {
   },
   images: { unoptimized: true },
   // Workspace packages ship raw TypeScript.
-  transpilePackages: ['@fotoai/api', '@fotoai/contracts', '@fotoai/core', '@fotoai/db', '@fotoai/env', '@fotoai/places'],
+  transpilePackages: ['@fotoai/ai', '@fotoai/api', '@fotoai/contracts', '@fotoai/core', '@fotoai/db', '@fotoai/env', '@fotoai/places'],
   experimental: {
     // pnpm workspace: trace server files from the repo root so the standalone output
     // includes workspace packages and the hoisted node_modules.

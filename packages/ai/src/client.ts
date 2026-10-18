@@ -27,6 +27,8 @@ export interface AiUsage {
 
 export interface AiClient {
   readonly modelId: string;
+  /** False when there is no key (and no test model): every call would be a config error. */
+  readonly configured: boolean;
   generate<I, O>(spec: PromptSpec<I, O>, input: I, opts?: { extra?: string }): Promise<{ output: O; usage: AiUsage }>;
 }
 
@@ -48,6 +50,7 @@ export function createAi(opts: { apiKey: string | undefined; modelId: string; lo
 
   return {
     modelId: opts.modelId,
+    configured: Boolean(opts.model || opts.apiKey),
     async generate(spec, input, extra = {}) {
       const lm = requireModel();
       const prompt = extra.extra ? `${spec.render(input)}\n\n${extra.extra}` : spec.render(input);

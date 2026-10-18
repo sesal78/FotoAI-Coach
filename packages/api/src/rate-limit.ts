@@ -15,7 +15,7 @@ import { ApiError } from './handler.ts';
 export const V2_RATE_WINDOW_MS = 60 * 60 * 1000;
 
 /** Admitted calls per user per hour. Photos are lower: only 1,000 are free a month. */
-export const V2_RATE_LIMITS = { places: 120, place_photos: 30 } as const;
+export const V2_RATE_LIMITS = { places: 120, place_photos: 30, plan_generate: 20 } as const;
 
 export type V2RateRoute = keyof typeof V2_RATE_LIMITS;
 

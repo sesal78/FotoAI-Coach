@@ -24,6 +24,7 @@ const GOOD = JSON.stringify({ idea: 'Backlit leaves at golden hour', count: 3 })
 test('no key: config error and no model call', async () => {
   const logs: string[] = [];
   const ai = createAi({ apiKey: undefined, modelId: 'gpt-6-luna', log: { info: (m) => logs.push(m), warn: (m) => logs.push(m) } });
+  expect(ai.configured).toBe(false);
   await expect(ai.generate(spec, { subject: 'trees' })).rejects.toMatchObject({ code: 'config' });
   await expect(ai.generate(spec, { subject: 'trees' })).rejects.toBeInstanceOf(AiError);
   expect(logs).toHaveLength(0);

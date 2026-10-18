@@ -13,6 +13,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@fotoai/ai": "workspace:*",
     "@fotoai/contracts": "workspace:*",
     "@fotoai/core": "workspace:*",
     "@fotoai/db": "workspace:*",
@@ -20,5 +21,8 @@
     "@fotoai/places": "workspace:*",
     "@supabase/supabase-js": "^2.76.0",
     "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "ai": "7.0.127"
   }
 }
