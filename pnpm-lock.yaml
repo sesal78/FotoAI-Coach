@@ -366,6 +366,9 @@ importers:
       '@fotoai/env':
         specifier: workspace:*
         version: link:../env
+      '@fotoai/places':
+        specifier: workspace:*
+        version: link:../places
       '@supabase/supabase-js':
         specifier: ^2.76.0
         version: 2.118.0

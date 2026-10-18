@@ -18,6 +18,8 @@ const deps = {
     if (token === 'not-a-uuid-user') return { userId: 'abc', email: null };
     return null;
   },
+  fetch: async () => new Response('{}'),
+  weather: { get: async () => null },
 } as V2Deps;
 
 const req = (headers: Record<string, string>) => new Request('http://x/api/v2/me', { headers });

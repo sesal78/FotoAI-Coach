@@ -3,7 +3,7 @@
 // Enterprise tier. The key travels only in the X-Goog-Api-Key header. Nothing here is stored:
 // the terms allow keeping only the place_id, so callers fetch names and photos fresh.
 
-import { PHOTO_TYPES, type PhotoRef, type PlaceDetail, type PlaceSummary } from '@fotoai/contracts';
+import { PHOTO_TYPES, PLACE_ID_RE, type PhotoRef, type PlaceDetail, type PlaceSummary } from '@fotoai/contracts';
 
 import type { FetchLike } from './weather.ts';
 
@@ -29,7 +29,7 @@ const listMask = SUMMARY_FIELDS.map((f) => `places.${f}`).join(',');
 
 const BASE = 'https://places.googleapis.com/v1';
 const TIMEOUT_MS = 10_000;
-export const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
+export const PLACE_ID = PLACE_ID_RE;
 export const PHOTO_NAME = /^places\/[A-Za-z0-9_-]{10,300}\/photos\/[A-Za-z0-9_-]{10,1000}$/;
 
 type Sku = 'nearby_pro' | 'search_pro' | 'details_pro' | 'photo_enterprise';
