@@ -5,9 +5,10 @@
 // legacy route allowed anonymous chat), the LLM is called through
 // deps.services.ai.callLLM, and the messages array is bounded. When the reply
 // contains a <CHALLENGE_DATA> block, the challenge is saved for the session
-// user through the owner-scoped repo with the legacy upsert rule: a pending
-// CHATBOT_GENERATED challenge is overwritten, otherwise a new one is created
-// and the issued counters are bumped. A bad block never fails the chat.
+// user through the owner-scoped repo. Every chat challenge is a new row
+// (source 'chat'); earlier ones stay pending in history. A repeat of an open
+// challenge's exact text reuses it. New rows bump the issued counters. A bad
+// block never fails the chat.
 
 import { toChallengeDto } from '../challenge-generation.ts';
 import { FotoaiValidationError } from '../errors.ts';
@@ -128,6 +129,7 @@ async function saveChatChallenge(deps: FotoaiDeps, scope: OwnerScope, raw: strin
       tips: text(parsed.tips, 4000),
       recommended_gear: gear,
       challenge_type: CHATBOT_CHALLENGE_TYPE,
+      source: 'chat',
       issued_date: new Date().toISOString(),
     };
 

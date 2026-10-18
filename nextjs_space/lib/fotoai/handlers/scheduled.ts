@@ -167,7 +167,7 @@ const dailyChallengeJob: UserJob = async (deps, user, now) => {
   const result = await generateChallengeFor(
     { data, services: deps.services, now: () => now, log: deps.log },
     scope,
-    { challengeType: determineChallengeType(preferences, now), displayName: user.name },
+    { challengeType: determineChallengeType(preferences, now), displayName: user.name, source: 'job' },
   );
   if (!result.created) {
     return { status: 'skipped', reason: 'Challenge already exists for today', challengeId: result.challenge.id };

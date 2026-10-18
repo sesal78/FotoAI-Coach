@@ -73,8 +73,8 @@ jobs:
           done < /tmp/sb.env
           rm /tmp/sb.env
 
-      - name: Real-Postgres tests (RLS, Drizzle baseline)
-        run: pnpm --filter @fotoai/db test:integration
+      - name: Real-Postgres tests (RLS, Drizzle baseline, v2 API)
+        run: pnpm --filter @fotoai/db test:integration && pnpm --filter @fotoai/api test:integration
         env:
           FOTOAI_REQUIRE_DB_TESTS: '1'
 

@@ -303,24 +303,331 @@ test('rejects browser-supplied identity', () => {
 
 ---
 
-## Sub-phase 2B — Data model and the challenge fix (task level)
+## Sub-phase 2B — Data model and the challenge fix (step level; expanded 18 Oct 2026 after 2A shipped)
 
 **Ships:**
-- root migrations for the challenge `source` column and the `superseded` status;
-- the `plan_step` XP source;
-- preferences (theme, units, home area);
+- the challenge `source` column and the `superseded` status;
 - the end of the challenge-sync overwrite;
-- a server-side "active challenge".
+- a server-side active challenge and challenge list (`/api/v2/challenges*`);
+- the `plan_step` XP source;
+- theme, units and home-area preferences (`/api/v2/me/preferences`).
 
-| Task | Deliverable | Key interfaces and tests |
-|---|---|---|
-| 1. Migration guard test | A root test that scans `supabase/migrations/*.sql` after `20261017000003`. It fails on `DROP TABLE`, `DROP COLUMN`, or a `DROP CONSTRAINT` without an `ADD CONSTRAINT` of the same name in the same file. | Test `new root migrations only add, or replace a CHECK in place`. |
-| 2. Challenge source + superseded | Migration `…_challenge_source.sql`: `source text not null default 'dashboard' check (source in ('dashboard','chat','plan','job'))`. It backfills `chat` where `challenge_type = 'CHATBOT_GENERATED'`, and replaces the status CHECK to add `superseded`. Then regenerate `types.gen.ts` and re-pull the Drizzle baseline. | Integration test on the local stack: old rows keep their status; chat rows read `source='chat'`; inserting `status='superseded'` works and `'bogus'` fails. |
-| 3. Never overwrite | `nextjs_space/lib/fotoai/handlers/challenge-sync.ts` inserts a new `CHATBOT_GENERATED` row instead of updating `findPendingChatbot`. It writes `source='chat'` here and in `chat.ts`, and `source='job'` in the cron path. The stale header comment in `chat.ts` is fixed. | Legacy node test: `sync keeps the earlier pending chat challenge and adds a new one` (RED on today's code). |
-| 4. Active challenge | `GET /api/v2/challenges/active` returns the newest `pending` or `accepted` row by `issued_date desc`, with `created_at desc` as the tie-break, or `{ challenge: null }`. Plus `GET /api/v2/challenges?status&cursor`. A DTO goes in `@fotoai/contracts` (`ChallengeDto`, `ChallengeStatus`, `ChallengeSource`). | Tests: the tie-break order; accepted beats an older pending; another user's rows are never returned (RLS integration). |
-| 5. XP source `plan_step` | Migration: replace the `source_kind` CHECK, and `create or replace function fotoai_award_skill_xp` with the same signature and `plan_step` added to its internal list. | Integration test: an award with `plan_step` is applied; replaying it is `duplicate`. |
-| 6. Preferences | Migration: `theme text default 'golden' check in ('golden','golden_dark','camera')`, `units text default 'metric'`, `home_lat`, `home_lng`, `home_label`. `GET/PATCH /api/v2/me/preferences`. | Test: PATCH rejects unknown themes and identity keys. |
-| 7. PR + approval + migrations + deploy | For each migration: local stack run, Seun's yes, `psql -1 -v ON_ERROR_STOP=1`, then a verify query. Then deploy and smoke. | Ledger records each applied migration and its verify query output. |
+**2B decisions (planner's calls, recorded here):**
+- **SQL-first migrations.** The migrations are hand-written SQL in the root `supabase/migrations/`, because CHECK replacements and `create or replace function` are not Drizzle-generatable. After each migration, regenerate `types.gen.ts` and re-pull the Drizzle baseline (`db:pull`, then move `schema.ts`/`relations.ts` to `src/schema/` and keep `drizzle/meta`). The phase 1 drift tests keep them honest.
+- **Applying migrations locally.** Copy each new migration into `D:/Homebase/Sandbox/fotoai-local-supabase/supabase/migrations/`, then run `npx supabase@2.118.0 migration up` there. Never `db reset`: the stack holds other local test data.
+- **Applying migrations to production.** After Seun's yes, pipe the file through `ssh <VPS> docker exec -i <supabase-db container> psql -U postgres -At -v ON_ERROR_STOP=1 -1 -f -`. This is the same path the P3 copy tooling used (`p3-parity/p3_copy.py`). Each migration has a written verify query and a written undo script; undo is run only with Seun's yes.
+- **Order on release.** The live code from Task 3 writes the new `source` column, so the Task 2 migration must be applied to production **before** the 2B deploy. Every migration only adds, so the 2A code keeps working against the new schema. That makes rollback a code-only redeploy.
+- **Sync never overwrites.** It also does not mark older chat challenges `superseded`, so History keeps them continuable. The `superseded` status exists for later explicit use. The sync endpoint has no caller in the current web UI; chat saves through `chat.ts`. So the change carries little user risk.
+- **The home area reuses the existing `home_location` text column as its label.** New columns are only `home_lat` and `home_lng`.
+
+### Task B1: Root migration guard
+
+**Files:**
+- Create: `packages/db/test/migration-guard.test.ts`
+- Create: `packages/db/test/support/migration-rules.ts`
+
+**Interfaces:**
+- Produces: `migrationViolations(sql: string): string[]`. It returns one message per rule broken; an empty list means OK.
+  - `DROP TABLE` and `DROP COLUMN` are always banned.
+  - `DROP CONSTRAINT <name>` needs an `ADD CONSTRAINT <name>` in the same file.
+  - `DROP FUNCTION`, `TRUNCATE` and an unqualified `DELETE FROM` are banned.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('new root migrations only add, or replace a CHECK in place', () => {
+  for (const file of rootMigrationsAfter('20261017000003')) expect(migrationViolations(read(file)), file).toEqual([]);
+});
+test('flags destructive statements', () => {
+  expect(migrationViolations('alter table t drop column c;')).toHaveLength(1);
+  expect(migrationViolations('drop table t;')).toHaveLength(1);
+  expect(migrationViolations('alter table t drop constraint t_c_check;')).toEqual(['DROP CONSTRAINT t_c_check without ADD CONSTRAINT t_c_check']);
+  expect(migrationViolations('alter table t drop constraint t_c_check; alter table t add constraint t_c_check check (c > 0);')).toEqual([]);
+  expect(migrationViolations('truncate t;')).toHaveLength(1);
+});
+test('ignores SQL comments', () => {
+  expect(migrationViolations('-- drop table t;\nselect 1;')).toEqual([]);
+});
+```
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+  - Run: `pnpm --filter @fotoai/db test -- migration-guard`
+  - Expected: FAIL, because the module is missing.
+
+- [ ] **Step 3: Implement `migrationViolations`.** Strip `--` and `/* */` comments, then use case-insensitive regexes.
+
+- [ ] **Step 4: Run and confirm they pass.**
+  - Run: `pnpm --filter @fotoai/db test`
+  - Expected: PASS. No new migrations exist yet, so the first test is vacuous until B2.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "test(db): guard new root migrations against destructive statements"`
+
+### Task B2: Challenge `source` column and `superseded` status
+
+**Files:**
+- Create: `supabase/migrations/20261018100001_challenge_source.sql`
+- Create: `supabase/undo/20261018100001_challenge_source.undo.sql` (not applied by tooling)
+- Modify: `packages/db/src/types.gen.ts`, `packages/db/src/schema/*`, `packages/db/drizzle/meta/*` (regenerated)
+- Test: `packages/db/test/challenges-schema.integration.test.ts`
+
+**Interfaces:**
+- Produces:
+  - `fotoai_daily_challenges.source text not null default 'dashboard'`, with `fotoai_daily_challenges_source_check (source in ('dashboard','chat','plan','job'))`;
+  - `fotoai_daily_challenges_status_check` extended with `'superseded'`.
+
+- [ ] **Step 1: Write the failing integration test.** It uses the local stack and the phase 1 guards.
+  - It creates a user, then inserts with the service client a `CHATBOT_GENERATED` row and an `AFTER_WORK` row, without a `source`. Both must succeed, defaulting to `'dashboard'`.
+  - It checks that `status: 'superseded'` inserts and `status: 'bogus'` fails with a check violation.
+  - It checks that `source: 'nope'` fails.
+  - Test names:
+    - `challenge source defaults to dashboard and accepts only known sources`
+    - `superseded is a valid challenge status; unknown statuses are rejected`
+
+- [ ] **Step 2: Run the test and confirm it fails.**
+  - Run: `FOTOAI_REQUIRE_DB_TESTS=1 pnpm --filter @fotoai/db test:integration -- challenges-schema`
+  - Expected: FAIL, because the `source` column does not exist and `superseded` violates the status check.
+
+- [ ] **Step 3: Write the migration.**
+
+```sql
+-- 2B: where a challenge came from, and a status for challenges replaced on purpose.
+alter table public.fotoai_daily_challenges add column source text not null default 'dashboard';
+update public.fotoai_daily_challenges set source = 'chat' where challenge_type = 'CHATBOT_GENERATED';
+alter table public.fotoai_daily_challenges
+  add constraint fotoai_daily_challenges_source_check check (source in ('dashboard', 'chat', 'plan', 'job'));
+alter table public.fotoai_daily_challenges drop constraint fotoai_daily_challenges_status_check;
+alter table public.fotoai_daily_challenges
+  add constraint fotoai_daily_challenges_status_check
+  check (status in ('pending', 'accepted', 'skipped', 'completed', 'superseded'));
+```
+
+  - The undo file drops `fotoai_daily_challenges_source_check` and the column, then restores the 4-value status check. The migration guard skips `supabase/undo/`.
+  - Verify query: `select source, count(*) from public.fotoai_daily_challenges group by 1 order by 1;`
+
+- [ ] **Step 4: Apply the migration locally and regenerate.**
+  - Copy the migration into the local stack and run `migration up`.
+  - Run `pnpm --filter @fotoai/db db:types`.
+  - Re-pull the Drizzle baseline as described in the 2B decisions.
+
+- [ ] **Step 5: Run and confirm it passes.**
+  - Run: the full gate plus `FOTOAI_REQUIRE_DB_TESTS=1 pnpm --filter @fotoai/db test:integration`
+  - Expected: all pass; the drift tests pass against the re-pulled baseline; the migration guard passes.
+
+- [ ] **Step 6: Commit.**
+  - `git commit -m "feat(db): challenge source column and superseded status"`
+
+### Task B3: Challenges are never overwritten, and every insert records its source
+
+**Files:**
+- Modify: `nextjs_space/lib/fotoai/handlers/challenge-sync.ts`. Remove the update branch. Keep the header comment accurate.
+- Modify: `nextjs_space/lib/fotoai/handlers/chat.ts`. Write `source: 'chat'` and fix the stale "overwritten" header comment at lines 7–10.
+- Modify: `nextjs_space/lib/fotoai/challenge-generation.ts`.
+  - `GenerateOptions` gains `source?: 'dashboard' | 'job'` (default `'dashboard'`).
+  - `challengeRowFromLlm` writes `source`.
+- Modify: `nextjs_space/lib/fotoai/handlers/scheduled.ts`. Pass `source: 'job'` at the `generateChallengeFor` call (around line 167).
+- Modify: `nextjs_space/lib/fotoai/repo-generation.ts`. Add `source` to the `ChallengeRow` type.
+- Test: `nextjs_space/tests/fotoai/challenge-generation.test.ts`. Replace `sync: creates then updates only the caller's pending CHATBOT_GENERATED challenge`.
+
+**Interfaces:**
+- Consumes: the B2 column.
+- Produces: the sync responses.
+  - New text: 201 `{ success: true, challenge, created: true }`, with a new row of `source 'chat'`.
+  - The same text as an existing pending chat challenge: 200 `{ success: true, challenge, existing: true }`, with no new row. It uses `findPendingChatbotByText`.
+
+- [ ] **Step 1: Write the failing node tests.** They replace the old update test.
+
+```ts
+test('sync keeps the earlier pending chat challenge and adds a new one', async () => {
+  // POST 'first' → 201 created; POST 'second' → 201 created with a different id;
+  // both rows still pending with their own text; both source === 'chat'; Bob's rows untouched; progress counters untouched
+});
+test('sync with the same text as a pending chat challenge returns it without a new row', async () => {
+  // POST 'first' twice → second is 200 { existing: true } with the same id; exactly 1 CHATBOT_GENERATED row
+});
+test('generate records source dashboard; the cron path records source job', async () => {
+  // generate handler → inserted row source === 'dashboard'; generateChallengeFor(..., { source: 'job' }) → 'job'
+});
+test('chat-saved challenges record source chat', async () => { /* existing saveChatChallenge path → row.source === 'chat' */ });
+```
+
+- [ ] **Step 2: Run the tests and confirm they fail.**
+  - Run: `pnpm --filter @fotoai/legacy-web test`
+  - Expected: the 4 new tests FAIL. The second POST returns 200 `updated`, and there is no `source` field.
+
+- [ ] **Step 3: Implement the changes listed above.**
+
+- [ ] **Step 4: Run and confirm they pass.**
+  - Run: `pnpm --filter @fotoai/legacy-web typecheck && pnpm --filter @fotoai/legacy-web test`
+  - Expected: all pass, with 0 failures.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "fix(fotoai): challenge sync never overwrites; record each challenge's source"`
+
+### Task B4: `/api/v2/challenges/active` and `/api/v2/challenges`
+
+**Files:**
+- Create: `packages/contracts/src/challenges.ts`; export it from `src/index.ts`.
+- Create: `packages/api/src/challenges.ts`; export it from `src/index.ts`.
+- Create: `nextjs_space/app/api/v2/challenges/route.ts`, `nextjs_space/app/api/v2/challenges/active/route.ts` and `nextjs_space/app/api/v2/challenges/[id]/route.ts`.
+- Test:
+  - `packages/contracts/test/challenges.test.ts`;
+  - `packages/api/test/challenges.test.ts` (cursor and query parsing);
+  - `packages/api/test/challenges.integration.test.ts` (local stack). `packages/api` gains `test:integration` and `vitest.integration.config.ts` like `@fotoai/db`, and imports the guards from `../../db/test/support/local-db.ts`.
+- Modify: `.github/workflows/ci.yml`. Run `pnpm --filter @fotoai/api test:integration` in the database step.
+
+**Interfaces:**
+- Produces, in `@fotoai/contracts`:
+  - `CHALLENGE_STATUSES = ['pending','accepted','skipped','completed','superseded'] as const`;
+  - `CHALLENGE_SOURCES = ['dashboard','chat','plan','job'] as const`;
+  - `ChallengeDto`, a zod object with the `toChallengeDto` fields plus `source`. Field names are copied from `nextjs_space/lib/fotoai/challenge-generation.ts:227-251`, so web and mobile share one shape;
+  - `ChallengeListResponse = { challenges: ChallengeDto[]; nextCursor: string | null }`.
+- Produces, in `@fotoai/api`:
+  - `toV2Challenge(row): ChallengeDto`;
+  - `encodeCursor(issuedDate: string, id: string): string` and `decodeCursor(cursor: string): { issuedDate: string; id: string }`. The cursor is base64url of `issuedDate|id`; a bad cursor is `ApiError('validation')`;
+  - `getActiveChallenge(request, deps)`: the newest row with `status in (pending, accepted)`, ordered by `issued_date desc, created_at desc`, limit 1. It returns `{ challenge: ChallengeDto | null }`;
+  - `listChallenges(request, deps)`:
+    - `status`: one of the statuses or `all` (the default); anything else gives 400;
+    - `limit`: 1–50, default 20;
+    - `cursor`: optional;
+    - order `issued_date desc, id desc`, with keyset paging through `.or()`;
+    - it returns `ChallengeListResponse`.
+  - `getChallenge(request, deps, { params: { id } })` returns `{ challenge: ChallengeDto }` for the detail view with Continue (spec 5.9). A non-UUID id is 400. Another user's id, or one that does not exist, is 404.
+  - All three use `createUserClient(deps.env, principal.accessToken)`, so RLS scopes rows to the owner. All three call `rejectBrowserIdentity` on the query.
+
+- [ ] **Step 1: Write the failing unit tests.**
+  - `encodeCursor` and `decodeCursor` round-trip.
+  - `decodeCursor('%%%')` gives a validation error.
+  - `status=bogus` gives 400, and `limit=0` and `limit=51` give 400.
+  - `ChallengeDto.parse` accepts a full row's DTO and rejects an unknown status.
+
+- [ ] **Step 2: Write the failing integration tests** (local stack).
+  - Seed user A: two pending rows with the same `issued_date`, one accepted row older than both, one completed row, all with the service client. Seed user B: one pending row.
+  - Test names:
+    - `active picks the newest pending or accepted challenge, newest created_at on a tie`;
+    - `active is null when a user has only completed challenges`;
+    - `list pages by cursor without repeats or gaps` (limit 2 across 4 rows);
+    - `another user's challenges are never returned` (B's token never sees A's rows; A's never sees B's);
+    - `detail returns the owner's challenge and 404 for another user's id`.
+
+- [ ] **Step 3: Run both and confirm they fail.**
+  - Run: `pnpm --filter @fotoai/api test` and `FOTOAI_REQUIRE_DB_TESTS=1 pnpm --filter @fotoai/api test:integration`
+  - Expected: FAIL, because the modules are missing.
+
+- [ ] **Step 4: Implement the contracts, the handlers and the two route files.**
+
+- [ ] **Step 5: Run and confirm they pass.**
+  - Run: the full gate plus both integration suites.
+  - Expected: all pass, 0 skipped.
+
+- [ ] **Step 6: Commit.**
+  - `git commit -m "feat(api): v2 active challenge and paged challenge list"`
+
+### Task B5: XP source `plan_step`
+
+**Files:**
+- Create: `supabase/migrations/20261018100002_xp_plan_step.sql`
+- Create: `supabase/undo/20261018100002_xp_plan_step.undo.sql`
+- Regenerate: types and the Drizzle baseline.
+- Test: `packages/db/test/xp-plan-step.integration.test.ts`
+
+**Interfaces:**
+- Produces:
+  - `fotoai_xp_events_source_kind_check` allows `'plan_step'`;
+  - `public.fotoai_award_skill_xp(uuid, text, integer, text, uuid, integer, integer, integer, text[])` accepts `p_source_kind = 'plan_step'`.
+  - The signature, `security invoker`, `search_path` and grants are unchanged. `create or replace` keeps the existing revokes.
+
+- [ ] **Step 1: Write the failing integration test.**
+  - Create a user. With the service client, call `rpc('fotoai_award_skill_xp', { p_user_id, p_skill_id: 'composition-basics', p_xp_amount: 10, p_source_kind: 'plan_step', p_source_id: <uuid>, p_xp_to_learn: 50, p_xp_to_practice: 150, p_xp_to_master: 400, p_prerequisite_skills: [] })`.
+  - Expect outcome `applied`. The same call again gives `duplicate`.
+  - Test name: `plan_step XP is awarded once per step`.
+
+- [ ] **Step 2: Run the test and confirm it fails.**
+  - Expected: FAIL with `invalid source_kind plan_step`.
+
+- [ ] **Step 3: Write the migration.**
+  - Replace `fotoai_xp_events_source_kind_check` in place, adding `'plan_step'`.
+  - `create or replace function public.fotoai_award_skill_xp(...)`: a verbatim copy of the definition in `supabase/migrations/20261017000001_fotoai_schema.sql` (from `create function public.fotoai_award_skill_xp(` to its closing `$fotoai_fn$;`). The only change is that the list in the `if p_source_kind not in (...)` line gains `'plan_step'`.
+  - Add a header comment that names the source lines.
+  - Verify query: `select pg_get_functiondef('public.fotoai_award_skill_xp'::regproc) like '%plan_step%';` returns `t`.
+
+- [ ] **Step 4: Apply the migration locally, regenerate, run and confirm it passes.**
+  - Expected: the test passes. The phase 1 RLS and baseline tests still pass, and the migration guard passes. `create or replace function` is allowed; `drop function` is not.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat(db): plan_step XP source"`
+
+### Task B6: Theme, units and home area preferences
+
+**Files:**
+- Create: `supabase/migrations/20261018100003_preferences_theme_units_home.sql`
+- Create: `supabase/undo/20261018100003_preferences_theme_units_home.undo.sql`
+- Regenerate: types and the Drizzle baseline.
+- Create: `packages/contracts/src/preferences.ts`
+- Create: `packages/api/src/preferences.ts`
+- Create: `nextjs_space/app/api/v2/me/preferences/route.ts` (`GET` and `PATCH`)
+- Test: `packages/contracts/test/preferences.test.ts`, `packages/api/test/preferences.integration.test.ts`
+
+**Interfaces:**
+- **Migration:**
+  - `theme text not null default 'golden'`, with check `in ('golden','golden_dark','camera')`;
+  - `units text not null default 'metric'`, with check `in ('metric','imperial')`;
+  - `home_lat double precision`, with check `between -90 and 90`;
+  - `home_lng double precision`, with check `between -180 and 180`;
+  - a check that both or neither of `home_lat` and `home_lng` are set.
+- **Contracts:**
+  - `THEMES`;
+  - `Preferences = { theme; units; home: { lat; lng; label: string | null } | null }`;
+  - `PreferencesPatch`, a strict zod object with all fields optional. Unknown keys are rejected; `home: null` clears the home area.
+- **API:**
+  - `GET` returns `Preferences`. With no preferences row it returns the defaults (`golden`, `metric`, `home: null`) without writing.
+  - `PATCH` validates, upserts on `user_id` with the user client, and returns the new `Preferences`.
+  - The label maps to the existing `home_location` column.
+  - Identity keys give 400.
+
+- [ ] **Step 1: Write the failing contract tests and integration tests.**
+  - Test names:
+    - `preferences default to golden, metric, no home when no row exists`;
+    - `patch sets theme and home, and get returns them`;
+    - `patch rejects an unknown theme, an out-of-range latitude, a lat without lng, and identity keys`;
+    - `one user's patch never changes another user's preferences`.
+
+- [ ] **Step 2: Run them and confirm they fail.**
+  - Expected: FAIL, because the columns and modules are missing.
+
+- [ ] **Step 3: Write the migration** (all `add column` and `add constraint`). Apply it locally and regenerate.
+
+- [ ] **Step 4: Implement the contracts, the handlers and the route. Run and confirm everything passes.**
+  - Run: the full gate plus all integration suites.
+  - Expected: all pass, 0 skipped.
+
+- [ ] **Step 5: Commit.**
+  - `git commit -m "feat: v2 preferences (theme, units, home area)"`
+
+### Task B7: Review, PR, approvals, production migrations, deploy and smoke
+
+**Files:** none (operations). Results go in the ledger.
+
+- [ ] **Step 1: Final review and PR.**
+  - Run the whole-branch review (fresh reviewer) and the fix pass.
+  - Push and open the 2B PR.
+  - Expected: `verify`, `workspace` and `image` are green.
+- [ ] **Step 2: Stop for Seun's yes,** naming each migration file and the deploy. Do nothing until he says yes.
+- [ ] **Step 3: Apply the 3 migrations to production, in filename order.**
+  - Do a dry check first: show the target constraint and column state with read-only queries.
+  - Apply each migration with `-1`, then run its verify query. Expected results:
+    - `source` counts: chat rows equal the old `CHATBOT_GENERATED` count; the rest are `dashboard`;
+    - the function definition contains `plan_step`;
+    - the new preference columns exist.
+  - Stop at the first failure and report. Undo needs Seun's yes.
+- [ ] **Step 4: Merge and deploy** (Dokploy settings from 2A are unchanged). Wait for `done`.
+- [ ] **Step 5: Run the smoke tests.**
+  - The 18 checks from 2A, plus:
+    - `GET /api/v2/challenges/active` with no token → 401;
+    - `GET /api/v2/challenges?status=bogus` with no token → 401 (auth comes before validation);
+    - `GET /api/v2/me/preferences` with no token → 401.
+  - Expected: all pass, and 0 error lines in the app log for 10 minutes.
+  - **On failure:** redeploy the previous image by restoring the 2A commit on a pinned branch (the same method as `rollback/pre-2a`). The migrations stay, because they only add.
 
 ## Sub-phase 2C — Gear catalog, capability checks, film math (task level)
 
@@ -369,6 +676,7 @@ test('rejects browser-supplied identity', () => {
 | 4. Rolls and frames | `fotoai_film_rolls` and `fotoai_film_frames` (append-only, unique `(roll_id, frame_no)` and a client `id`). `POST /api/v2/rolls`, `POST /api/v2/rolls/:id/frames` (upsert by client id), `PATCH /api/v2/rolls/:id` (status). | Test `replaying the same client id is a no-op that returns the stored record`; a frame beyond the exposure count is a 400. |
 | 5. Scan matching + XP | `POST /api/v2/rolls/:id/scans` pairs scans to frames in order, with explicit overrides. Plan-step XP is awarded through `fotoai_award_skill_xp(..., 'plan_step', step_id)` only when a photo or frame is linked. | Tests: a step marked done with no photo or frame earns 0 XP; re-linking does not double-award. |
 | 6. Photos with EXIF | Migration: extend the existing photo/submission table, after checking its live name, with `source` (gallery, scan or camera), the EXIF fields (camera, lens, focal length, aperture, shutter, ISO, taken time), coordinates and links to a step or frame. `POST /api/v2/photos` takes the device-read EXIF plus the upload through the existing owner-prefixed Storage key rules. It matches the photo to a plan step by time and place when possible. | Tests: EXIF with no GPS is accepted, with coordinates null; a photo is matched to the step whose time window and place it fits; another user's step id is a 404. |
+| 7b. Challenge status changes | `PATCH /api/v2/challenges/:id` (accept, skip, complete, with allowed transitions). The streak, progress counters and challenge XP rules move from `nextjs_space/lib/fotoai` into `packages/core` first (spec 5.11), and the live app then imports them, so web and mobile share one rule set. | Tests: pending → accepted → completed updates the streak once; completing twice is a no-op; a completed challenge cannot go back to pending; another user's id is a 404. |
 | 7. Coach | `POST /api/v2/coach`: chat with screen context (the screen, the active plan or roll, the loadout, weak skills) and history stored per user on the server. It proposes a plan or challenge only through a structured tool call. | Tests: a tool call creates a pending challenge with `source='chat'`; the text "CHALLENGE_DATA" in user input does nothing; history is never readable by another user. |
 | 8. Upload checks | Enum checks (moderation, matches brief, genre) through structured output, gating XP. | Test: the text "score 95" in the notes does not change XP. |
 | 9. PR + approval + migrations + deploy | As in 2B Task 7. The OpenAI key already exists in the live env. | |

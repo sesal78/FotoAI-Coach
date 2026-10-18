@@ -4,11 +4,11 @@
 //   POST /api/fotoai/challenges/sync   {challengeText, category?, difficulty?, duration?, location?,
 //                                       recommendedGear?, tips?, weatherConditions?}
 //
-// Upsert rule (unchanged): if the caller has a pending CHATBOT_GENERATED
-// challenge it is updated (missing fields keep their stored values), otherwise
-// a new CHATBOT_GENERATED challenge is created. Dashboard-generated challenges
-// are never overwritten. Like the legacy route, sync does not change progress
-// counters. Owner comes from the session only.
+// Challenges are never overwritten (refactor 2B): each sync creates a new
+// CHATBOT_GENERATED challenge (source 'chat'), so earlier ones stay pending in
+// history. A sync whose text matches an open chat challenge returns that one
+// (200, existing: true) instead of a duplicate. Like the legacy route, sync
+// does not change progress counters. Owner comes from the session only.
 
 import { toChallengeDto } from '../challenge-generation.ts';
 import { FotoaiValidationError } from '../errors.ts';
@@ -76,24 +76,13 @@ export function createChallengeSyncHandlers(provider: DepsProvider) {
       const gear = gearArray(body.recommendedGear);
 
       const repo = createGenerationRepo(deps.client);
-      const existing = await repo.findPendingChatbot(principal);
-      if (existing) {
-        const updated = await repo.updateChallenge(principal, existing.id, {
-          challenge_text: challengeText,
-          category: category || existing.category,
-          difficulty: difficulty || existing.difficulty,
-          duration: duration || existing.duration,
-          location: location || existing.location,
-          recommended_gear: gear.length > 0 ? gear : existing.recommended_gear,
-          tips: tips || existing.tips,
-          weather_conditions: weatherConditions || existing.weather_conditions,
-        });
-        return json({ success: true, challenge: toChallengeDto(updated), updated: true });
-      }
+      const existing = await repo.findPendingChatbotByText(principal, challengeText);
+      if (existing) return json({ success: true, challenge: toChallengeDto(existing), existing: true });
 
       const created = await repo.insertChallenge(principal, {
         challenge_text: challengeText,
         challenge_type: CHATBOT_CHALLENGE_TYPE,
+        source: 'chat',
         category: category || 'General',
         difficulty: difficulty || 'Intermediate',
         duration: duration || '30 mins',

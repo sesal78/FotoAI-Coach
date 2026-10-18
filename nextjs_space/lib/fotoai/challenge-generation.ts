@@ -61,6 +61,8 @@ export interface GenerateOptions {
   forceGenerate?: boolean;
   /** Name used in the prompt. Falls back to "Photographer". */
   displayName?: string | null;
+  /** Recorded on the challenge row: 'dashboard' (default) or 'job' (scheduled generation). */
+  source?: 'dashboard' | 'job';
 }
 
 export interface GenerateResult {
@@ -121,12 +123,13 @@ type LlmChallenge = Awaited<ReturnType<FotoaiServices['ai']['generateChallenge']
 /** Maps the LLM result to fotoai_daily_challenges columns (bounded, schema-safe). */
 export function challengeRowFromLlm(
   data: LlmChallenge,
-  ctx: { challengeType: string; location: string; weatherConditions: string | null; issuedAt: Date },
+  ctx: { challengeType: string; location: string; weatherConditions: string | null; issuedAt: Date; source?: 'dashboard' | 'job' },
 ): Record<string, unknown> {
   const challengeText = clip(data?.challengeText, 4000);
   if (!challengeText) throw new FotoaiUpstreamError(0, 'Challenge generator returned no challenge text');
   return {
     challenge_type: ctx.challengeType,
+    source: ctx.source ?? 'dashboard',
     challenge_text: challengeText,
     difficulty: clip(data.difficulty, 60),
     category: clip(data.category, 60),
@@ -212,6 +215,7 @@ export async function generateChallengeFor<S>(
     location,
     weatherConditions: weather ? `${weather.condition}, ${weather.temperature}°F` : null,
     issuedAt: now,
+    source: opts.source ?? 'dashboard',
   });
   const challenge = await deps.data.insertChallenge(scope, row);
   await deps.data.incrementIssued(scope, challengeType, now);

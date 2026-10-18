@@ -1,4 +1,4 @@
-import { pgTable, foreignKey, unique, pgPolicy, check, uuid, text, boolean, timestamp, index, integer, bigint, jsonb, date, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, index, foreignKey, unique, pgPolicy, uuid, text, boolean, timestamp, check, bigint, integer, jsonb, date, uniqueIndex, doublePrecision } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import { authUsers } from "drizzle-orm/supabase"
 
@@ -7,41 +7,6 @@ import { authUsers } from "drizzle-orm/supabase"
 const users = authUsers
 
 
-
-export const fotoaiUserPreferences = pgTable("fotoai_user_preferences", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	legacyAppwriteId: text("legacy_appwrite_id"),
-	skillLevel: text("skill_level").default('intermediate').notNull(),
-	photographyInterests: text("photography_interests").array().default([]).notNull(),
-	avoidsStyles: text("avoids_styles").array().default([]).notNull(),
-	workDays: text("work_days").array().default([]).notNull(),
-	workStartTime: text("work_start_time").default('09:00').notNull(),
-	workEndTime: text("work_end_time").default('17:00').notNull(),
-	lunchStartTime: text("lunch_start_time").default('12:00').notNull(),
-	lunchEndTime: text("lunch_end_time").default('13:00').notNull(),
-	primaryPhotoDay: text("primary_photo_day").default('Saturday').notNull(),
-	secondaryPhotoDays: text("secondary_photo_days").array().default([]).notNull(),
-	lunchBreakPhotography: boolean("lunch_break_photography").default(true).notNull(),
-	eveningPhotography: boolean("evening_photography").default(true).notNull(),
-	wfhFlexibility: boolean("wfh_flexibility").default(true).notNull(),
-	adaptToWeather: boolean("adapt_to_weather").default(true).notNull(),
-	adaptToCalendar: boolean("adapt_to_calendar").default(true).notNull(),
-	officeLocation: text("office_location"),
-	homeLocation: text("home_location"),
-	currentLocation: text("current_location"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "fotoai_user_preferences_user_id_fkey"
-		}).onDelete("cascade"),
-	unique("fotoai_user_preferences_user_id_key").on(table.userId),
-	unique("fotoai_user_preferences_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_user_preferences_skill_level_check", sql`skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])`),
-]).enableRLS();
 
 export const fotoaiUserGear = pgTable("fotoai_user_gear", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -61,43 +26,6 @@ export const fotoaiUserGear = pgTable("fotoai_user_gear", {
 			name: "fotoai_user_gear_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_user_gear_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-]).enableRLS();
-
-export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	legacyAppwriteId: text("legacy_appwrite_id"),
-	challengeType: text("challenge_type").notNull(),
-	challengeText: text("challenge_text").notNull(),
-	difficulty: text(),
-	category: text(),
-	duration: text(),
-	weatherConditions: text("weather_conditions"),
-	location: text(),
-	recommendedGear: text("recommended_gear").array().default([]).notNull(),
-	tips: text(),
-	issuedDate: timestamp("issued_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	status: text().default('pending').notNull(),
-	completedDate: timestamp("completed_date", { withTimezone: true, mode: 'string' }),
-	shotList: text("shot_list").array().default([]).notNull(),
-	narrativeContext: text("narrative_context"),
-	editingDirection: text("editing_direction"),
-	masteryArea: text("mastery_area"),
-	technicalLevel: integer("technical_level"),
-	successCriteria: text("success_criteria"),
-	whatToLookFor: text("what_to_look_for"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("fotoai_daily_challenges_user_issued_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.issuedDate.desc().nullsFirst().op("timestamptz_ops")),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "fotoai_daily_challenges_user_id_fkey"
-		}).onDelete("cascade"),
-	unique("fotoai_daily_challenges_id_user_key").on(table.id, table.userId),
-	unique("fotoai_daily_challenges_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_daily_challenges_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text])`),
-	check("fotoai_daily_challenges_technical_level_check", sql`(technical_level >= 1) AND (technical_level <= 5)`),
 ]).enableRLS();
 
 export const fotoaiChallengeSubmissions = pgTable("fotoai_challenge_submissions", {
@@ -370,6 +298,45 @@ export const fotoaiUserSkills = pgTable("fotoai_user_skills", {
 	check("fotoai_user_skills_status_check", sql`status = ANY (ARRAY['locked'::text, 'available'::text, 'learned'::text, 'practiced'::text, 'mastered'::text])`),
 ]).enableRLS();
 
+export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	legacyAppwriteId: text("legacy_appwrite_id"),
+	challengeType: text("challenge_type").notNull(),
+	challengeText: text("challenge_text").notNull(),
+	difficulty: text(),
+	category: text(),
+	duration: text(),
+	weatherConditions: text("weather_conditions"),
+	location: text(),
+	recommendedGear: text("recommended_gear").array().default([]).notNull(),
+	tips: text(),
+	issuedDate: timestamp("issued_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	status: text().default('pending').notNull(),
+	completedDate: timestamp("completed_date", { withTimezone: true, mode: 'string' }),
+	shotList: text("shot_list").array().default([]).notNull(),
+	narrativeContext: text("narrative_context"),
+	editingDirection: text("editing_direction"),
+	masteryArea: text("mastery_area"),
+	technicalLevel: integer("technical_level"),
+	successCriteria: text("success_criteria"),
+	whatToLookFor: text("what_to_look_for"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	source: text().default('dashboard').notNull(),
+}, (table) => [
+	index("fotoai_daily_challenges_user_issued_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.issuedDate.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_daily_challenges_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_daily_challenges_id_user_key").on(table.id, table.userId),
+	unique("fotoai_daily_challenges_legacy_appwrite_id_key").on(table.legacyAppwriteId),
+	check("fotoai_daily_challenges_source_check", sql`source = ANY (ARRAY['dashboard'::text, 'chat'::text, 'plan'::text, 'job'::text])`),
+	check("fotoai_daily_challenges_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'skipped'::text, 'completed'::text, 'superseded'::text])`),
+	check("fotoai_daily_challenges_technical_level_check", sql`(technical_level >= 1) AND (technical_level <= 5)`),
+]).enableRLS();
+
 export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
@@ -389,6 +356,50 @@ export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
 			name: "fotoai_xp_events_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("fotoai_xp_events_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text])`),
+	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text, 'plan_step'::text])`),
 	check("fotoai_xp_events_xp_amount_check", sql`xp_amount > 0`),
+]).enableRLS();
+
+export const fotoaiUserPreferences = pgTable("fotoai_user_preferences", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	legacyAppwriteId: text("legacy_appwrite_id"),
+	skillLevel: text("skill_level").default('intermediate').notNull(),
+	photographyInterests: text("photography_interests").array().default([]).notNull(),
+	avoidsStyles: text("avoids_styles").array().default([]).notNull(),
+	workDays: text("work_days").array().default([]).notNull(),
+	workStartTime: text("work_start_time").default('09:00').notNull(),
+	workEndTime: text("work_end_time").default('17:00').notNull(),
+	lunchStartTime: text("lunch_start_time").default('12:00').notNull(),
+	lunchEndTime: text("lunch_end_time").default('13:00').notNull(),
+	primaryPhotoDay: text("primary_photo_day").default('Saturday').notNull(),
+	secondaryPhotoDays: text("secondary_photo_days").array().default([]).notNull(),
+	lunchBreakPhotography: boolean("lunch_break_photography").default(true).notNull(),
+	eveningPhotography: boolean("evening_photography").default(true).notNull(),
+	wfhFlexibility: boolean("wfh_flexibility").default(true).notNull(),
+	adaptToWeather: boolean("adapt_to_weather").default(true).notNull(),
+	adaptToCalendar: boolean("adapt_to_calendar").default(true).notNull(),
+	officeLocation: text("office_location"),
+	homeLocation: text("home_location"),
+	currentLocation: text("current_location"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	theme: text().default('golden').notNull(),
+	units: text().default('metric').notNull(),
+	homeLat: doublePrecision("home_lat"),
+	homeLng: doublePrecision("home_lng"),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_user_preferences_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_user_preferences_user_id_key").on(table.userId),
+	unique("fotoai_user_preferences_legacy_appwrite_id_key").on(table.legacyAppwriteId),
+	check("fotoai_user_preferences_home_lat_check", sql`(home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))`),
+	check("fotoai_user_preferences_home_lng_check", sql`(home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))`),
+	check("fotoai_user_preferences_home_pair_check", sql`(home_lat IS NULL) = (home_lng IS NULL)`),
+	check("fotoai_user_preferences_skill_level_check", sql`skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])`),
+	check("fotoai_user_preferences_theme_check", sql`theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text])`),
+	check("fotoai_user_preferences_units_check", sql`units = ANY (ARRAY['metric'::text, 'imperial'::text])`),
 ]).enableRLS();

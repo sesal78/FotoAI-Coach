@@ -67,6 +67,7 @@ test('chat: each CHALLENGE_DATA block creates a new challenge; earlier ones stay
   assert.deepEqual(body.challenge.recommendedGear, ['35mm']);
   const created = rowsOf(T_CH, ALICE).find((r) => r.challenge_type === 'CHATBOT_GENERATED')!;
   assert.equal(created.id, body.challenge.id);
+  assert.equal(created.source, 'chat', 'chat-saved challenges record source chat');
   assert.equal(rowsOf('fotoai_user_progress', ALICE)[0].total_challenges_issued, 1);
 
   deps.fakes.callLLM = () => ({ content: block({ challengeText: 'Frame shadows' }), model: 'fake' });

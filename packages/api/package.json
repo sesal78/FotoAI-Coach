@@ -9,11 +9,13 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@fotoai/contracts": "workspace:*",
     "@fotoai/db": "workspace:*",
-    "@fotoai/env": "workspace:*"
+    "@fotoai/env": "workspace:*",
+    "@supabase/supabase-js": "^2.76.0"
   }
 }
