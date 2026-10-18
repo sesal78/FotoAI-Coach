@@ -5,16 +5,18 @@ import assert from 'node:assert/strict';
 
 import { GET as health } from '../../app/api/v2/health/route.ts';
 
-test('GET /api/v2/health answers ok without any FotoAI env', async () => {
+// Dummy local env so routes that build deps can run without network (each test is self-contained).
+process.env.FOTOAI_SUPABASE_URL ??= 'http://127.0.0.1:1';
+process.env.FOTOAI_SUPABASE_ANON_KEY ??= 'test-anon';
+process.env.FOTOAI_SUPABASE_SERVICE_ROLE_KEY ??= 'test-service';
+
+test('GET /api/v2/health answers ok (the handler reads no env)', async () => {
   const res = await health();
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { status: 'ok', api: 'v2' });
 });
 
 test('GET /api/v2/me without a token is a 401 envelope (no network call)', async () => {
-  process.env.FOTOAI_SUPABASE_URL ??= 'http://127.0.0.1:1';
-  process.env.FOTOAI_SUPABASE_ANON_KEY ??= 'test-anon';
-  process.env.FOTOAI_SUPABASE_SERVICE_ROLE_KEY ??= 'test-service';
   const { GET: me } = await import('../../app/api/v2/me/route.ts');
   const res = await me(new Request('http://localhost/api/v2/me'));
   assert.equal(res.status, 401);

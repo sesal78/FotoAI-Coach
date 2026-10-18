@@ -69,3 +69,9 @@ test('rejects browser-supplied identity', () => {
   expect(() => rejectBrowserIdentity(new URLSearchParams('status=pending'))).not.toThrow();
   expect(() => rejectBrowserIdentity(null)).not.toThrow();
 });
+
+test('a malformed percent-encoded session cookie is 401, not a crash', async () => {
+  for (const cookie of ['fotoai_session=%', 'fotoai_session=%E0%A4%A']) {
+    await expect(requirePrincipal(req({ cookie }), deps), cookie).rejects.toMatchObject({ code: 'unauthenticated' });
+  }
+});

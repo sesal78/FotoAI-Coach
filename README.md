@@ -8,6 +8,9 @@ A self-hosted, AI-powered photography coaching platform. Generates personalized 
 
 The refactor (design: `docs/superpowers/specs/2026-10-18-fotoai-refactor-design.md`, plans: `docs/superpowers/plans/`)
 lives in a pnpm + Turborepo workspace. `nextjs_space/` is the live app, workspace package `@fotoai/legacy-web`.
+Its image builds from the repo root: Dokploy uses build path `./` and Dockerfile `nextjs_space/Dockerfile`
+(switched in refactor sub-phase 2A). Rollback is the pair build path `./nextjs_space` + Dockerfile `Dockerfile`
+with commit `8c388c3`; the old build path cannot build later commits.
 
 | Path | What |
 |---|---|

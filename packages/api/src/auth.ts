@@ -18,11 +18,17 @@ const IDENTITY_KEYS = ['userId', 'user_id', 'userid', 'ownerId', 'owner_id'] as 
 
 const notAuthenticated = () => new ApiError('unauthenticated', 'Not authenticated');
 
+/** Same rules as the live app's readCookieValue: a value that will not decode is no cookie. */
 function cookieValue(header: string | null, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(';')) {
-    const [key, ...rest] = part.trim().split('=');
-    if (key === name) return decodeURIComponent(rest.join('='));
+    const eq = part.indexOf('=');
+    if (eq === -1 || part.slice(0, eq).trim() !== name) continue;
+    try {
+      return decodeURIComponent(part.slice(eq + 1).trim());
+    } catch {
+      return null;
+    }
   }
   return null;
 }
