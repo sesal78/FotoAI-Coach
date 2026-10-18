@@ -94,7 +94,10 @@ test('chat: a malformed block never fails the chat', async () => {
 });
 
 test('chat: a reply without a challenge block does not claim a failed save', async () => {
-  deps.fakes.callLLM = () => ({ content: 'Use a tripod.', model: 'fake' });
+  // The user asked for a challenge, so the reply is checked; the checker finds none.
+  deps.fakes.callLLM = (_messages: unknown, opts: { json_mode?: boolean }) => opts?.json_mode
+    ? { content: JSON.stringify({ challenge: null }), model: 'fake' }
+    : { content: 'Use a tripod.', model: 'fake' };
   const res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
   assert.deepEqual(await res.json(), { message: 'Use a tripod.', challenge: null });
 });
@@ -171,4 +174,40 @@ test('chat: the coach repeating the same challenge does not create a duplicate',
   assert.equal(again.challenge.id, first.challenge.id);
   assert.equal(rowsOf(T_CH, ALICE).length, 1);
   assert.equal(rowsOf('fotoai_user_progress', ALICE)[0].total_challenges_issued, 1);
+});
+
+test('chat: a challenge written as plain text (no CHALLENGE_DATA block) is still extracted and saved', async () => {
+  const reply = 'Here is a portrait challenge for tomorrow: **Challenge:** Create a series of window-light portraits. **Tips:** 1. Use a reflector.';
+  deps.fakes.callLLM = (_messages: unknown, opts: { json_mode?: boolean }) => opts?.json_mode
+    ? { content: JSON.stringify({ challenge: { challengeText: 'Create a series of window-light portraits', category: 'PORTRAIT', difficulty: 'BEGINNER', duration: '30 minutes', location: null, tips: 'Use a reflector.', recommendedGear: ['reflector'] } }), model: 'fake' }
+    : { content: reply, model: 'fake' };
+  const res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
+  const body = await res.json();
+  assert.equal(body.message, reply, 'the visible reply is unchanged');
+  assert.equal(body.challenge.challengeText, 'Create a series of window-light portraits');
+  assert.equal(rowsOf(T_CH, ALICE).length, 1);
+  const extraction = deps.calls.filter((c) => c.name === 'callLLM')[1];
+  assert.ok(extraction, 'a second, extraction call was made');
+  assert.equal((extraction.args[1] as { json_mode?: boolean }).json_mode, true);
+});
+
+test('chat: a reply that is not a challenge is not saved, and small talk skips the extraction call', async () => {
+  deps.fakes.callLLM = (_messages: unknown, opts: { json_mode?: boolean }) => opts?.json_mode
+    ? { content: JSON.stringify({ challenge: null }), model: 'fake' }
+    : { content: 'Try a 50mm lens for portraits; it is light and sharp.', model: 'fake' };
+  const res = await chat.send(jsonRequest(URL_CHAT, { messages: [{ role: 'user', content: 'Which lens for portraits?' }] }, { cookie: aliceCookie }));
+  assert.deepEqual(await res.json(), { message: 'Try a 50mm lens for portraits; it is light and sharp.', challenge: null });
+  assert.equal(deps.calls.filter((c) => c.name === 'callLLM').length, 1, 'no extraction when neither side mentions a challenge');
+});
+
+test('chat: a failing extraction call never fails the chat and reports the unsaved challenge', async () => {
+  deps.fakes.callLLM = (_messages: unknown, opts: { json_mode?: boolean }) => {
+    if (opts?.json_mode) throw new Error('LLM API error: 500');
+    return { content: 'Your challenge: photograph three reflections today.', model: 'fake' };
+  };
+  const res = await chat.send(jsonRequest(URL_CHAT, { messages: userTurn }, { cookie: aliceCookie }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.challenge, null);
+  assert.equal(body.challengeSaveFailed, true);
 });
