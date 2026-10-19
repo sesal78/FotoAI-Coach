@@ -47,14 +47,14 @@
 | 3G (optional) | a Sentry project DSN | crash and error reports from the phone |
 | first install | allow installs from this source on the phone | the APK is not from the Play Store |
 
-## Decisions for Seun
+## Decided by Seun (19 Oct 2026)
 
-1. **How the APK is built.**
-   - **EAS cloud build (recommended).** Needs the free Expo account above. Nothing big is installed on this PC. The signing key is kept by EAS.
-   - Local build on this PC. Installs JDK 17 and the Android SDK into `D:/Homebase/Sandbox` (about 10 GB). No account, but Seun keeps the signing key safe.
-2. **Sign-up and password reset in v1.**
-   - **Link to the website (recommended).** The app has sign-in and sign-out; "Create account" and "Forgot password" open `myfoto.topues.com`. The email flows exist once.
-   - Build them into the app now. More screens and a second copy of the email flows.
+1. **The APK is built with EAS in the cloud.** Seun has an Expo account and runs `npx eas-cli login` on this PC; EAS keeps the signing key.
+2. **Sign-up and password reset are built into the app now** (not links to the website). How, without changing the shared Supabase Auth settings (checked read-only on 19 Oct 2026: email confirmation is on; the redirect allow list already has `https://myfoto.topues.com/verify-email/confirm` and `https://myfoto.topues.com/reset-password`):
+   - **Sign up** in the app (`signUp` with `emailRedirectTo` = the web confirm page), then a "Check your email" screen with Resend. The email link confirms on the existing web page; the user then signs in in the app.
+   - **Forgot password** in the app (`resetPasswordForEmail` with `redirectTo` = `https://myfoto.topues.com/reset-password`).
+   - **New password in the app:** the app claims that https path as an Android App Link, so the email link opens the app's New password screen. It reads the recovery session from the link, sets the new password with `updateUser`, signs that session out and asks for a normal sign-in (a link carrying someone else's token never leaves the user signed in to that account). The link keeps working on the web when the app is not installed.
+   - App Link verification needs `https://myfoto.topues.com/.well-known/assetlinks.json` with the EAS signing certificate's SHA-256. That file ships with the 3B deploy; until then the email link opens the web reset page, which already works.
 
 ---
 
@@ -119,18 +119,22 @@
 - [ ] **Step 2: Run them and confirm they fail.** Then implement, and run them again.
 - [ ] **Step 3: Commit.** `git commit -m "feat(mobile): env checks and a contract-typed API client"`
 
-### Task A4: Sign-in with an encrypted session
+### Task A4: Sign-in, sign-up and password reset, with an encrypted session
 
 **Files:**
-- Create: `apps/mobile/src/auth/storage.ts`, `apps/mobile/src/auth/supabase.ts`, `apps/mobile/src/auth/session.tsx` (provider and `useSession`), `apps/mobile/app/(auth)/sign-in.tsx`, tests in `apps/mobile/src/auth/__tests__/`.
+- Create: `apps/mobile/src/auth/storage.ts`, `apps/mobile/src/auth/supabase.ts`, `apps/mobile/src/auth/session.tsx` (provider and `useSession`), `apps/mobile/src/auth/messages.ts` (Supabase Auth errors in plain words), `apps/mobile/app/(auth)/sign-in.tsx`, `sign-up.tsx`, `check-email.tsx`, `forgot-password.tsx`, `reset-password.tsx`, tests in `apps/mobile/src/auth/__tests__/`.
+- Modify: `apps/mobile/app.config.ts` (an Android intent filter with `autoVerify` for `https://myfoto.topues.com/reset-password`).
 
 **Interfaces:**
 - `encryptedStorage`: the storage adapter pattern from the Supabase Expo guide. A random AES key is kept in `expo-secure-store`; the session JSON is AES-encrypted and kept in the app's own store. (SecureStore values are limited to about 2 KB, and a Supabase session can be bigger.)
 - `supabase`: `createClient(env.EXPO_PUBLIC_SUPABASE_URL, env.EXPO_PUBLIC_SUPABASE_ANON_KEY, { auth: { storage: encryptedStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } })`. Auto refresh starts and stops with the app's foreground state (`AppState`).
-- Sign-in screen: email and password, `signInWithPassword`; errors from Supabase Auth are shown in plain words (wrong email or password, email not confirmed, too many tries, offline). "Create account" and "Forgot password" open the website (decision 2).
+- Sign-in screen: email and password, `signInWithPassword`; errors from Supabase Auth are shown in plain words (wrong email or password, email not confirmed, too many tries, offline). Links to Create account and Forgot password.
+- Sign-up screen: email, password (at least 8 characters) and confirm; `signUp` with `emailRedirectTo: https://myfoto.topues.com/verify-email/confirm`; then Check email (with Resend through `auth.resend({ type: 'signup' })`, at most once a minute). An email already in use gets the same Check email answer (no account probing).
+- Forgot password: email; `resetPasswordForEmail(email, { redirectTo: 'https://myfoto.topues.com/reset-password' })`; always "If the email has an account, a link is on its way".
+- Reset password (opened by the App Link): reads `access_token`, `refresh_token` and `type=recovery` from the link fragment; an expired or missing token shows "This link has expired" with a way to ask again; otherwise new password and confirm, `updateUser({ password })`, `signOut()`, then sign-in with "Password changed".
 - `useSession()`: `{ status: 'loading' | 'signed_out' | 'signed_in', session, signOut }`. Sign-out clears the stored session and the query cache.
 
-- [ ] **Step 1: Write the failing tests** (fake Supabase client; no real account): `the session is stored encrypted, never as plain JSON`; `a stored session restores signed_in at start`; `a wrong password shows "Wrong email or password" and stores nothing`; `sign-out clears the session and the cache`; `the sign-in screen never logs the password or the token`.
+- [ ] **Step 1: Write the failing tests** (fake Supabase client; no real account): `the session is stored encrypted, never as plain JSON`; `a stored session restores signed_in at start`; `a wrong password shows "Wrong email or password" and stores nothing`; `sign-out clears the session and the cache`; `the sign-in screen never logs the password or the token`; `sign-up sends the web confirm page as the redirect and shows Check email`; `an email already in use gets the same Check email screen`; `forgot password always gives the same answer`; `a recovery link sets the new password, then signs out`; `an expired recovery link offers a new link and changes nothing`; `mismatched passwords are refused before any call`.
 - [ ] **Step 2: Run them and confirm they fail.** Then implement, and run them again.
 - [ ] **Step 3: Check a fresh user against the v2 API.** Write an API integration test in `packages/api` (local stack): a user made with the admin API who never used the web login calls `GET /api/v2/me`, `/api/v2/me/preferences`, `/api/v2/challenges/active` and `/api/v2/me/loadout`, and each answers 200 with defaults (the live web login seeds default rows; the app's sign-in does not). If one fails, record it for 3B (no server change in 3A).
 - [ ] **Step 4: Commit.** `git commit -m "feat(mobile): email sign-in with an encrypted session"`
@@ -159,7 +163,7 @@
 **Interfaces:**
 - CI job `mobile`: checkout, pnpm, Node 22, `pnpm install --frozen-lockfile`, then `pnpm --filter @fotoai/mobile typecheck lint test`, `npx expo-doctor`, `pnpm --filter @fotoai/mobile export:android` (bundle only, no native build, no secrets).
 - `eas.json`: profile `preview` = Android `buildType: apk`, `distribution: internal`; env from EAS environment variables (the public `EXPO_PUBLIC_*` values). Profile `production` is not used in phase 3.
-- `CHECKLIST.md` 3A: install the APK; sign in; see the 5 tabs; the Coach button opens; switch the theme; sign out and back in; turn on airplane mode and see the offline banner.
+- `CHECKLIST.md` 3A: install the APK; create an account with a second email, confirm it from the email, sign in; ask for a password reset and finish it (on the web until the 3B App Link file is live); sign in; see the 5 tabs; the Coach button opens; switch the theme; sign out and back in; turn on airplane mode and see the offline banner.
 
 - [ ] **Step 1:** Add the job and the files; push the branch; CI must be green in all four jobs (`verify`, `workspace`, `image`, `mobile`).
 - [ ] **Step 2: Commit.** `git commit -m "ci(mobile): typecheck, lint, test and bundle the app"`
@@ -175,6 +179,10 @@
 ## Sub-phase 3B: Server gaps for the app (task level; expanded before it starts)
 
 **Ships:** read endpoints for Me, a new challenge from Today, Analyse on a v2 photo, the Auto theme, and any fresh-user default found in A4. **Production:** one migration and one deploy (Seun's yes for each).
+
+### Task B0: Android App Link file
+- `nextjs_space/public/.well-known/assetlinks.json` for `com.topues.fotoai` with the EAS signing certificate's SHA-256 (from `eas credentials`; it is public data). Served with `Content-Type: application/json`, no redirect.
+- Test: a route test that the file parses and names the package; the smoke check adds `GET /.well-known/assetlinks.json` → 200.
 
 ### Task B1: Fresh-user defaults
 - Fix every gap the A4 check found, so a user who signs in only from the app gets 200 with defaults from every v2 read (get-or-create in the handler, user token).
