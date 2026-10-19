@@ -46,3 +46,8 @@ export type ChallengeListResponse = z.infer<typeof ChallengeListResponse>;
 export const ChallengeStatusPatch = z.object({ status: z.enum(['accepted', 'skipped', 'completed']) }).strict();
 
 export type ChallengeStatusPatch = z.infer<typeof ChallengeStatusPatch>;
+
+/** GET /api/v2/challenges/active. */
+export const ActiveChallengeResponse = z.object({ challenge: ChallengeDto.nullable() });
+
+export type ActiveChallengeResponse = z.infer<typeof ActiveChallengeResponse>;

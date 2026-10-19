@@ -3,3 +3,62 @@ packages:
   - packages/*
   - services/*
   - nextjs_space
+
+# The live app's @types/react-dom and @types/react-plotly.js ask for any @types/react; keep
+# them on the live app's React 18 types now that apps/mobile brings React 19 types into the
+# workspace (one loaded React 19 copy breaks every JSX type in the live app).
+overrides:
+  '@types/react-dom@18.2.7>@types/react': 18.2.22
+  '@types/react-plotly.js@2.6.3>@types/react': 18.2.22
+
+# These packages use React types without declaring them. As an optional peer each one gets the
+# React types of the app that installs it (18 for nextjs_space, 19 for apps/mobile), never a
+# hoisted copy. The list comes from scripts/find-missing-react-types.cjs (a db test runs it).
+packageExtensions:
+  '@emotion/use-insertion-effect-with-fallbacks@1': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  '@floating-ui/react-dom@2': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  '@floating-ui/react@0': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  '@headlessui/react@1': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  '@tanstack/react-query@5': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  '@tanstack/react-virtual@3': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'cmdk@1': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'embla-carousel-react@8': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'formik@2': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'framer-motion@10': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'input-otp@1': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'lucide-react@0': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'nano-css@5': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'next-themes@0': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'next@14': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-chartjs-2@5': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-day-picker@8': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-hook-form@7': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-hot-toast@2': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-intersection-observer@9': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-resizable-panels@2': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-select@5': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-universal-interface@0': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'react-use@17': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'sonner@1': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'styled-jsx@5': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'swr@2': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'vaul@0': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  'recharts@2': { peerDependencies: { '@types/react': '*' }, peerDependenciesMeta: { '@types/react': { optional: true } } }
+  # jest-expo loads React for the test renderer without declaring it.
+  'jest-expo@58': { peerDependencies: { react: '*' } }
+  # The React Native jest preset loads react-native and react without declaring them.
+  '@react-native/jest-preset@0': { peerDependencies: { react: '*', 'react-native': '*' } }
+  'nativewind@4': { peerDependencies: { 'react': '*' } }
+  'standard-navigation@0': { peerDependencies: { 'react': '*' } }
+
+# Two React versions live here (18 for the live app, 19 for apps/mobile), with their types and
+# two React Native copies (an optional peer of the live app's react-query makes one with React 18). Keep
+# them out of pnpm's shared hoist folder, so no package picks one up by install order: each gets
+# only what its own app (or a declared peer) gives it, and a missing declaration fails loudly.
+hoistPattern:
+  - '*'
+  - '!react'
+  - '!react-dom'
+  - '!react-native'
+  - '!@types/react'
+  - '!@types/react-dom'

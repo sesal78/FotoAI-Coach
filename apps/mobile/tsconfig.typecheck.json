@@ -1,0 +1,13 @@
+{
+  // Typecheck only. Some Expo packages read React types without declaring them, and pnpm may
+  // hand them the live app's React 18 types. This pins every file to the app's React 19 types.
+  // Metro and jest-expo read tsconfig.json paths as module aliases, so this must stay out of it.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
+  }
+}

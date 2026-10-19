@@ -31,3 +31,9 @@ out
 .turbo/
 coverage/
 .drizzle-check-*/
+
+# Expo app (apps/mobile): generated native folders and local caches
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/expo-env.d.ts
