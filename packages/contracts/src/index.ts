@@ -46,3 +46,4 @@ export {
   StepPatch,
 } from './plans.ts';
 export { FrameDto, FrameInput, ROLL_STATUSES, RollDto, RollInput, RollPatch } from './film.ts';
+export { ExifInput, MAX_PHOTO_BYTES, PHOTO_MIME_EXTENSIONS, PHOTO_SOURCES, PhotoCreateInput, PhotoDto, type PhotoMime } from './photos.ts';

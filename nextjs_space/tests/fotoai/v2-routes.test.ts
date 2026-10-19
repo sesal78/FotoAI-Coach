@@ -85,3 +85,15 @@ test('the 2E-2a roll route modules load and answer 401 without a token (no netwo
   const frames = await import('../../app/api/v2/rolls/[id]/frames/route.ts');
   assert.equal((await frames.POST(new Request(`http://localhost/api/v2/rolls/${id}/frames`, { method: 'POST', body: '{}' }), params)).status, 401);
 });
+
+test('the 2E-2a photo route modules load and answer 401 without a token (no network call)', async () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  const params = { params: { id } };
+  const photos = await import('../../app/api/v2/photos/route.ts');
+  assert.equal((await photos.GET(new Request('http://localhost/api/v2/photos'), params)).status, 401);
+  assert.equal((await photos.POST(new Request('http://localhost/api/v2/photos', { method: 'POST', body: '{}' }), params)).status, 401);
+  const confirm = await import('../../app/api/v2/photos/[id]/confirm/route.ts');
+  assert.equal((await confirm.POST(new Request(`http://localhost/api/v2/photos/${id}/confirm`, { method: 'POST' }), params)).status, 401);
+  const url = await import('../../app/api/v2/photos/[id]/url/route.ts');
+  assert.equal((await url.GET(new Request(`http://localhost/api/v2/photos/${id}/url`), params)).status, 401);
+});
