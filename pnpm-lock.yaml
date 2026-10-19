@@ -537,6 +537,12 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/ui:
+    devDependencies:
+      '@fotoai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
 packages:
 
   2g@1.0.1:
