@@ -61,3 +61,10 @@ describe('apps/mobile (phase 3)', () => {
     for (const [name, version] of expo) expect(version, name).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
+
+test("every live-app package that uses React types can find them (no hoisted copy to fall back on)", () => {
+  // A new dependency of nextjs_space that uses React without declaring @types/react needs an
+  // entry in pnpm-workspace.yaml packageExtensions, or it silently gets no React types.
+  const out = execFileSync('node', ['scripts/find-missing-react-types.cjs', 'nextjs_space'], { cwd: repoRoot, encoding: 'utf8' });
+  expect(out.trim()).toBe('(none)');
+}, 60_000);

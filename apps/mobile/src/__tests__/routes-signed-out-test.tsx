@@ -4,6 +4,8 @@ import { renderRouter } from 'expo-router/testing-library';
 import { mockState } from '../../test/router-mocks';
 
 // One router render per file: Expo Router keeps its navigation store between renders.
+// The first render transforms the whole app, which takes longer than Jest's 5 s default on CI.
+jest.setTimeout(60_000);
 jest.mock('../lib/env', () => jest.requireActual('../../test/router-mocks').fakeEnv);
 jest.mock('../auth/supabase', () => ({ getSupabase: () => jest.requireActual('../../test/router-mocks').fakeSupabase() }));
 jest.mock('../data/client', () => {
