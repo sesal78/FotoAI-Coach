@@ -163,22 +163,26 @@ const cannotMove = (from: string, to: Target) => new ApiError('validation', `A $
 /** The statuses a challenge may be in for an update to `to` to be allowed. */
 const sourcesOf = (to: Target) => Object.entries(CHALLENGE_MOVES).filter(([, moves]) => moves.includes(to)).map(([from]) => from);
 
-/** One completion on the caller's progress row (user token, as the live app does). */
-async function recordCompletion(client: UserClient, principal: Principal, challenge: ChallengeRow, now: Date): Promise<void> {
-  const failed = () => new ApiError('upstream', 'Could not update progress');
+const progressFailed = () => new ApiError('upstream', 'Could not update progress');
+
+/** The caller's progress row, made on first use (user token, as the live app does). */
+export async function ownProgress(client: UserClient, principal: Principal) {
   const found = await client.from('fotoai_user_progress').select('*').maybeSingle();
-  if (found.error) throw failed();
-  let progress = found.data;
-  if (!progress) {
-    const made = await client.from('fotoai_user_progress').insert({ user_id: principal.userId }).select('*').single();
-    if (made.error || !made.data) throw failed();
-    progress = made.data;
-  }
+  if (found.error) throw progressFailed();
+  if (found.data) return found.data;
+  const made = await client.from('fotoai_user_progress').insert({ user_id: principal.userId }).select('*').single();
+  if (made.error || !made.data) throw progressFailed();
+  return made.data;
+}
+
+/** One completion on the caller's progress row. */
+async function recordCompletion(client: UserClient, principal: Principal, challenge: ChallengeRow, now: Date): Promise<void> {
+  const progress = await ownProgress(client, principal);
   const { error } = await client
     .from('fotoai_user_progress')
     .update(progressAfterCompletion(progress, challenge.challenge_type, now) as never)
     .eq('id', progress.id);
-  if (error) throw failed();
+  if (error) throw progressFailed();
 }
 
 /**
