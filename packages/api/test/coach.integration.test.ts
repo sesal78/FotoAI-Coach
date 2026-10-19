@@ -115,6 +115,14 @@ describe.skipIf(!db)('v2 coach against the local Supabase', () => {
     expect((await (await call(deps, getCoachHistory, c, 'GET')).json()).messages).toEqual([]);
   });
 
+  test('a reply longer than 4000 characters is cut without splitting an emoji', async () => {
+    const { deps } = withModel({ text: `${'a'.repeat(3999)}📷 and more` });
+    const res = await ask(deps, b, 'tell me a lot');
+    expect(res.status).toBe(200);
+    const { reply } = await res.json();
+    expect(reply).toBe(`${'a'.repeat(3999)}📷`);
+  });
+
   test('the 121st message in an hour is 429 and the model is not called', async () => {
     const now = new Date().toISOString();
     await seedRows(db!, 'fotoai_agent_actions', Array.from({ length: V2_RATE_LIMITS.coach }, () => ({ user_id: c.id, action_type: 'API_REQUEST_COACH', details: { route: 'coach' }, executed_at: now })));

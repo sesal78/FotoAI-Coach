@@ -9,7 +9,11 @@ begin
   if exists (select 1 from public.fotoai_coach_messages) then
     raise exception 'undo refused: coach messages exist; export or remove them first';
   end if;
-  if exists (select 1 from public.fotoai_photos where checked_at is not null or check_safe is not null) then
+  if exists (
+    select 1 from public.fotoai_photos
+    where check_safe is not null or check_matches is not null or check_genre is not null
+       or checked_at is not null or check_prompt is not null
+  ) then
     raise exception 'undo refused: photo check results exist; export or clear them first';
   end if;
 end $$;

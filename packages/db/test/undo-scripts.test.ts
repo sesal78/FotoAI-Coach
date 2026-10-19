@@ -66,4 +66,6 @@ test('the coach undo refuses while coach messages or photo checks exist', () => 
   expect(messages).toBeGreaterThan(-1);
   expect(checks).toBeGreaterThan(-1);
   expect(Math.max(messages, checks)).toBeLessThan(drop);
+  const guard = text.slice(0, drop);
+  for (const column of ['check_safe', 'check_matches', 'check_genre', 'checked_at', 'check_prompt']) expect(guard, column).toContain(column);
 });

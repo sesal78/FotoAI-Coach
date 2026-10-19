@@ -174,7 +174,8 @@ export const coachReply: V2Body = async (request, deps) => {
     throw fromAi(err);
   }
   const proposal = await firstProposal(deps, principal, client, out.toolCalls);
-  const reply = out.text.trim().slice(0, MAX_REPLY) || (proposal ? 'Here is my suggestion.' : 'Sorry, I have no answer to that right now.');
+  // Cut by code points, so an emoji at the cut is not split into a half that Postgres refuses.
+  const reply = Array.from(out.text.trim()).slice(0, MAX_REPLY).join('') || (proposal ? 'Here is my suggestion.' : 'Sorry, I have no answer to that right now.');
 
   const sent = deps.now();
   const { error } = await client.from(T_MESSAGES).insert([

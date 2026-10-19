@@ -187,6 +187,13 @@ async function matchStep(deps: V2Deps, principal: Principal, takenAt: string): P
 /** Runs the AI check on the stored bytes and saves it; with no AI or a failed call the row is returned unchanged. */
 async function runCheck(deps: V2Deps, principal: Principal, row: PhotoRow): Promise<PhotoRow> {
   if (!deps.ai.configured) return row;
+  try {
+    await reserveCalls(deps.env, principal, 'photo_check', 1, deps.now());
+  } catch (err) {
+    // Over the hourly check budget: keep the photo ready and unchecked; a later replay checks it.
+    if (err instanceof ApiError && err.code === 'rate_limited') return row;
+    throw err;
+  }
   const db = createUserClient(deps.env, principal.accessToken);
   let brief: { title: string; instruction: string } | null = null;
   if (row.step_id) {
@@ -238,15 +245,26 @@ export const confirmPhoto: V2Body = async (request, deps, { params }) => {
     return json({ photo: toPhoto(checked) });
   }
 
-  // A crash after the move leaves the bytes at the final key: carry on from there.
+  // A crash after the move, or a parallel confirm, leaves the bytes at the final key: carry on from there.
   const finalKey = frozenKey(row.object_key);
-  let info = await objectInfo(deps.env, principal.userId, finalKey);
-  const moved = info !== null;
+  const atFinal = () => objectInfo(deps.env, principal.userId, finalKey);
+  let info = await atFinal();
+  let moved = info !== null;
   if (!info) info = await objectInfo(deps.env, principal.userId, row.object_key);
+  if (!info) {
+    info = await atFinal(); // a parallel confirm moved it between the two reads
+    moved = info !== null;
+  }
   if (!info) throw new ApiError('validation', 'Nothing has been uploaded for this photo yet');
   if (info.bytes !== Number(row.bytes)) throw new ApiError('validation', `The uploaded size (${info.bytes}) is not the declared size (${row.bytes})`);
   if (info.mime !== row.mime) throw new ApiError('validation', `The uploaded type (${info.mime}) is not the declared type (${row.mime})`);
-  if (!moved) await moveObject(deps.env, principal.userId, row.object_key, finalKey);
+  if (!moved) {
+    try {
+      await moveObject(deps.env, principal.userId, row.object_key, finalKey);
+    } catch (err) {
+      if (!(await atFinal())) throw err; // a parallel confirm moved it first
+    }
+  }
 
   const stepId = row.step_id ?? (row.taken_at ? await matchStep(deps, principal, row.taken_at) : null);
   const { data, error } = await createUserClient(deps.env, principal.accessToken)

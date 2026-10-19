@@ -171,8 +171,13 @@ export async function ownProgress(client: UserClient, principal: Principal) {
   if (found.error) throw progressFailed();
   if (found.data) return found.data;
   const made = await client.from('fotoai_user_progress').insert({ user_id: principal.userId }).select('*').single();
-  if (made.error || !made.data) throw progressFailed();
-  return made.data;
+  if (made.data) return made.data;
+  // A parallel request made the row first (unique user_id): use that one.
+  if (made.error?.code === '23505') {
+    const again = await client.from('fotoai_user_progress').select('*').maybeSingle();
+    if (again.data) return again.data;
+  }
+  throw progressFailed();
 }
 
 /** One completion on the caller's progress row. */

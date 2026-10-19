@@ -2,13 +2,16 @@ import { randomUUID } from 'node:crypto';
 
 import { createAi } from '@fotoai/ai';
 import { createTokenVerifier, createUserClient } from '@fotoai/db';
+// The test moves an object by hand, as a crash after the Storage move would leave it.
+// eslint-disable-next-line no-restricted-imports
+import { createServiceClient } from '@fotoai/db/service';
 import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 import { mockModel } from '../../ai/test/support/mock-model.ts';
 import { localDbFromEnv } from '../../db/test/support/local-db.ts';
 import { createTestUser, deleteTestUsers, testEnv, type TestUser } from '../../db/test/support/seed.ts';
-import { confirmPhoto, createPhoto, defineV2Handler, getPhotoUrl, type V2Body, type V2Deps } from '../src/index.ts';
+import { confirmPhoto, createPhoto, defineV2Handler, getPhotoUrl, V2_RATE_LIMITS, type V2Body, type V2Deps } from '../src/index.ts';
 
 const db = localDbFromEnv();
 type Row = Record<string, unknown>;
@@ -130,5 +133,48 @@ describe.skipIf(!db)('v2 photo checks against the local Supabase (real Storage, 
     expect(res.status).toBe(200);
     expect((await res.json()).photo).toMatchObject({ status: 'ready', check: null });
     expect(await xpFor(stepId)).toBe(0);
+  });
+
+  test('a confirm after a crash that moved the bytes but did not save the row still completes', async () => {
+    const { photo, upload: link } = await uploadedPhoto();
+    const finalKey = link.path.replace(/\.jpg$/, '-final.jpg');
+    const moved = await createServiceClient(base.env).storage.from('fotoai-submissions').move(link.path, finalKey);
+    expect(moved.error).toBeNull();
+    const res = await confirm(withAnswer({}).deps, photo.id);
+    expect(res.status).toBe(200);
+    expect((await res.json()).photo).toMatchObject({ status: 'ready', check: { safe: true } });
+    expect(await keyOf(photo.id)).toBe(finalKey);
+  });
+
+  test('two confirms at the same time both succeed', async () => {
+    const { photo } = await uploadedPhoto();
+    const { deps } = withAnswer({});
+    const [one, two] = await Promise.all([confirm(deps, photo.id), confirm(deps, photo.id)]);
+    expect([one.status, two.status]).toEqual([200, 200]);
+  });
+
+  test('over the hourly check budget the photo is ready and unchecked, and the model is not called', async () => {
+    const other = await createTestUser(db!, 'check-b');
+    try {
+      const at = new Date().toISOString();
+      await createUserClient(base.env, other.token)
+        .from('fotoai_agent_actions')
+        .insert(Array.from({ length: V2_RATE_LIMITS.photo_check }, () => ({ user_id: other.id, action_type: 'API_REQUEST_PHOTO_CHECK', details: {}, success: true, executed_at: at })) as never);
+      const created = await (await defineV2Handler(() => noAi, createPhoto)(
+        new Request('http://localhost/api/v2/photos', { method: 'POST', headers: { authorization: `Bearer ${other.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ id: randomUUID(), source: 'camera', mime: 'image/jpeg', bytes: BYTES.length }) }),
+        { params: {} },
+      )).json();
+      expect((await upload(created.upload)).error).toBeNull();
+      const { deps, model } = withAnswer({});
+      const res = await defineV2Handler(() => deps, confirmPhoto)(
+        new Request('http://localhost/api/v2/photos', { method: 'POST', headers: { authorization: `Bearer ${other.token}` } }),
+        { params: { id: created.photo.id } },
+      );
+      expect(res.status).toBe(200);
+      expect((await res.json()).photo).toMatchObject({ status: 'ready', check: null });
+      expect(model.doGenerateCalls).toHaveLength(0);
+    } finally {
+      await deleteTestUsers(db!, [other]);
+    }
   });
 });
