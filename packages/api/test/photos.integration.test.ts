@@ -25,7 +25,7 @@ describe.skipIf(!db)('v2 photos against the local Supabase (real Storage)', () =
       verifyToken: createTokenVerifier(env),
       fetch,
       weather: { get: async () => null },
-      ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } },
+      ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } },
     };
     [a, b] = await Promise.all([createTestUser(db!, 'photo-a'), createTestUser(db!, 'photo-b')]);
   });

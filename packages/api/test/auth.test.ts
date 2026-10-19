@@ -20,7 +20,7 @@ const deps = {
     return null;
   },
   fetch: async () => new Response('{}'),
-  weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } },
+  weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } },
 } as V2Deps;
 
 const req = (headers: Record<string, string>) => new Request('http://x/api/v2/me', { headers });

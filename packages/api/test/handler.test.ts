@@ -14,7 +14,7 @@ const fakeDeps = {
   now: () => new Date('2026-10-18T00:00:00Z'),
   verifyToken: async () => null,
   fetch: async () => new Response('{}'),
-  weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } },
+  weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } },
 } as V2Deps;
 
 test('importing a v2 route module does not read env or build deps', async () => {
