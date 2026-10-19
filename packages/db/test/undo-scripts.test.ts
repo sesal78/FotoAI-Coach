@@ -57,3 +57,13 @@ test('the photos undo refuses to start while any photo exists', () => {
   expect(guard).toBeGreaterThan(-1);
   expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
 });
+
+test('the coach undo refuses while coach messages or photo checks exist', () => {
+  const text = read('20261019100006_coach_and_photo_checks.undo.sql');
+  const drop = firstIndex(text, /\bdrop\b/i);
+  const messages = firstIndex(text, /raise exception[^;]*coach message/i);
+  const checks = firstIndex(text, /raise exception[^;]*photo check/i);
+  expect(messages).toBeGreaterThan(-1);
+  expect(checks).toBeGreaterThan(-1);
+  expect(Math.max(messages, checks)).toBeLessThan(drop);
+});

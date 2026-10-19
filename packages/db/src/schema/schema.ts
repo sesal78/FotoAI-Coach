@@ -265,6 +265,11 @@ export const fotoaiPhotos = pgTable("fotoai_photos", {
 	rollId: uuid("roll_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	checkSafe: boolean("check_safe"),
+	checkMatches: text("check_matches"),
+	checkGenre: text("check_genre"),
+	checkedAt: timestamp("checked_at", { withTimezone: true, mode: 'string' }),
+	checkPrompt: text("check_prompt"),
 }, (table) => [
 	index("fotoai_photos_step_idx").using("btree", table.stepId.asc().nullsLast().op("uuid_ops")).where(sql`(step_id IS NOT NULL)`),
 	index("fotoai_photos_user_created_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
@@ -293,6 +298,9 @@ export const fotoaiPhotos = pgTable("fotoai_photos", {
 	check("fotoai_photos_bytes_check", sql`(bytes >= 1) AND (bytes <= 52428800)`),
 	check("fotoai_photos_camera_make_check", sql`char_length(camera_make) <= 80`),
 	check("fotoai_photos_camera_model_check", sql`char_length(camera_model) <= 80`),
+	check("fotoai_photos_check_genre_check", sql`char_length(check_genre) <= 40`),
+	check("fotoai_photos_check_matches_check", sql`check_matches = ANY (ARRAY['yes'::text, 'no'::text, 'unclear'::text])`),
+	check("fotoai_photos_check_prompt_check", sql`char_length(check_prompt) <= 80`),
 	check("fotoai_photos_focal_mm_check", sql`focal_mm > (0)::numeric`),
 	check("fotoai_photos_iso_check", sql`iso > 0`),
 	check("fotoai_photos_lat_check", sql`(lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)`),
@@ -716,4 +724,25 @@ export const fotoaiXpEvents = pgTable("fotoai_xp_events", {
 	unique("fotoai_xp_events_legacy_appwrite_id_key").on(table.legacyAppwriteId),
 	check("fotoai_xp_events_source_kind_check", sql`source_kind = ANY (ARRAY['challenge_complete'::text, 'submission'::text, 'critique_bonus'::text, 'plan_step'::text])`),
 	check("fotoai_xp_events_xp_amount_check", sql`xp_amount > 0`),
+]).enableRLS();
+
+export const fotoaiCoachMessages = pgTable("fotoai_coach_messages", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	role: text().notNull(),
+	content: text().notNull(),
+	context: jsonb(),
+	proposal: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("fotoai_coach_messages_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_coach_messages_user_id_fkey"
+		}).onDelete("cascade"),
+	check("fotoai_coach_messages_content_check", sql`(char_length(content) >= 1) AND (char_length(content) <= 4000)`),
+	check("fotoai_coach_messages_context_check", sql`octet_length((context)::text) <= 2000`),
+	check("fotoai_coach_messages_proposal_check", sql`octet_length((proposal)::text) <= 8000`),
+	check("fotoai_coach_messages_role_check", sql`role = ANY (ARRAY['user'::text, 'assistant'::text])`),
 ]).enableRLS();
