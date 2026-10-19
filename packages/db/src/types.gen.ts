@@ -177,6 +177,37 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"fotoai_photos": {
+                  Row: {
+                    "aperture": number | null,"bytes": number,"camera_make": string | null,"camera_model": string | null,"created_at": string,"focal_mm": number | null,"frame_id": string | null,"id": string,"iso": number | null,"lat": number | null,"lens_model": string | null,"lng": number | null,"mime": string,"object_key": string,"roll_id": string | null,"shutter_s": number | null,"source": string,"status": string,"step_id": string | null,"taken_at": string | null,"taken_offset": string | null,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "aperture"?: number | null,"bytes": number,"camera_make"?: string | null,"camera_model"?: string | null,"created_at"?: string,"focal_mm"?: number | null,"frame_id"?: string | null,"id": string,"iso"?: number | null,"lat"?: number | null,"lens_model"?: string | null,"lng"?: number | null,"mime": string,"object_key": string,"roll_id"?: string | null,"shutter_s"?: number | null,"source": string,"status"?: string,"step_id"?: string | null,"taken_at"?: string | null,"taken_offset"?: string | null,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "aperture"?: number | null,"bytes"?: number,"camera_make"?: string | null,"camera_model"?: string | null,"created_at"?: string,"focal_mm"?: number | null,"frame_id"?: string | null,"id"?: string,"iso"?: number | null,"lat"?: number | null,"lens_model"?: string | null,"lng"?: number | null,"mime"?: string,"object_key"?: string,"roll_id"?: string | null,"shutter_s"?: number | null,"source"?: string,"status"?: string,"step_id"?: string | null,"taken_at"?: string | null,"taken_offset"?: string | null,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fotoai_photos_frame_fkey"
+      columns: ["frame_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_film_frames"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "fotoai_photos_roll_fkey"
+      columns: ["roll_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_film_rolls"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "fotoai_photos_step_fkey"
+      columns: ["step_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_plan_steps"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"fotoai_places": {
                   Row: {
                     "created_at": string,"favourite": boolean,"id": string,"lat": number | null,"lng": number | null,"name": string | null,"notes": string | null,"place_id": string | null,"source": string,"updated_at": string,"user_id": string

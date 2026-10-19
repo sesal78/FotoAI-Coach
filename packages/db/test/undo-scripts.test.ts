@@ -50,3 +50,10 @@ test('the film-rolls undo refuses to start while any roll exists', () => {
   expect(guard).toBeGreaterThan(-1);
   expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
 });
+
+test('the photos undo refuses to start while any photo exists', () => {
+  const text = read('20261019100005_photos.undo.sql');
+  const guard = firstIndex(text, /raise exception[^;]*photo/i);
+  expect(guard).toBeGreaterThan(-1);
+  expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
+});
