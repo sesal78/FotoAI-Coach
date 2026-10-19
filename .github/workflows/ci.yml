@@ -97,3 +97,31 @@ jobs:
           docker run -d --rm -p 3011:3000             -e FOTOAI_SUPABASE_URL=http://127.0.0.1:1             -e FOTOAI_SUPABASE_ANON_KEY=dummy             -e FOTOAI_SUPABASE_SERVICE_ROLE_KEY=dummy             --name fotoai-ci fotoai-web:ci
           bash scripts/smoke-image.sh http://localhost:3011
           docker stop fotoai-ci
+
+  mobile:
+    # The Android app (apps/mobile, Expo SDK 58): checks and a JavaScript bundle. No native build,
+    # no secrets: the APK itself is built with EAS.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck, lint, tests
+        run: pnpm --filter @fotoai/mobile typecheck && pnpm --filter @fotoai/mobile lint && pnpm --filter @fotoai/mobile test
+
+      - name: Expo doctor
+        working-directory: apps/mobile
+        run: npx --yes expo-doctor@1.21.5
+
+      - name: Bundle for Android
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/fotoai-mobile-export"

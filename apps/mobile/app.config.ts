@@ -18,10 +18,23 @@ const config: ExpoConfig = {
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // The password-reset email link opens the app (Android App Link). Verification needs
+    // https://myfoto.topues.com/.well-known/assetlinks.json, which ships with 3B; until then the
+    // link opens the web reset page.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'myfoto.topues.com', pathPrefix: '/reset-password' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   plugins: [
     'expo-router',
     ['expo-splash-screen', { backgroundColor: '#F6E7CF', image: './assets/images/splash-icon.png', imageWidth: 76 }],
+    'expo-secure-store',
+    'expo-sqlite',
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
 };
