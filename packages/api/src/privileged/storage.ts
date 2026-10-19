@@ -56,3 +56,12 @@ export async function signedReadUrl(env: StorageEnv, userId: string, key: string
   if (error || !data) throw new ApiError('upstream', 'Could not create the read link');
   return data.signedUrl;
 }
+
+/** Moves one of the caller's photo objects to a new key in the same photo folder. */
+export async function moveObject(env: StorageEnv, userId: string, fromKey: string, toKey: string): Promise<void> {
+  checkKey(userId, fromKey);
+  checkKey(userId, toKey);
+  if (fromKey.slice(0, fromKey.lastIndexOf('/')) !== toKey.slice(0, toKey.lastIndexOf('/'))) throw new ApiError('validation', 'A photo stays in its own folder');
+  const { error } = await bucket(env).move(fromKey, toKey);
+  if (error) throw new ApiError('upstream', 'Could not save the upload');
+}

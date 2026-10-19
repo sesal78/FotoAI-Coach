@@ -25,7 +25,7 @@ describe.skipIf(!db)('v2 film rolls and frames against the local Supabase', () =
       verifyToken: createTokenVerifier(env),
       fetch,
       weather: { get: async () => null },
-      ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } },
+      ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } },
     };
     [a, b] = await Promise.all([createTestUser(db!, 'roll-a'), createTestUser(db!, 'roll-b')]);
     meSuper = (await (await call(addMyGear, a, { method: 'POST', json: { catalogId: 'pentax-me-super' } })).json()).item.id;

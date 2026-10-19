@@ -4,6 +4,7 @@ export {
   CHALLENGE_STATUSES,
   ChallengeDto,
   ChallengeListResponse,
+  ChallengeStatusPatch,
   type ChallengeSource,
   type ChallengeStatus,
 } from './challenges.ts';
@@ -47,3 +48,4 @@ export {
 } from './plans.ts';
 export { FrameDto, FrameInput, ROLL_STATUSES, RollDto, RollInput, RollPatch, ScanMatchInput } from './film.ts';
 export { ExifInput, MAX_PHOTO_BYTES, PHOTO_MIME_EXTENSIONS, PHOTO_SOURCES, PhotoCreateInput, PhotoDto, type PhotoMime } from './photos.ts';
+export { COACH_SCREENS, CoachInput, CoachMessageDto, CoachProposal, CoachReply } from './coach.ts';

@@ -1,11 +1,14 @@
 // v2 photos: create a photo row and a one-time upload link, upload the bytes straight to
 // Storage from the phone, then confirm. Ids come from the phone, so a replayed create returns
-// the same photo (with a fresh link while it is still pending). On confirm a photo with no step
-// is linked to a plan step by time when exactly one active step starts within 45 minutes, and a
-// photo with a step earns plan-step XP (duplicate-safe).
+// the same photo (with a fresh link while it is still pending). On confirm the upload is moved
+// to a final key (so the upload link can no longer change what is served), a photo with no step
+// is linked to a plan step by time when exactly one active step starts within 45 minutes, and,
+// when AI is configured, the stored bytes are checked. A photo with a step earns plan-step XP
+// (duplicate-safe) only when the check says it is safe and does not clearly miss the brief.
 
 import { randomUUID } from 'node:crypto';
 
+import { checkPhoto } from '@fotoai/ai';
 import { PHOTO_MIME_EXTENSIONS, PhotoCreateInput, type PhotoDto, type PhotoMime } from '@fotoai/contracts';
 import { createUserClient } from '@fotoai/db';
 
@@ -13,16 +16,17 @@ import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.
 import { decodeCursor, encodeCursor } from './challenges.ts';
 import { ApiError, json, type V2Body, type V2Deps } from './handler.ts';
 import { readJsonObject } from './http.ts';
-import { objectInfo, signedReadUrl, signedUploadUrl } from './privileged/storage.ts';
+import { moveObject, objectInfo, signedReadUrl, signedUploadUrl } from './privileged/storage.ts';
 import { awardPlanStepXp } from './privileged/xp.ts';
 import { reserveCalls } from './rate-limit.ts';
 
 const T_PHOTOS = 'fotoai_photos';
 const COLUMNS =
-  'id, source, status, mime, bytes, object_key, taken_at, taken_offset, camera_make, camera_model, lens_model, focal_mm, aperture, shutter_s, iso, lat, lng, step_id, frame_id, roll_id, created_at';
+  'id, source, status, mime, bytes, object_key, taken_at, taken_offset, camera_make, camera_model, lens_model, focal_mm, aperture, shutter_s, iso, lat, lng, step_id, frame_id, roll_id, check_safe, check_matches, check_genre, checked_at, created_at';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MATCH_WINDOW_MS = 45 * 60_000;
 const READ_TTL_S = 300;
+const CHECK_TTL_S = 120;
 const PAGE = 50;
 
 type PhotoRow = {
@@ -46,6 +50,10 @@ type PhotoRow = {
   step_id: string | null;
   frame_id: string | null;
   roll_id: string | null;
+  check_safe: boolean | null;
+  check_matches: 'yes' | 'no' | 'unclear' | null;
+  check_genre: string | null;
+  checked_at: string | null;
   created_at: string;
 };
 
@@ -72,8 +80,14 @@ const toPhoto = (row: PhotoRow): PhotoDto => ({
   stepId: row.step_id,
   frameId: row.frame_id,
   rollId: row.roll_id,
+  check: row.checked_at
+    ? { safe: row.check_safe === true, matchesBrief: row.check_matches, genre: row.check_genre, checkedAt: row.checked_at }
+    : null,
   createdAt: row.created_at,
 });
+
+/** The final key for an upload: same folder, `-final` added to the name. */
+const frozenKey = (key: string) => key.replace(/\.([a-z0-9]+)$/, '-final.$1');
 
 function idParam(params: Record<string, string>): string {
   const id = params.id ?? '';
@@ -170,32 +184,99 @@ async function matchStep(deps: V2Deps, principal: Principal, takenAt: string): P
   return candidates.length === 1 ? candidates[0]!.id : null;
 }
 
+/** Runs the AI check on the stored bytes and saves it; with no AI or a failed call the row is returned unchanged. */
+async function runCheck(deps: V2Deps, principal: Principal, row: PhotoRow): Promise<PhotoRow> {
+  if (!deps.ai.configured) return row;
+  try {
+    await reserveCalls(deps.env, principal, 'photo_check', 1, deps.now());
+  } catch (err) {
+    // Over the hourly check budget: keep the photo ready and unchecked; a later replay checks it.
+    if (err instanceof ApiError && err.code === 'rate_limited') return row;
+    throw err;
+  }
+  const db = createUserClient(deps.env, principal.accessToken);
+  let brief: { title: string; instruction: string } | null = null;
+  if (row.step_id) {
+    const { data, error } = await db.from('fotoai_plan_steps').select('title, instruction').eq('id', row.step_id).maybeSingle();
+    if (error) throw upstream('load the plan step');
+    brief = data;
+  }
+  const url = await signedReadUrl(deps.env, principal.userId, row.object_key, CHECK_TTL_S);
+  let check;
+  try {
+    check = await checkPhoto(deps.ai, { brief }, new URL(url));
+  } catch {
+    // The photo stays ready and unchecked; a confirm replay tries again. No key or URL is logged.
+    console.warn('FotoAI v2 photo check did not run; the photo is kept unchecked');
+    return row;
+  }
+  const { data, error } = await db
+    .from(T_PHOTOS)
+    .update({
+      check_safe: check.safe,
+      check_matches: check.matchesBrief,
+      check_genre: check.genre,
+      checked_at: deps.now().toISOString(),
+      check_prompt: `${check.prompt.id}@v${check.prompt.version}`,
+    } as never)
+    .eq('id', row.id)
+    .select(COLUMNS)
+    .single();
+  if (error || !data) throw upstream('save the photo check');
+  return data as unknown as PhotoRow;
+}
+
+/** Plan-step XP (duplicate-safe) for a checked, safe photo that does not clearly miss the brief. */
+async function awardIfEarned(deps: V2Deps, principal: Principal, row: PhotoRow): Promise<void> {
+  if (row.step_id && row.checked_at && row.check_safe === true && row.check_matches !== 'no') {
+    await awardPlanStepXp(deps.env, principal.userId, row.step_id);
+  }
+}
+
 export const confirmPhoto: V2Body = async (request, deps, { params }) => {
   rejectBrowserIdentity(new URL(request.url).searchParams);
   const principal = await requirePrincipal(request, deps);
   const row = await readPhoto(deps, principal, idParam(params));
   if (!row) throw new ApiError('not_found', 'Photo not found');
   if (row.status === 'ready') {
-    // Duplicate-safe: completes an award that a crash after the ready flag may have missed.
-    if (row.step_id) await awardPlanStepXp(deps.env, principal.userId, row.step_id);
-    return json({ photo: toPhoto(row) });
+    // A replay checks a photo that was never checked, and completes an award a crash may have missed.
+    const checked = row.checked_at ? row : await runCheck(deps, principal, row);
+    await awardIfEarned(deps, principal, checked);
+    return json({ photo: toPhoto(checked) });
   }
 
-  const info = await objectInfo(deps.env, principal.userId, row.object_key);
+  // A crash after the move, or a parallel confirm, leaves the bytes at the final key: carry on from there.
+  const finalKey = frozenKey(row.object_key);
+  const atFinal = () => objectInfo(deps.env, principal.userId, finalKey);
+  let info = await atFinal();
+  let moved = info !== null;
+  if (!info) info = await objectInfo(deps.env, principal.userId, row.object_key);
+  if (!info) {
+    info = await atFinal(); // a parallel confirm moved it between the two reads
+    moved = info !== null;
+  }
   if (!info) throw new ApiError('validation', 'Nothing has been uploaded for this photo yet');
   if (info.bytes !== Number(row.bytes)) throw new ApiError('validation', `The uploaded size (${info.bytes}) is not the declared size (${row.bytes})`);
   if (info.mime !== row.mime) throw new ApiError('validation', `The uploaded type (${info.mime}) is not the declared type (${row.mime})`);
+  if (!moved) {
+    try {
+      await moveObject(deps.env, principal.userId, row.object_key, finalKey);
+    } catch (err) {
+      if (!(await atFinal())) throw err; // a parallel confirm moved it first
+    }
+  }
 
   const stepId = row.step_id ?? (row.taken_at ? await matchStep(deps, principal, row.taken_at) : null);
   const { data, error } = await createUserClient(deps.env, principal.accessToken)
     .from(T_PHOTOS)
-    .update({ status: 'ready', step_id: stepId, updated_at: deps.now().toISOString() } as never)
+    .update({ status: 'ready', object_key: finalKey, step_id: stepId, updated_at: deps.now().toISOString() } as never)
     .eq('id', row.id)
     .select(COLUMNS)
     .single();
   if (error || !data) throw upstream('save the photo');
-  if (stepId) await awardPlanStepXp(deps.env, principal.userId, stepId);
-  return json({ photo: toPhoto(data as unknown as PhotoRow) });
+  const checked = await runCheck(deps, principal, data as unknown as PhotoRow);
+  await awardIfEarned(deps, principal, checked);
+  return json({ photo: toPhoto(checked) });
 };
 
 export const listPhotos: V2Body = async (request, deps) => {

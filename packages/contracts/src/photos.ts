@@ -85,6 +85,15 @@ export const PhotoDto = z.object({
   stepId: z.string().uuid().nullable(),
   frameId: z.string().uuid().nullable(),
   rollId: z.string().uuid().nullable(),
+  /** The AI check on the stored bytes; null until a check has run. */
+  check: z
+    .object({
+      safe: z.boolean(),
+      matchesBrief: z.enum(['yes', 'no', 'unclear']).nullable(),
+      genre: z.string().nullable(),
+      checkedAt: z.string(),
+    })
+    .nullable(),
   createdAt: z.string(),
 });
 export type PhotoDto = z.infer<typeof PhotoDto>;

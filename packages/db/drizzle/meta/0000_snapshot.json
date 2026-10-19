@@ -1337,6 +1337,36 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "check_safe": {
+          "name": "check_safe",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "check_matches": {
+          "name": "check_matches",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "check_genre": {
+          "name": "check_genre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "check_prompt": {
+          "name": "check_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1471,6 +1501,18 @@
         "fotoai_photos_camera_model_check": {
           "name": "fotoai_photos_camera_model_check",
           "value": "char_length(camera_model) <= 80"
+        },
+        "fotoai_photos_check_genre_check": {
+          "name": "fotoai_photos_check_genre_check",
+          "value": "char_length(check_genre) <= 40"
+        },
+        "fotoai_photos_check_matches_check": {
+          "name": "fotoai_photos_check_matches_check",
+          "value": "check_matches = ANY (ARRAY['yes'::text, 'no'::text, 'unclear'::text])"
+        },
+        "fotoai_photos_check_prompt_check": {
+          "name": "fotoai_photos_check_prompt_check",
+          "value": "char_length(check_prompt) <= 80"
         },
         "fotoai_photos_focal_mm_check": {
           "name": "fotoai_photos_focal_mm_check",
@@ -3838,6 +3880,119 @@
         "fotoai_xp_events_xp_amount_check": {
           "name": "fotoai_xp_events_xp_amount_check",
           "value": "xp_amount > 0"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_coach_messages": {
+      "name": "fotoai_coach_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "context": {
+          "name": "context",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proposal": {
+          "name": "proposal",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_coach_messages_user_created_idx": {
+          "name": "fotoai_coach_messages_user_created_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "created_at",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_coach_messages_user_id_fkey": {
+          "name": "fotoai_coach_messages_user_id_fkey",
+          "tableFrom": "fotoai_coach_messages",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "fotoai_coach_messages_content_check": {
+          "name": "fotoai_coach_messages_content_check",
+          "value": "(char_length(content) >= 1) AND (char_length(content) <= 4000)"
+        },
+        "fotoai_coach_messages_context_check": {
+          "name": "fotoai_coach_messages_context_check",
+          "value": "octet_length((context)::text) <= 2000"
+        },
+        "fotoai_coach_messages_proposal_check": {
+          "name": "fotoai_coach_messages_proposal_check",
+          "value": "octet_length((proposal)::text) <= 8000"
+        },
+        "fotoai_coach_messages_role_check": {
+          "name": "fotoai_coach_messages_role_check",
+          "value": "role = ANY (ARRAY['user'::text, 'assistant'::text])"
         }
       },
       "policies": {},

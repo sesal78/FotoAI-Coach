@@ -1,6 +1,9 @@
-export { AiError, createAi, type AiClient, type AiErrorCode, type AiUsage } from './client.ts';
-export { assertStrictSchema, type PromptSpec } from './prompt.ts';
+export { AiError, createAi, MAX_IMAGES, type AiClient, type AiErrorCode, type AiUsage, type ChatTool, type ChatToolCall, type ChatTurn } from './client.ts';
+export { assertStrictSchema, type ChatSpec, type PromptSpec } from './prompt.ts';
 export { generateShootPlan, type DraftStep, type ShootPlanDraft } from './plan.ts';
 export { SHOOT_PLAN_V1, ShootPlanOutput, type PlanInput, type PlanPlace } from './prompts/shoot-plan.v1.ts';
 export { explainPlace, type PlaceExplanation } from './explain.ts';
 export { PLACE_EXPLAIN_V1, PlaceExplanationOutput, type ExplainInput } from './prompts/place-explain.v1.ts';
+export { COACH_TOOLS, COACH_V1, type CoachPromptInput } from './prompts/coach.v1.ts';
+export { checkPhoto, type PhotoCheck } from './photo-check.ts';
+export { PHOTO_CHECK_V1, PHOTO_GENRES, PhotoCheckOutput, type PhotoCheckInput } from './prompts/photo-check.v1.ts';

@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm/relations";
 import { authUsers as usersInAuth } from "drizzle-orm/supabase";
-import { fotoaiGearLenses, fotoaiGearBodies, fotoaiPlaces, fotoaiShootPlans, fotoaiPlanSteps, fotoaiUserGear, fotoaiFilmRolls, fotoaiFilmFrames, fotoaiPhotos, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiUserPreferences, fotoaiXpEvents } from "./schema.ts";
+import { fotoaiGearLenses, fotoaiGearBodies, fotoaiPlaces, fotoaiShootPlans, fotoaiPlanSteps, fotoaiUserGear, fotoaiFilmRolls, fotoaiFilmFrames, fotoaiPhotos, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiUserPreferences, fotoaiXpEvents, fotoaiCoachMessages } from "./schema.ts";
 
 export const fotoaiGearBodiesRelations = relations(fotoaiGearBodies, ({one, many}) => ({
 	fotoaiGearLense: one(fotoaiGearLenses, {
@@ -44,6 +44,7 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiUserPreferences: many(fotoaiUserPreferences),
 	fotoaiDailyChallenges: many(fotoaiDailyChallenges),
 	fotoaiXpEvents: many(fotoaiXpEvents),
+	fotoaiCoachMessages: many(fotoaiCoachMessages),
 }));
 
 export const fotoaiShootPlansRelations = relations(fotoaiShootPlans, ({one, many}) => ({
@@ -237,6 +238,13 @@ export const fotoaiUserPreferencesRelations = relations(fotoaiUserPreferences, (
 export const fotoaiXpEventsRelations = relations(fotoaiXpEvents, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [fotoaiXpEvents.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const fotoaiCoachMessagesRelations = relations(fotoaiCoachMessages, ({one}) => ({
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiCoachMessages.userId],
 		references: [usersInAuth.id]
 	}),
 }));

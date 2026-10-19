@@ -14,7 +14,7 @@ describe.skipIf(!db)('v2 preferences against the local Supabase', () => {
 
   beforeAll(async () => {
     const env = testEnv(db!);
-    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch, weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } } };
+    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch, weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } } };
     [a, b] = await Promise.all([createTestUser(db!, 'prefs-a'), createTestUser(db!, 'prefs-b')]);
   });
 

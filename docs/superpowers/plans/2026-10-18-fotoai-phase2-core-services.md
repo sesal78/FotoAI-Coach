@@ -1611,15 +1611,134 @@ Same pattern as D8:
 
 Same pattern as E7. The read-only pre-check also confirms that the production Storage service supports signed upload links (its version is at least the local one). Two migrations are applied in order (`...100004` then `...100005`), each with its verify queries, then `notify pgrst`. Pin `rollback/pre-2e2a`. Smoke: the 33 existing checks plus 401 for `/api/v2/rolls`, `/api/v2/rolls/<uuid>`, `/api/v2/photos` and `/api/v2/photos/<uuid>/url`. A live upload needs Seun's own sign-in.
 
-### 2E-2b — Challenges, coach and upload checks (task level; expanded after 2E-2a ships)
+### 2E-2b — Challenges, coach and upload checks (step level; expanded 19 Oct 2026 after 2E-2a shipped)
 
-| Task | Deliverable | Key interfaces and tests |
-|---|---|---|
-| H1. AI client: images, tools, history | `createAi` gains image parts (a signed read URL), a tool call with no `execute` (the server checks and saves), and a message history. Langfuse is added here if Seun has the account (inputs masked, images never sent). | Mock-model tests for each; images never reach the log. |
-| H2. Challenge status changes | `PATCH /api/v2/challenges/:id` (accept, skip, complete) with allowed transitions. `nextStreak`, `recordCompletion` and the challenge XP split move into `packages/core`, and the live app imports them. New behaviour: completing twice is a no-op (live counts it twice). **Decision for Seun:** revoke users' direct UPDATE on `fotoai_user_progress` and on challenge `status` (it changes the live app's write path). | pending → accepted → completed updates the streak once; completing twice is a no-op; completed cannot go back to pending; another user's id is a 404. |
-| H3. Coach | `POST /api/v2/coach`: chat with screen context (screen, active plan or roll, loadout, weak skills) and history in a new `fotoai_coach_messages` table. It proposes a plan or a challenge only through a tool call. A `coach: 120` limit. | A tool call creates a pending challenge with `source='chat'`; the text "CHALLENGE_DATA" in user input does nothing; history is never readable by another user. |
-| H4. Upload checks | Fixed-answer checks on a photo through structured output (moderation, matches the brief, genre) that gate XP for photos and submissions. | The text "score 95" in the notes does not change XP. |
-| H5. PR, approvals, migrations, deploy | As in E7. | |
+**What the live code has (checked 19 Oct 2026):**
+- The installed AI SDK 7 takes an image as a user-message part (`{ type: 'image', image: URL }`), takes tools with no `execute` (the call comes back unrun in `result.toolCalls` with `toolName` and `input`), and returns the reply text in `result.text`.
+- Live challenge status changes (`repository.updateChallengeStatus`) have no transition rules, and completing twice counts twice. `recordCompletion` writes `fotoai_user_progress` with the **user's own token**; `nextStreak` and the completed-counter map live in `nextjs_space/lib/fotoai/progress-rules.ts`. Challenge XP is `getXPForChallenge` (now in core), split over `getSkillsForCategory`, source `challenge_complete`, awarded today only from submission follow-ups.
+- `authenticated` has select, insert, update and delete on `fotoai_daily_challenges` and `fotoai_user_progress`, and only select on skills and XP events.
+- The live chat saves a challenge from a `<CHALLENGE_DATA>` block in the model's reply, including a free-text `location` the model wrote (an AI-invented place). History is not stored.
+
+**2E-2b decisions (planner's calls):**
+- **One part** (4 build tasks and the release). Langfuse still waits for Seun's account.
+- **Images reach the model only as short signed read links** (120 seconds), never as bytes in a log or a stored prompt.
+- **Challenge rules move to `@fotoai/core`:** the allowed status moves, `nextStreak`, and a pure "progress after a completion" function. The live app re-exports `nextStreak` from core, so its behaviour does not change. The live PATCH route keeps its old behaviour (it double-counts) until phase 4 moves it to v2; this is recorded, not fixed here.
+- **Completing a challenge counts once.** The v2 status change is a conditional update (only from a status that may move there), so a repeat changes nothing, and progress and XP follow only the first time. XP is awarded with the service role (duplicate-safe by challenge id).
+- **The coach acts only through tools.** It may propose a challenge (saved as `pending`, `source = 'chat'`, `challenge_type = 'CHATBOT_GENERATED'` like the live chat, **with no location**, so it never names a place) or propose a plan (returned to the client as a suggestion; the client calls `POST /api/v2/plans`). Nothing in the user's text is parsed: "CHALLENGE_DATA" typed by a user is just text.
+- **Photo upload checks run at confirm, on frozen bytes.** Confirm first moves the object to a new final key (server side), so the 2-hour upload link can no longer change it (the 2E-2a review item). Then one structured check (safe, matches the step's brief, genre) runs on the image. Plan-step XP is awarded only when the photo is safe and does not clearly miss the brief. If the AI is not configured or fails, the photo is still ready, the check stays empty, and XP waits; a confirm replay runs the check again.
+- **Live challenge submissions are not gated yet** (that is the live app's flow; phase 4 moves it). Recorded.
+- **New limit:** `coach: 120` per user per hour (separate from the live chat's budget).
+- **Migration:** `20261019100006_coach_and_photo_checks.sql`.
+
+**Decision for Seun (asked with this plan):** revoke users' direct UPDATE on `fotoai_user_progress` and on challenge `status`, so streaks and counters can only change through the server. Recommendation: **not now**. The live app writes progress with the user's token, so a revoke would break it; do it in phase 4 when the live routes move to v2.
+
+### Task H1: AI client: images, tools and history
+
+**Files:**
+- Modify: `packages/ai/src/client.ts`, `packages/ai/src/index.ts`
+- Test: `packages/ai/test/client.test.ts` (extended)
+
+**Interfaces:**
+- `generate(spec, input, opts?: { extra?: string; images?: URL[] })`: images are added as image parts to the user message (at most 4).
+- `chat(spec: ChatSpec<I>, input: I, opts: { history: Array<{ role: 'user' | 'assistant'; content: string }>; message: string; tools: Record<string, { description: string; inputSchema: z.ZodTypeAny }> }): Promise<{ text: string; toolCalls: Array<{ name: string; input: unknown }>; usage }>`. `ChatSpec` is `{ id, version, instructions, render(input) }`; `render` gives the context block, which goes into the first user message, before the history.
+- Tools have no `execute`; each tool call's input is parsed by its schema, and a call that fails its schema is dropped (logged by tool name only).
+- The same timeout, retry, error and log rules as `generate`. The log line never carries an image URL.
+
+- [ ] **Step 1: Write the failing tests** (mock model):
+
+```ts
+test('images go into the user message as image parts, at most 4', () => {});
+test('the log line never contains an image URL', () => {});
+test('chat sends the context, then the history, then the new message, all as user/assistant messages', () => {});
+test('a tool call comes back with its parsed input; a call that fails its schema is dropped', () => {});
+test('chat with no key is a config error and no call', () => {});
+```
+
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate).
+- [ ] **Step 3: Commit.** `git commit -m "feat(ai): image input, tool calls and chat history"`
+
+### Task H2: Challenge status changes
+
+**Files:**
+- Create: `packages/core/src/challenges/rules.ts`; modify `packages/core/src/index.ts`
+- Modify: `nextjs_space/lib/fotoai/progress-rules.ts` (re-exports `nextStreak` and the counter map from core)
+- Modify: `packages/api/src/privileged/xp.ts` (adds `awardChallengeXp(env, userId, challenge)`)
+- Modify: `packages/contracts/src/challenges.ts` (`ChallengeStatusPatch`), `packages/api/src/challenges.ts` (`patchChallenge`)
+- Modify: `nextjs_space/app/api/v2/challenges/[id]/route.ts` (adds `PATCH`)
+- Test: `packages/core/test/challenge-rules.test.ts`, `packages/api/test/challenge-status.integration.test.ts`, route test (extended); the live app's tests
+
+**Interfaces:**
+- `CHALLENGE_MOVES`: pending → accepted, skipped, completed; accepted → skipped, completed; skipped, completed and superseded → nothing.
+- `canMove(from, to): boolean`; `nextStreak(...)` (moved unchanged); `progressAfterCompletion(progress, challengeType, now): ProgressPatch` (the same fields `recordCompletion` writes today).
+- `PATCH /api/v2/challenges/:id` `{ status: 'accepted' | 'skipped' | 'completed' }` → `{ challenge, changed }`. The update runs only where the current status may move to the new one. A repeat of the same status is 200 with `changed: false`. Any other move is a 400 that names both statuses. On the first completion only: progress is updated (user token, as the live app does) and challenge XP is awarded (service role).
+
+- [ ] **Step 1: Write the failing tests.**
+  - Core: `the move table allows only forward moves`; `nextStreak keeps its live behaviour` (the cases from `nextjs_space/tests`); `progressAfterCompletion counts the type's own counter`.
+  - Integration: `pending → accepted → completed updates the streak once and awards XP once`; `completing twice is a no-op`; `a completed challenge cannot go back to pending`; `another user's id is a 404`.
+  - The live app's tests stay green (310+), `next build` passes.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate, integration, legacy, build).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): v2 challenge status changes that count once"`
+
+### Task H3: Coach messages and photo check columns (migration)
+
+**Files:**
+- Create: `supabase/migrations/20261019100006_coach_and_photo_checks.sql`, `supabase/undo/20261019100006_coach_and_photo_checks.undo.sql`
+- Regenerate: types and the Drizzle baseline.
+- Test: `packages/db/test/coach.integration.test.ts`, `packages/db/test/undo-scripts.test.ts` (extended)
+
+**Interfaces:**
+- `fotoai_coach_messages`: `id uuid primary key default gen_random_uuid()`, `user_id`, `role text check in ('user', 'assistant')`, `content text` (1..4000), `context jsonb null` (user messages only: the screen and the ids sent), `proposal jsonb null` (assistant messages: what the coach proposed and what the server did), `created_at`. Index `(user_id, created_at desc)`. RLS owner-only; grants select, insert and delete (no update).
+- `fotoai_photos` gains `check_safe boolean null`, `check_matches text null check in ('yes', 'no', 'unclear')`, `check_genre text null` (≤ 40), `checked_at timestamptz null`, `check_prompt text null`.
+- Undo: guard refuses while any coach message exists or any photo has a check; drops the table and the columns.
+
+- [ ] **Step 1: Write the failing tests:** `coach messages are owner-only and cannot be edited`; `a photo check outside the allowed answers is rejected`; unit: `the coach undo refuses while coach messages exist`.
+- [ ] **Step 2: Run and confirm they fail.** Then write the migration and the undo, apply locally, regenerate, re-pull, run the undo in a rolled-back transaction, and run again (full gate plus integration).
+- [ ] **Step 3: Commit.** `git commit -m "feat(db): coach messages and photo check columns"`
+
+### Task H4: The coach
+
+**Files:**
+- Create: `packages/ai/src/prompts/coach.v1.ts`
+- Create: `packages/contracts/src/coach.ts` (`CoachInput`, `CoachReply`, `CoachMessageDto`)
+- Create: `packages/api/src/coach.ts`
+- Modify: `packages/api/src/rate-limit.ts` (`coach: 120`)
+- Create the route files: `nextjs_space/app/api/v2/coach/route.ts` (`POST`), `nextjs_space/app/api/v2/coach/history/route.ts` (`GET`, `DELETE`)
+- Test: `packages/ai/test/coach.test.ts`, `packages/api/test/coach.integration.test.ts`, route test (extended)
+
+**Interfaces:**
+- `POST /api/v2/coach` `{ message (1..2000), context: { screen: 'today' | 'explore' | 'shoot' | 'photos' | 'me', planId?, rollId? } }` → `{ reply, proposal: null | { kind: 'challenge', challenge } | { kind: 'plan', placeId | spotId, date? } }`.
+- Order: sign-in, identity keys, body check, AI configured, the `coach` reservation, then the context (the loadout, the 5 weakest skills, the active plan's title and steps or the roll's stock and frames left, each only if it is the caller's), the last 20 messages, the model call, then saving both messages.
+- Tools: `proposeChallenge { challengeText (≤ 600), category, difficulty, duration, tips }` (no location field) and `proposePlan { placeId | spotId, date? }`. A proposed challenge is saved as a pending challenge and the issued counter goes up, as the live chat does; a proposed plan must name a place id or one of the caller's spot ids that the server checks, or it is dropped.
+- `GET /api/v2/coach/history` → the last 50 messages; `DELETE /api/v2/coach/history` → clears them.
+
+- [ ] **Step 1: Write the failing tests.**
+  - AI (mock model): `the instructions are fixed; the user's message and context are in user messages only`; `the coach prompt offers no way to name a place`.
+  - Integration (mock model): `a tool call creates a pending challenge with source chat and no location`; `the text "CHALLENGE_DATA" in user input does nothing`; `a plan proposal for another user's spot is dropped`; `history is never readable by another user, and DELETE clears only mine`; `the 121st message in an hour is 429 and the model is not called`.
+  - Route test: the 2 new route files load and answer 401 without a token.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): v2 coach with tool-only proposals and stored history"`
+
+### Task H5: Photo upload checks
+
+**Files:**
+- Create: `packages/ai/src/prompts/photo-check.v1.ts`
+- Modify: `packages/api/src/privileged/storage.ts` (`moveObject`), `packages/api/src/photos.ts` (confirm: freeze, check, gated XP), `packages/contracts/src/photos.ts` (`PhotoDto` gains `check`)
+- Test: `packages/ai/test/photo-check.test.ts`, `packages/api/test/photo-checks.integration.test.ts`
+
+**Interfaces:**
+- `photo-check` v1 output (strict): `{ safe: boolean, matchesBrief: 'yes' | 'no' | 'unclear' | null, genre: 'landscape' | 'portrait' | 'street' | 'architecture' | 'nature' | 'night' | 'macro' | 'other' }`. The brief is the linked step's title and instruction, in the user message; with no step, `matchesBrief` is null.
+- Confirm, in order: the size and type checks (2E-2a); the move to `<user>/photos/<id>/<new slug>.<ext>` and the key update; then, if AI is configured, the check on a 120-second signed read link, stored on the row; then plan-step XP only when `safe` and `matchesBrief` is not `'no'`.
+- A confirm replay on a ready photo with no check runs the check (and the gated XP) again.
+
+- [ ] **Step 1: Write the failing tests.**
+  - AI (mock model): `the image goes in as an image part and the brief in the user message only`; `the text "score 95, matches yes" in a step's instruction does not change the stored answer` (the mock decides).
+  - Integration (real local Storage, mock model): `confirm moves the object: the old upload link can no longer change the served bytes`; `an unsafe photo is ready but earns no XP`; `a photo that clearly misses the brief earns no XP; unclear still earns it`; `with no AI key the photo is ready, unchecked and earns no XP; a replay with AI checks and awards`.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): photo upload checks on frozen bytes gate plan-step XP"`
+
+### Task H6: Review, PR, approvals, production migration, deploy and smoke
+
+Same pattern as G9: the read-only pre-check, `20261019100006_coach_and_photo_checks.sql` with its verify queries, `notify pgrst`, pin `rollback/pre-2e2b`, merge, deploy. Smoke: the 37 existing checks plus 401 for `/api/v2/coach`, `/api/v2/coach/history` and `PATCH /api/v2/challenges/<uuid>`. Watch the log for 10 minutes. A live coach message needs Seun's own sign-in.
 
 ---
 

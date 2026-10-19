@@ -27,7 +27,7 @@ describe.skipIf(!db)('v2 my spots against the local Supabase', () => {
 
   beforeAll(async () => {
     const env = { ...testEnv(db!), GOOGLE_MAPS_SERVER_API_KEY: 'AIzaFAKE-test' };
-    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fakeGoogle, weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } } };
+    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fakeGoogle, weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } } };
     [a, b] = await Promise.all([createTestUser(db!, 'spots-a'), createTestUser(db!, 'spots-b')]);
   });
   afterAll(async () => {

@@ -11,6 +11,14 @@ export interface PromptSpec<I, O> {
   schema: z.ZodType<O>;
 }
 
+/** A versioned chat prompt: fixed instructions and a render function for the context message. */
+export interface ChatSpec<I> {
+  id: string;
+  version: number;
+  instructions: string;
+  render(input: I): string;
+}
+
 /**
  * The OpenAI provider sends strict JSON schemas, where every field must be present, so output
  * schemas use `.nullable()` and never `.optional()`. Throws naming the first optional field.

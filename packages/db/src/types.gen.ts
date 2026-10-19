@@ -37,6 +37,19 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"fotoai_coach_messages": {
+                  Row: {
+                    "content": string,"context": Json | null,"created_at": string,"id": string,"proposal": Json | null,"role": string,"user_id": string
+                  }
+                  Insert: {
+                    "content": string,"context"?: Json | null,"created_at"?: string,"id"?: string,"proposal"?: Json | null,"role": string,"user_id": string
+                  }
+                  Update: {
+                    "content"?: string,"context"?: Json | null,"created_at"?: string,"id"?: string,"proposal"?: Json | null,"role"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"fotoai_daily_challenges": {
                   Row: {
                     "category": string | null,"challenge_text": string,"challenge_type": string,"completed_date": string | null,"created_at": string,"difficulty": string | null,"duration": string | null,"editing_direction": string | null,"id": string,"issued_date": string,"legacy_appwrite_id": string | null,"location": string | null,"mastery_area": string | null,"narrative_context": string | null,"recommended_gear": (string)[],"shot_list": (string)[],"source": string,"status": string,"success_criteria": string | null,"technical_level": number | null,"tips": string | null,"user_id": string,"weather_conditions": string | null,"what_to_look_for": string | null
@@ -179,13 +192,13 @@ isOneToOne: false
                   ]
                 },"fotoai_photos": {
                   Row: {
-                    "aperture": number | null,"bytes": number,"camera_make": string | null,"camera_model": string | null,"created_at": string,"focal_mm": number | null,"frame_id": string | null,"id": string,"iso": number | null,"lat": number | null,"lens_model": string | null,"lng": number | null,"mime": string,"object_key": string,"roll_id": string | null,"shutter_s": number | null,"source": string,"status": string,"step_id": string | null,"taken_at": string | null,"taken_offset": string | null,"updated_at": string,"user_id": string
+                    "aperture": number | null,"bytes": number,"camera_make": string | null,"camera_model": string | null,"check_genre": string | null,"check_matches": string | null,"check_prompt": string | null,"check_safe": boolean | null,"checked_at": string | null,"created_at": string,"focal_mm": number | null,"frame_id": string | null,"id": string,"iso": number | null,"lat": number | null,"lens_model": string | null,"lng": number | null,"mime": string,"object_key": string,"roll_id": string | null,"shutter_s": number | null,"source": string,"status": string,"step_id": string | null,"taken_at": string | null,"taken_offset": string | null,"updated_at": string,"user_id": string
                   }
                   Insert: {
-                    "aperture"?: number | null,"bytes": number,"camera_make"?: string | null,"camera_model"?: string | null,"created_at"?: string,"focal_mm"?: number | null,"frame_id"?: string | null,"id": string,"iso"?: number | null,"lat"?: number | null,"lens_model"?: string | null,"lng"?: number | null,"mime": string,"object_key": string,"roll_id"?: string | null,"shutter_s"?: number | null,"source": string,"status"?: string,"step_id"?: string | null,"taken_at"?: string | null,"taken_offset"?: string | null,"updated_at"?: string,"user_id": string
+                    "aperture"?: number | null,"bytes": number,"camera_make"?: string | null,"camera_model"?: string | null,"check_genre"?: string | null,"check_matches"?: string | null,"check_prompt"?: string | null,"check_safe"?: boolean | null,"checked_at"?: string | null,"created_at"?: string,"focal_mm"?: number | null,"frame_id"?: string | null,"id": string,"iso"?: number | null,"lat"?: number | null,"lens_model"?: string | null,"lng"?: number | null,"mime": string,"object_key": string,"roll_id"?: string | null,"shutter_s"?: number | null,"source": string,"status"?: string,"step_id"?: string | null,"taken_at"?: string | null,"taken_offset"?: string | null,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "aperture"?: number | null,"bytes"?: number,"camera_make"?: string | null,"camera_model"?: string | null,"created_at"?: string,"focal_mm"?: number | null,"frame_id"?: string | null,"id"?: string,"iso"?: number | null,"lat"?: number | null,"lens_model"?: string | null,"lng"?: number | null,"mime"?: string,"object_key"?: string,"roll_id"?: string | null,"shutter_s"?: number | null,"source"?: string,"status"?: string,"step_id"?: string | null,"taken_at"?: string | null,"taken_offset"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "aperture"?: number | null,"bytes"?: number,"camera_make"?: string | null,"camera_model"?: string | null,"check_genre"?: string | null,"check_matches"?: string | null,"check_prompt"?: string | null,"check_safe"?: boolean | null,"checked_at"?: string | null,"created_at"?: string,"focal_mm"?: number | null,"frame_id"?: string | null,"id"?: string,"iso"?: number | null,"lat"?: number | null,"lens_model"?: string | null,"lng"?: number | null,"mime"?: string,"object_key"?: string,"roll_id"?: string | null,"shutter_s"?: number | null,"source"?: string,"status"?: string,"step_id"?: string | null,"taken_at"?: string | null,"taken_offset"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {

@@ -103,3 +103,18 @@ test('the 2E-2a scans route module loads and answers 401 without a token (no net
   const scans = await import('../../app/api/v2/rolls/[id]/scans/route.ts');
   assert.equal((await scans.POST(new Request(`http://localhost/api/v2/rolls/${id}/scans`, { method: 'POST', body: '{}' }), { params: { id } })).status, 401);
 });
+
+test('the 2E-2b challenge PATCH route answers 401 without a token (no network call)', async () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  const one = await import('../../app/api/v2/challenges/[id]/route.ts');
+  const res = await one.PATCH(new Request(`http://localhost/api/v2/challenges/${id}`, { method: 'PATCH', body: '{"status":"accepted"}' }), { params: { id } });
+  assert.equal(res.status, 401);
+});
+
+test('the 2E-2b coach route modules load and answer 401 without a token (no network call)', async () => {
+  const coach = await import('../../app/api/v2/coach/route.ts');
+  assert.equal((await coach.POST(new Request('http://localhost/api/v2/coach', { method: 'POST', body: '{}' }), { params: {} })).status, 401);
+  const history = await import('../../app/api/v2/coach/history/route.ts');
+  assert.equal((await history.GET(new Request('http://localhost/api/v2/coach/history'), { params: {} })).status, 401);
+  assert.equal((await history.DELETE(new Request('http://localhost/api/v2/coach/history', { method: 'DELETE' }), { params: {} })).status, 401);
+});
