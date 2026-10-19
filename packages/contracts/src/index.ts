@@ -27,9 +27,21 @@ export {
   PHOTO_TYPES,
   PhotoRef,
   PLACE_ID_RE,
+  PlaceExplanationDto,
   PlaceDetail,
   PlaceSummary,
   SpotDto,
   SpotInput,
   SpotPatch,
 } from './places.ts';
+export {
+  GeneratePlanInput,
+  parseGeneratePlanInput,
+  PLAN_STATUSES,
+  PlanPatch,
+  PlanStepDto,
+  PlanSummaryDto,
+  ShootPlanDto,
+  STEP_STATUSES,
+  StepPatch,
+} from './plans.ts';

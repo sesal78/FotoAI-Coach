@@ -11,6 +11,10 @@ export interface ServerEnv {
   FOTOAI_COOKIE_SECURE: boolean;
   /** Server key for Google Places (New). Optional: without it the Places endpoints answer 500 config. */
   GOOGLE_MAPS_SERVER_API_KEY?: string;
+  /** OpenAI key (the live app's existing variable). Optional: without it the AI endpoints answer 500 config. */
+  OPENAI_API_KEY?: string;
+  /** OpenAI model id for the v2 AI layer. */
+  FOTOAI_AI_MODEL: string;
   NODE_ENV: 'development' | 'test' | 'production';
 }
 
@@ -30,6 +34,8 @@ export function createServerEnv(source: EnvSource = process.env): ServerEnv {
       FOTOAI_SUPABASE_SERVICE_ROLE_KEY: trimmed,
       FOTOAI_COOKIE_SECURE: z.enum(['true', 'false']).optional(),
       GOOGLE_MAPS_SERVER_API_KEY: trimmed.optional(),
+      OPENAI_API_KEY: trimmed.optional(),
+      FOTOAI_AI_MODEL: trimmed.default('gpt-6-luna'),
       NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     },
     runtimeEnv: source,
@@ -50,6 +56,8 @@ export function createServerEnv(source: EnvSource = process.env): ServerEnv {
     FOTOAI_SUPABASE_SERVICE_ROLE_KEY: env.FOTOAI_SUPABASE_SERVICE_ROLE_KEY,
     FOTOAI_COOKIE_SECURE: cookieSecure,
     GOOGLE_MAPS_SERVER_API_KEY: env.GOOGLE_MAPS_SERVER_API_KEY,
+    OPENAI_API_KEY: env.OPENAI_API_KEY,
+    FOTOAI_AI_MODEL: env.FOTOAI_AI_MODEL,
     NODE_ENV: env.NODE_ENV,
   };
 }

@@ -1,0 +1,21 @@
+{
+  "name": "@fotoai/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "4.0.83",
+    "@fotoai/contracts": "workspace:*",
+    "@fotoai/core": "workspace:*",
+    "ai": "7.0.127",
+    "zod": "^3.25.76"
+  }
+}

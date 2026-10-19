@@ -1,6 +1,7 @@
 export { CATALOG, findBody, findLens } from './gear/catalog.ts';
 export {
   clampSettings,
+  exposureStops,
   maxApertureAt,
   validateSettings,
   type FilmLoad,

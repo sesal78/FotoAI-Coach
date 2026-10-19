@@ -26,7 +26,7 @@ describe.skipIf(!db)('v2 explore and place endpoints against the local Supabase'
 
   beforeAll(async () => {
     const env = { ...testEnv(db!), GOOGLE_MAPS_SERVER_API_KEY: KEY };
-    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fakeGoogle, weather: { get: async () => null } };
+    deps = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fakeGoogle, weather: { get: async () => null }, ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); } } };
     a = await createTestUser(db!, 'explore-a');
   });
   afterAll(async () => {

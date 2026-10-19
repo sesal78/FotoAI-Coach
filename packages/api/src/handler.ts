@@ -4,6 +4,7 @@
 
 import { HTTP_STATUS_BY_CODE, type ErrorCode } from '@fotoai/contracts';
 import { createTokenVerifier, type TokenVerifier } from '@fotoai/db';
+import { createAi, type AiClient } from '@fotoai/ai';
 import { createServerEnv, type ServerEnv } from '@fotoai/env';
 import { createWeatherService, type FetchLike, type WeatherService } from '@fotoai/places';
 
@@ -29,6 +30,8 @@ export interface V2Deps {
   fetch: FetchLike;
   /** One weather service per process, so its cache is shared. */
   weather: WeatherService;
+  /** The AI client (OpenAI through the AI SDK); a mock model in tests. */
+  ai: AiClient;
 }
 
 export type V2DepsProvider = () => V2Deps;
@@ -65,7 +68,9 @@ export const defaultV2Deps: V2DepsProvider = () => {
   if (!memo) {
     const env = createServerEnv();
     const fetchImpl: FetchLike = (url, init) => fetch(url, init);
-    memo = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fetchImpl, weather: createWeatherService({ fetch: fetchImpl }) };
+    memo = { env, now: () => new Date(), verifyToken: createTokenVerifier(env), fetch: fetchImpl, weather: createWeatherService({ fetch: fetchImpl }),
+      ai: createAi({ apiKey: env.OPENAI_API_KEY, modelId: env.FOTOAI_AI_MODEL }),
+    };
   }
   return memo;
 };

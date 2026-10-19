@@ -50,3 +50,12 @@ test('the Google Maps server key is optional, trimmed, and empty means not set',
   expect(createServerEnv({ ...ok, GOOGLE_MAPS_SERVER_API_KEY: '' }).GOOGLE_MAPS_SERVER_API_KEY).toBeUndefined();
   expect(createServerEnv({ ...ok, GOOGLE_MAPS_SERVER_API_KEY: '  AIzaTEST  ' }).GOOGLE_MAPS_SERVER_API_KEY).toBe('AIzaTEST');
 });
+
+test('the OpenAI key and model are optional; the model defaults to gpt-6-luna', () => {
+  expect(createServerEnv(ok)).toMatchObject({ OPENAI_API_KEY: undefined, FOTOAI_AI_MODEL: 'gpt-6-luna' });
+  expect(createServerEnv({ ...ok, OPENAI_API_KEY: '' }).OPENAI_API_KEY).toBeUndefined();
+  expect(createServerEnv({ ...ok, OPENAI_API_KEY: ' sk-test ', FOTOAI_AI_MODEL: 'gpt-5-nano' })).toMatchObject({
+    OPENAI_API_KEY: 'sk-test',
+    FOTOAI_AI_MODEL: 'gpt-5-nano',
+  });
+});

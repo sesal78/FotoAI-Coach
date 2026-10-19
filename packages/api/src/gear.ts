@@ -197,9 +197,8 @@ async function resolveLoadout(deps: Parameters<V2Body>[1], token: string, stored
   return { body: bodyItem, lensGearId: stored.lensGearId, lens, film: stored.film };
 }
 
-export const getLoadout: V2Body = async (request, deps) => {
-  rejectBrowserIdentity(new URL(request.url).searchParams);
-  const principal = await requirePrincipal(request, deps);
+/** The caller's saved loadout, resolved with capabilities; null when none is saved or its gear is gone. */
+export async function loadSavedLoadout(deps: Parameters<V2Body>[1], principal: { userId: string; accessToken: string }): Promise<LoadoutDto | null> {
   const { data, error } = await createUserClient(deps.env, principal.accessToken)
     .from(PREFS)
     .select('loadout')
@@ -207,14 +206,20 @@ export const getLoadout: V2Body = async (request, deps) => {
     .maybeSingle();
   if (error) throw upstream('load the loadout');
   const stored = (data as { loadout: StoredLoadout | null } | null)?.loadout ?? null;
-  if (!stored) return json({ loadout: null });
+  if (!stored) return null;
   try {
-    return json({ loadout: await resolveLoadout(deps, principal.accessToken, stored) });
+    return await resolveLoadout(deps, principal.accessToken, stored);
   } catch (err) {
     // Gear deleted since the loadout was saved: there is no usable loadout any more.
-    if (err instanceof ApiError && (err.code === 'not_found' || err.code === 'validation')) return json({ loadout: null });
+    if (err instanceof ApiError && (err.code === 'not_found' || err.code === 'validation')) return null;
     throw err;
   }
+}
+
+export const getLoadout: V2Body = async (request, deps) => {
+  rejectBrowserIdentity(new URL(request.url).searchParams);
+  const principal = await requirePrincipal(request, deps);
+  return json({ loadout: await loadSavedLoadout(deps, principal) });
 };
 
 export const putLoadout: V2Body = async (request, deps) => {

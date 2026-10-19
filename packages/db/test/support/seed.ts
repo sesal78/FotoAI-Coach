@@ -21,6 +21,7 @@ export function testEnv(db: LocalDb) {
     FOTOAI_SUPABASE_SERVICE_ROLE_KEY: db.serviceRoleKey,
     FOTOAI_COOKIE_SECURE: false,
     NODE_ENV: 'test' as const,
+    FOTOAI_AI_MODEL: 'gpt-6-luna',
   };
 }
 
