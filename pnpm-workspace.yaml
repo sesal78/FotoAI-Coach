@@ -3,3 +3,18 @@ packages:
   - packages/*
   - services/*
   - nextjs_space
+
+# The live app's @types/react-dom asks for any @types/react; keep it on the live app's
+# React 18 types now that apps/mobile brings React 19 types into the workspace.
+overrides:
+  '@types/react-dom@18.2.7>@types/react': 18.2.22
+
+# next 14 reads React types without declaring them, so pnpm gave it whichever @types/react it
+# hoisted (React 19 from apps/mobile). As an optional peer it gets the live app's React 18 types.
+packageExtensions:
+  next@14:
+    peerDependencies:
+      '@types/react': '*'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true

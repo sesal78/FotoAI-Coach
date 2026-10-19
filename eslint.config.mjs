@@ -14,10 +14,20 @@ export default tseslint.config(
       // drizzle-kit pull output: kept byte-identical so the baseline drift test stays exact
       'packages/db/src/schema/**',
       'packages/db/drizzle/**',
+      // Expo: generated types and native folders
+      'apps/mobile/.expo/**',
+      'apps/mobile/android/**',
+      'apps/mobile/ios/**',
+      'apps/mobile/expo-env.d.ts',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Expo, Metro, Babel and Jest read these CommonJS config files in Node.
+    files: ['apps/mobile/*.config.js'],
+    languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly', __dirname: 'readonly', process: 'readonly' } },
+  },
   {
     // The service-role client bypasses RLS: only guarded helpers in privileged/ folders may use it.
     files: ['**/*.ts', '**/*.tsx', '**/*.mjs'],
