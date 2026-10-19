@@ -43,3 +43,10 @@ test('the shoot-plans undo refuses to start while any plan exists', () => {
   expect(guard).toBeGreaterThan(-1);
   expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
 });
+
+test('the film-rolls undo refuses to start while any roll exists', () => {
+  const text = read('20261019100004_film_rolls.undo.sql');
+  const guard = firstIndex(text, /raise exception[^;]*roll/i);
+  expect(guard).toBeGreaterThan(-1);
+  expect(guard).toBeLessThan(firstIndex(text, /\bdrop\b/i));
+});

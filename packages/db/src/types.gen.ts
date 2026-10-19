@@ -63,6 +63,56 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"fotoai_film_frames": {
+                  Row: {
+                    "created_at": string,"frame_no": number,"id": string,"lat": number | null,"lens_gear_id": string | null,"lng": number | null,"note": string | null,"roll_id": string,"settings": NonNullable<Json>,"shot_at": string,"step_id": string | null,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"frame_no": number,"id": string,"lat"?: number | null,"lens_gear_id"?: string | null,"lng"?: number | null,"note"?: string | null,"roll_id": string,"settings": NonNullable<Json>,"shot_at": string,"step_id"?: string | null,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"frame_no"?: number,"id"?: string,"lat"?: number | null,"lens_gear_id"?: string | null,"lng"?: number | null,"note"?: string | null,"roll_id"?: string,"settings"?: NonNullable<Json>,"shot_at"?: string,"step_id"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fotoai_film_frames_lens_fkey"
+      columns: ["lens_gear_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_user_gear"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "fotoai_film_frames_roll_fkey"
+      columns: ["roll_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_film_rolls"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "fotoai_film_frames_step_fkey"
+      columns: ["step_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_plan_steps"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"fotoai_film_rolls": {
+                  Row: {
+                    "body_gear_id": string | null,"box_iso": number,"created_at": string,"exposures": number,"finished_at": string | null,"id": string,"loaded_at": string,"notes": string | null,"rated_iso": number,"status": string,"stock_id": string | null,"stock_name": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "body_gear_id"?: string | null,"box_iso": number,"created_at"?: string,"exposures": number,"finished_at"?: string | null,"id": string,"loaded_at"?: string,"notes"?: string | null,"rated_iso": number,"status"?: string,"stock_id"?: string | null,"stock_name": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "body_gear_id"?: string | null,"box_iso"?: number,"created_at"?: string,"exposures"?: number,"finished_at"?: string | null,"id"?: string,"loaded_at"?: string,"notes"?: string | null,"rated_iso"?: number,"status"?: string,"stock_id"?: string | null,"stock_name"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fotoai_film_rolls_body_fkey"
+      columns: ["body_gear_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_user_gear"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"fotoai_gear_bodies": {
                   Row: {
                     "bulb": boolean | null,"fixed_lens_id": string | null,"flash_sync_s": number | null,"id": string,"iso_max": number | null,"iso_min": number | null,"make": string,"metering": string | null,"model": string,"modes": (string)[],"mount": string | null,"shutter_aperture_limits": Json | null,"shutter_fastest_s": number,"shutter_slowest_s": number | null,"sources": (string)[],"type": string

@@ -756,6 +756,14 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "fotoai_plan_steps_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_plan_steps_id_user_key"
+        },
         "fotoai_plan_steps_plan_position_key": {
           "columns": [
             "plan_id",
@@ -785,6 +793,401 @@
         "fotoai_plan_steps_title_check": {
           "name": "fotoai_plan_steps_title_check",
           "value": "(char_length(title) >= 1) AND (char_length(title) <= 80)"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_film_rolls": {
+      "name": "fotoai_film_rolls",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stock_id": {
+          "name": "stock_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stock_name": {
+          "name": "stock_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "box_iso": {
+          "name": "box_iso",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rated_iso": {
+          "name": "rated_iso",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exposures": {
+          "name": "exposures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body_gear_id": {
+          "name": "body_gear_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'loaded'"
+        },
+        "loaded_at": {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_film_rolls_user_created_idx": {
+          "name": "fotoai_film_rolls_user_created_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            },
+            {
+              "expression": "created_at",
+              "asc": false,
+              "nulls": "first",
+              "opclass": "timestamptz_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_film_rolls_body_fkey": {
+          "name": "fotoai_film_rolls_body_fkey",
+          "tableFrom": "fotoai_film_rolls",
+          "tableTo": "fotoai_user_gear",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "user_id",
+            "body_gear_id"
+          ],
+          "columnsTo": [
+            "id",
+            "user_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "fotoai_film_rolls_user_id_fkey": {
+          "name": "fotoai_film_rolls_user_id_fkey",
+          "tableFrom": "fotoai_film_rolls",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_film_rolls_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_film_rolls_id_user_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_film_rolls_box_iso_check": {
+          "name": "fotoai_film_rolls_box_iso_check",
+          "value": "box_iso > 0"
+        },
+        "fotoai_film_rolls_exposures_check": {
+          "name": "fotoai_film_rolls_exposures_check",
+          "value": "(exposures >= 1) AND (exposures <= 72)"
+        },
+        "fotoai_film_rolls_notes_check": {
+          "name": "fotoai_film_rolls_notes_check",
+          "value": "char_length(notes) <= 2000"
+        },
+        "fotoai_film_rolls_rated_iso_check": {
+          "name": "fotoai_film_rolls_rated_iso_check",
+          "value": "rated_iso > 0"
+        },
+        "fotoai_film_rolls_status_check": {
+          "name": "fotoai_film_rolls_status_check",
+          "value": "status = ANY (ARRAY['loaded'::text, 'finished'::text, 'developed'::text, 'scanned'::text])"
+        },
+        "fotoai_film_rolls_stock_id_check": {
+          "name": "fotoai_film_rolls_stock_id_check",
+          "value": "stock_id ~ '^[a-z0-9-]{1,60}$'::text"
+        },
+        "fotoai_film_rolls_stock_name_check": {
+          "name": "fotoai_film_rolls_stock_name_check",
+          "value": "(char_length(stock_name) >= 1) AND (char_length(stock_name) <= 60)"
+        }
+      },
+      "policies": {},
+      "isRLSEnabled": true
+    },
+    "public.fotoai_film_frames": {
+      "name": "fotoai_film_frames",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "roll_id": {
+          "name": "roll_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "frame_no": {
+          "name": "frame_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "settings": {
+          "name": "settings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lens_gear_id": {
+          "name": "lens_gear_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "step_id": {
+          "name": "step_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shot_at": {
+          "name": "shot_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fotoai_film_frames_step_idx": {
+          "name": "fotoai_film_frames_step_idx",
+          "columns": [
+            {
+              "expression": "step_id",
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops",
+              "isExpression": false
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "where": "(step_id IS NOT NULL)",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fotoai_film_frames_lens_fkey": {
+          "name": "fotoai_film_frames_lens_fkey",
+          "tableFrom": "fotoai_film_frames",
+          "tableTo": "fotoai_user_gear",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "user_id",
+            "lens_gear_id"
+          ],
+          "columnsTo": [
+            "id",
+            "user_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "fotoai_film_frames_roll_fkey": {
+          "name": "fotoai_film_frames_roll_fkey",
+          "tableFrom": "fotoai_film_frames",
+          "tableTo": "fotoai_film_rolls",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "roll_id",
+            "user_id"
+          ],
+          "columnsTo": [
+            "id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "fotoai_film_frames_step_fkey": {
+          "name": "fotoai_film_frames_step_fkey",
+          "tableFrom": "fotoai_film_frames",
+          "tableTo": "fotoai_plan_steps",
+          "schemaTo": "public",
+          "columnsFrom": [
+            "user_id",
+            "step_id"
+          ],
+          "columnsTo": [
+            "id",
+            "user_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "fotoai_film_frames_user_id_fkey": {
+          "name": "fotoai_film_frames_user_id_fkey",
+          "tableFrom": "fotoai_film_frames",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fotoai_film_frames_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_film_frames_id_user_key"
+        },
+        "fotoai_film_frames_roll_frame_key": {
+          "columns": [
+            "roll_id",
+            "frame_no"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_film_frames_roll_frame_key"
+        }
+      },
+      "checkConstraints": {
+        "fotoai_film_frames_frame_no_check": {
+          "name": "fotoai_film_frames_frame_no_check",
+          "value": "(frame_no >= 1) AND (frame_no <= 74)"
+        },
+        "fotoai_film_frames_lat_check": {
+          "name": "fotoai_film_frames_lat_check",
+          "value": "(lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)"
+        },
+        "fotoai_film_frames_lng_check": {
+          "name": "fotoai_film_frames_lng_check",
+          "value": "(lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)"
+        },
+        "fotoai_film_frames_note_check": {
+          "name": "fotoai_film_frames_note_check",
+          "value": "char_length(note) <= 500"
         }
       },
       "policies": {},
@@ -934,6 +1337,14 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "fotoai_user_gear_id_user_key": {
+          "columns": [
+            "id",
+            "user_id"
+          ],
+          "nullsNotDistinct": false,
+          "name": "fotoai_user_gear_id_user_key"
+        },
         "fotoai_user_gear_legacy_appwrite_id_key": {
           "columns": [
             "legacy_appwrite_id"
