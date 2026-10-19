@@ -8,17 +8,19 @@ import { SettingsDto } from './gear.ts';
 export const ROLL_STATUSES = ['loaded', 'finished', 'developed', 'scanned'] as const;
 
 const id = z.string().uuid();
+/** Client-sent ids are stored lowercase (Postgres prints uuids lowercase; some phones send uppercase). */
+const inId = z.string().uuid().transform((s) => s.toLowerCase());
 const iso = z.number().int().positive();
 
 export const RollInput = z
   .object({
-    id,
+    id: inId,
     stockId: z.string().regex(/^[a-z0-9-]{1,60}$/).optional(),
     stockName: z.string().trim().min(1).max(60).optional(),
     boxIso: iso.optional(),
     ratedIso: iso.optional(),
     exposures: z.number().int().min(1).max(72),
-    bodyGearId: id,
+    bodyGearId: inId,
     notes: z.string().trim().max(2000).optional(),
   })
   .strict()
@@ -33,11 +35,11 @@ export type RollPatch = z.infer<typeof RollPatch>;
 
 export const FrameInput = z
   .object({
-    id,
+    id: inId,
     frameNo: z.number().int().min(1).max(74),
     settings: SettingsDto,
-    lensGearId: id.optional(),
-    stepId: id.optional(),
+    lensGearId: inId.optional(),
+    stepId: inId.optional(),
     lat: z.number().min(-90).max(90).optional(),
     lng: z.number().min(-180).max(180).optional(),
     note: z.string().trim().max(500).optional(),
@@ -81,7 +83,7 @@ export type RollDto = z.infer<typeof RollDto>;
 
 export const ScanMatchInput = z
   .object({
-    photoIds: z.array(id).min(1).max(80).refine((ids) => new Set(ids).size === ids.length, 'photoIds must be unique'),
+    photoIds: z.array(inId).min(1).max(80).refine((ids) => new Set(ids).size === ids.length, 'photoIds must be unique'),
     overrides: z.record(id, z.number().int().min(1).max(74)).optional(),
   })
   .strict();

@@ -233,8 +233,10 @@ async function checkFrameSettings(deps: V2Deps, principal: Principal, roll: Roll
   const body = items.get(roll.body_gear_id)?.capability as Body | null | undefined;
   if (!body) return;
   let lens: Lens | undefined;
-  if (body.fixedLensId) lens = findLens(body.fixedLensId);
-  else if (input.lensGearId) {
+  if (body.fixedLensId) {
+    if (input.lensGearId) throw new ApiError('validation', `${body.model} has a built-in lens; leave lensGearId out`);
+    lens = findLens(body.fixedLensId);
+  } else if (input.lensGearId) {
     const item = items.get(input.lensGearId);
     if (!item) throw new ApiError('not_found', 'Lens gear not found');
     if (item.kind !== 'lens' || !item.capability) throw new ApiError('validation', 'lensGearId is not a lens with capability data');
@@ -341,8 +343,18 @@ export const matchScans: V2Body = async (request, deps, { params }) => {
   const frames = frameData as Array<{ id: string; frame_no: number; step_id: string | null }>;
   const byNo = new Map(frames.map((f) => [f.frame_no, f]));
 
+  // Frames that already hold a scan not in this request stay theirs; this request's own scans
+  // may move, so their current frames count as free.
+  const frameNoById = new Map(frames.map((f) => [f.id, f.frame_no]));
+  const { data: heldData, error: heldError } = await db.from('fotoai_photos').select('id, frame_id').eq('roll_id', rollId).not('frame_id', 'is', null);
+  if (heldError) throw upstream('load the scans');
   const taken = new Set<number>();
-  for (const [photoId, frameNo] of Object.entries(overrides)) {
+  for (const held of heldData as Array<{ id: string; frame_id: string }>) {
+    const no = frameNoById.get(held.frame_id);
+    if (no !== undefined && !photoIds.includes(held.id)) taken.add(no);
+  }
+  const lowerOverrides = Object.fromEntries(Object.entries(overrides).map(([k, v]) => [k.toLowerCase(), v]));
+  for (const [photoId, frameNo] of Object.entries(lowerOverrides)) {
     if (!photoIds.includes(photoId)) throw new ApiError('validation', 'An override names a photo that is not in photoIds');
     if (!byNo.has(frameNo)) throw new ApiError('validation', `Frame ${frameNo} is not logged on this roll`);
     if (taken.has(frameNo)) throw new ApiError('validation', `Two scans are matched to frame ${frameNo}`);
@@ -350,7 +362,7 @@ export const matchScans: V2Body = async (request, deps, { params }) => {
   }
   const free = frames.filter((f) => !taken.has(f.frame_no));
   const matches = photoIds.map((photoId) => {
-    const frameNo = overrides[photoId] ?? free.shift()?.frame_no ?? null;
+    const frameNo = lowerOverrides[photoId] ?? free.shift()?.frame_no ?? null;
     return { photoId, frameNo };
   });
 

@@ -95,6 +95,19 @@ describe.skipIf(!db)('v2 scan matching against the local Supabase', () => {
     ]);
   });
 
+  test('a second batch fills the next free frames; an override onto a held frame is a 400', async () => {
+    const rollId = await rollWithFrames(3);
+    const p1 = await scan(a);
+    expect((await (await call(matchScans, a, { method: 'POST', params: { id: rollId }, json: { photoIds: [p1] } })).json()).matches).toEqual([{ photoId: p1, frameNo: 1 }]);
+    const p2 = await scan(a);
+    expect((await (await call(matchScans, a, { method: 'POST', params: { id: rollId }, json: { photoIds: [p2] } })).json()).matches).toEqual([{ photoId: p2, frameNo: 2 }]);
+    const p3 = await scan(a);
+    const clash = await call(matchScans, a, { method: 'POST', params: { id: rollId }, json: { photoIds: [p3], overrides: { [p3]: 1 } } });
+    expect(clash.status).toBe(400);
+    // Re-matching a scan already on the roll may move it: its own frame counts as free.
+    expect((await (await call(matchScans, a, { method: 'POST', params: { id: rollId }, json: { photoIds: [p1], overrides: { [p1]: 3 } } })).json()).matches).toEqual([{ photoId: p1, frameNo: 3 }]);
+  });
+
   test('a step marked done with no photo or frame earns 0 XP', async () => {
     const { planId, stepId } = await step();
     const res = await call(patchPlanStep, a, { method: 'PATCH', params: { id: planId, stepId }, json: { status: 'done', updatedAt: new Date(Date.now() + 1000).toISOString() } });

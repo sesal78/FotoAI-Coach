@@ -43,7 +43,9 @@ export async function objectInfo(env: StorageEnv, userId: string, key: string): 
     if (error && /not.?found/i.test(error.message)) return null;
     throw new ApiError('upstream', 'Could not check the upload');
   }
-  return { bytes: data.size ?? 0, mime: data.contentType ?? 'application/octet-stream' };
+  // A Storage service without object info would read as "size 0": say it cannot check instead.
+  if (typeof data.size !== 'number') throw new ApiError('upstream', 'Could not check the upload size');
+  return { bytes: data.size, mime: data.contentType ?? 'application/octet-stream' };
 }
 
 /** A signed read link, at most 5 minutes. */

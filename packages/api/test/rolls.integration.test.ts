@@ -107,6 +107,20 @@ describe.skipIf(!db)('v2 film rolls and frames against the local Supabase', () =
     expect((data as unknown as Row[]).map((r) => r.xp_amount)).toEqual([5, 5, 5]);
   });
 
+  test('a lens on a fixed-lens body is a 400; an uppercase roll id works', async () => {
+    const gl = (await (await call(addMyGear, a, { method: 'POST', json: { catalogId: 'yashica-electro-35-gl' } })).json()).item.id;
+    const id = randomUUID().toUpperCase();
+    const res = await call(createRoll, a, { method: 'POST', json: { id, stockId: 'kodak-tri-x-400', exposures: 36, bodyGearId: gl } });
+    expect(res.status).toBe(201);
+    const roll = (await res.json()).roll;
+    expect(roll.id).toBe(id.toLowerCase());
+    const withLens = await call(addFrame, a, { method: 'POST', params: { id: roll.id }, json: frameBody({ settings: { mode: 'A', aperture: 8, iso: 400 } }) });
+    expect(withLens.status).toBe(400);
+    expect((await withLens.json()).error).toMatch(/built-in lens/);
+    const noLens = await call(addFrame, a, { method: 'POST', params: { id: roll.id }, json: frameBody({ lensGearId: undefined, settings: { mode: 'A', aperture: 8, iso: 400 } }) });
+    expect(noLens.status).toBe(201);
+  });
+
   test('status only moves forward', async () => {
     const roll = (await (await newRoll()).res.json()).roll;
     const done = await call(patchRoll, a, { method: 'PATCH', json: { status: 'finished' }, params: { id: roll.id } });

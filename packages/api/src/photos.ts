@@ -175,11 +175,16 @@ export const confirmPhoto: V2Body = async (request, deps, { params }) => {
   const principal = await requirePrincipal(request, deps);
   const row = await readPhoto(deps, principal, idParam(params));
   if (!row) throw new ApiError('not_found', 'Photo not found');
-  if (row.status === 'ready') return json({ photo: toPhoto(row) });
+  if (row.status === 'ready') {
+    // Duplicate-safe: completes an award that a crash after the ready flag may have missed.
+    if (row.step_id) await awardPlanStepXp(deps.env, principal.userId, row.step_id);
+    return json({ photo: toPhoto(row) });
+  }
 
   const info = await objectInfo(deps.env, principal.userId, row.object_key);
   if (!info) throw new ApiError('validation', 'Nothing has been uploaded for this photo yet');
   if (info.bytes !== Number(row.bytes)) throw new ApiError('validation', `The uploaded size (${info.bytes}) is not the declared size (${row.bytes})`);
+  if (info.mime !== row.mime) throw new ApiError('validation', `The uploaded type (${info.mime}) is not the declared type (${row.mime})`);
 
   const stepId = row.step_id ?? (row.taken_at ? await matchStep(deps, principal, row.taken_at) : null);
   const { data, error } = await createUserClient(deps.env, principal.accessToken)

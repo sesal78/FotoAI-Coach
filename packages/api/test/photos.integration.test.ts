@@ -129,6 +129,41 @@ describe.skipIf(!db)('v2 photos against the local Supabase (real Storage)', () =
     expect((await call(getPhotoUrl, b, { params: { id: json.id } })).status).toBe(404);
   });
 
+  test('a confirm replay after a lost award still earns the plan-step XP', async () => {
+    const c = await createTestUser(db!, 'photo-d');
+    try {
+      const stepId = await planStep(c, '2026-10-22T08:00:00.000Z');
+      const { photo, upload: link } = await (await create(c, { stepId })).json();
+      await upload(link);
+      // The ready flag was saved but the award never ran (a crash between the two).
+      await createUserClient(deps.env, c.token).from('fotoai_photos').update({ status: 'ready' } as never).eq('id', photo.id);
+      expect((await call(confirmPhoto, c, { method: 'POST', params: { id: photo.id } })).status).toBe(200);
+      const { data } = await createUserClient(deps.env, c.token).from('fotoai_xp_events').select('id').eq('source_id', stepId);
+      expect((data as unknown as Row[]).length).toBe(3);
+    } finally {
+      await deleteTestUsers(db!, [c]);
+    }
+  });
+
+  test('an uppercase client id is stored lowercase and works end to end', async () => {
+    const id = randomUUID().toUpperCase();
+    const res = await call(createPhoto, a, { method: 'POST', json: { id, source: 'gallery', mime: 'image/jpeg', bytes: BYTES.length } });
+    expect(res.status).toBe(201);
+    const { photo, upload: link } = await res.json();
+    expect(photo.id).toBe(id.toLowerCase());
+    await upload(link);
+    expect((await call(confirmPhoto, a, { method: 'POST', params: { id: id.toLowerCase() } })).status).toBe(200);
+  });
+
+  test('confirm checks the uploaded type, not only the size', async () => {
+    const { photo, upload: link } = await (await create(a)).json();
+    const anon = createClient(deps.env.FOTOAI_SUPABASE_URL, deps.env.FOTOAI_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+    await anon.storage.from('fotoai-submissions').uploadToSignedUrl(link.path, link.token, BYTES, { contentType: 'application/octet-stream' });
+    const res = await call(confirmPhoto, a, { method: 'POST', params: { id: photo.id } });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/type/i);
+  });
+
   test('the 201st upload in an hour is 429', async () => {
     const used = (await createUserClient(deps.env, a.token).from('fotoai_agent_actions').select('id', { count: 'exact', head: true }).eq('user_id', a.id).eq('action_type', 'API_REQUEST_PHOTO_UPLOAD')).count ?? 0;
     const at = new Date().toISOString();

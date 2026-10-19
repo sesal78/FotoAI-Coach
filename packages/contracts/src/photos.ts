@@ -49,15 +49,18 @@ export const ExifInput = z
   .strict();
 export type ExifInput = z.infer<typeof ExifInput>;
 
+/** Client-sent ids are stored lowercase (Postgres prints uuids lowercase; some phones send uppercase). */
+const inId = z.string().uuid().transform((s) => s.toLowerCase());
+
 export const PhotoCreateInput = z
   .object({
-    id: z.string().uuid(),
+    id: inId,
     source: z.enum(PHOTO_SOURCES),
     mime: z.enum(MIMES),
     bytes: z.number().int().min(1).max(MAX_PHOTO_BYTES),
     exif: ExifInput.optional(),
-    stepId: z.string().uuid().optional(),
-    rollId: z.string().uuid().optional(),
+    stepId: inId.optional(),
+    rollId: inId.optional(),
   })
   .strict();
 export type PhotoCreateInput = z.infer<typeof PhotoCreateInput>;
