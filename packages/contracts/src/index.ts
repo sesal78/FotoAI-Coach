@@ -1,6 +1,7 @@
 export { ApiErrorBody, ERROR_CODES, HTTP_STATUS_BY_CODE, parseApiError, type ErrorCode } from './errors.ts';
 export {
   CHALLENGE_SOURCES,
+  ActiveChallengeResponse,
   CHALLENGE_STATUSES,
   ChallengeDto,
   ChallengeListResponse,
@@ -49,3 +50,4 @@ export {
 export { FrameDto, FrameInput, ROLL_STATUSES, RollDto, RollInput, RollPatch, ScanMatchInput } from './film.ts';
 export { ExifInput, MAX_PHOTO_BYTES, PHOTO_MIME_EXTENSIONS, PHOTO_SOURCES, PhotoCreateInput, PhotoDto, type PhotoMime } from './photos.ts';
 export { COACH_SCREENS, CoachInput, CoachMessageDto, CoachProposal, CoachReply } from './coach.ts';
+export { MeResponse } from './me.ts';

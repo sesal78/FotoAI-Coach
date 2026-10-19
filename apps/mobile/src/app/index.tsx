@@ -1,9 +1,8 @@
-import { Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
 
-export default function Home() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>FotoAI</Text>
-    </View>
-  );
+import { useSession } from '../auth/session';
+
+export default function Index() {
+  const { status } = useSession();
+  return <Redirect href={status === 'signed_in' ? '/today' : '/sign-in'} />;
 }

@@ -25,8 +25,9 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     // Expo, Metro, Babel and Jest read these CommonJS config files in Node.
-    files: ['apps/mobile/*.config.js'],
+    files: ['apps/mobile/*.config.js', 'apps/mobile/test/*.js'],
     languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly', __dirname: 'readonly', process: 'readonly' } },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
     // The service-role client bypasses RLS: only guarded helpers in privileged/ folders may use it.
