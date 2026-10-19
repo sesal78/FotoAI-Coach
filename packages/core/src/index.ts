@@ -33,3 +33,12 @@ export {
   type UserSkillState,
   type XPAwardResult,
 } from './skills/skills.ts';
+export {
+  canMove,
+  CHALLENGE_MOVES,
+  completedFieldForChallengeType,
+  nextStreak,
+  progressAfterCompletion,
+  type ChallengeState,
+  type ProgressCounts,
+} from './challenges/rules.ts';

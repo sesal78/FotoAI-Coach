@@ -41,3 +41,8 @@ export const ChallengeListResponse = z.object({
 });
 
 export type ChallengeListResponse = z.infer<typeof ChallengeListResponse>;
+
+/** PATCH /api/v2/challenges/:id. Moves go forward only (see CHALLENGE_MOVES in @fotoai/core). */
+export const ChallengeStatusPatch = z.object({ status: z.enum(['accepted', 'skipped', 'completed']) }).strict();
+
+export type ChallengeStatusPatch = z.infer<typeof ChallengeStatusPatch>;

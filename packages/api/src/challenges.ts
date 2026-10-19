@@ -1,17 +1,21 @@
-// v2 challenges: the active challenge, a paged list and one challenge's detail.
+// v2 challenges: the active challenge, a paged list, one challenge's detail and status changes.
 // Rows come through the user's own token (createUserClient), so RLS limits them to the owner.
 
 import {
   CHALLENGE_STATUSES,
+  ChallengeStatusPatch,
   type ChallengeDto,
   type ChallengeListResponse,
   type ChallengeSource,
   type ChallengeStatus,
 } from '@fotoai/contracts';
+import { canMove, CHALLENGE_MOVES, progressAfterCompletion } from '@fotoai/core';
 import { createUserClient, type Database } from '@fotoai/db';
 
-import { rejectBrowserIdentity, requirePrincipal } from './auth.ts';
+import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
 import { ApiError, json, type V2Body } from './handler.ts';
+import { readJsonObject } from './http.ts';
+import { awardChallengeXp } from './privileged/xp.ts';
 
 type ChallengeRow = Database['public']['Tables']['fotoai_daily_challenges']['Row'];
 
@@ -142,4 +146,88 @@ export const getChallenge: V2Body = async (request, deps, { params }) => {
   if (error) throw loadFailed();
   if (!data) throw new ApiError('not_found', 'Challenge not found');
   return json({ challenge: toV2Challenge(data) });
+};
+
+type UserClient = ReturnType<typeof createUserClient>;
+type Target = ChallengeStatusPatch['status'];
+
+async function readOwnChallenge(client: UserClient, id: string): Promise<ChallengeRow> {
+  const { data, error } = await client.from(TABLE).select('*').eq('id', id).maybeSingle();
+  if (error) throw loadFailed();
+  if (!data) throw new ApiError('not_found', 'Challenge not found');
+  return data;
+}
+
+const cannotMove = (from: string, to: Target) => new ApiError('validation', `A ${from} challenge cannot move to ${to}`);
+
+/** The statuses a challenge may be in for an update to `to` to be allowed. */
+const sourcesOf = (to: Target) => Object.entries(CHALLENGE_MOVES).filter(([, moves]) => moves.includes(to)).map(([from]) => from);
+
+/** One completion on the caller's progress row (user token, as the live app does). */
+async function recordCompletion(client: UserClient, principal: Principal, challenge: ChallengeRow, now: Date): Promise<void> {
+  const failed = () => new ApiError('upstream', 'Could not update progress');
+  const found = await client.from('fotoai_user_progress').select('*').maybeSingle();
+  if (found.error) throw failed();
+  let progress = found.data;
+  if (!progress) {
+    const made = await client.from('fotoai_user_progress').insert({ user_id: principal.userId }).select('*').single();
+    if (made.error || !made.data) throw failed();
+    progress = made.data;
+  }
+  const { error } = await client
+    .from('fotoai_user_progress')
+    .update(progressAfterCompletion(progress, challenge.challenge_type, now) as never)
+    .eq('id', progress.id);
+  if (error) throw failed();
+}
+
+/**
+ * PATCH /api/v2/challenges/:id { status }. The update only runs where the current status may move
+ * to the new one, so a completion counts once even when two requests race. Repeating the current
+ * status is a 200 with changed: false; a repeated completion also re-sends the XP award, which
+ * the award function turns into a duplicate (so an award lost to an error is not lost for good).
+ */
+export const patchChallenge: V2Body = async (request, deps, { params }) => {
+  rejectBrowserIdentity(new URL(request.url).searchParams);
+  const principal = await requirePrincipal(request, deps);
+  const rawId = params.id ?? '';
+  if (!UUID.test(rawId)) throw new ApiError('validation', 'Challenge id must be a UUID');
+  const id = rawId.toLowerCase();
+  const body = await readJsonObject(request);
+  rejectBrowserIdentity(body);
+  const parsed = ChallengeStatusPatch.safeParse(body);
+  if (!parsed.success) throw new ApiError('validation', 'status must be accepted, skipped or completed');
+  const to = parsed.data.status;
+
+  const client = createUserClient(deps.env, principal.accessToken);
+  const unchanged = async (row: ChallengeRow) => {
+    if (to === 'completed') await awardChallengeXp(deps.env, principal.userId, row);
+    return json({ challenge: toV2Challenge(row), changed: false });
+  };
+
+  const current = await readOwnChallenge(client, id);
+  if (current.status === to) return unchanged(current);
+  if (!canMove(current.status, to)) throw cannotMove(current.status, to);
+
+  const now = deps.now();
+  const { data, error } = await client
+    .from(TABLE)
+    .update(to === 'completed' ? { status: to, completed_date: now.toISOString() } : { status: to })
+    .eq('id', id)
+    .in('status', sourcesOf(to))
+    .select('*');
+  if (error) throw new ApiError('upstream', 'Could not save the challenge');
+  const row = data?.[0];
+  if (!row) {
+    // Another request moved it first: answer as if this one came second.
+    const again = await readOwnChallenge(client, id);
+    if (again.status === to) return unchanged(again);
+    throw cannotMove(again.status, to);
+  }
+
+  if (to === 'completed') {
+    await recordCompletion(client, principal, row, now);
+    await awardChallengeXp(deps.env, principal.userId, row);
+  }
+  return json({ challenge: toV2Challenge(row), changed: true });
 };

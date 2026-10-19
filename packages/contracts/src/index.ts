@@ -4,6 +4,7 @@ export {
   CHALLENGE_STATUSES,
   ChallengeDto,
   ChallengeListResponse,
+  ChallengeStatusPatch,
   type ChallengeSource,
   type ChallengeStatus,
 } from './challenges.ts';

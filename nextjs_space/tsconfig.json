@@ -35,7 +35,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".build/types/**/*.ts"
+    ".build/types/**/*.ts",
+    "../../fotoai-build-2e2b/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

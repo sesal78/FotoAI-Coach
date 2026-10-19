@@ -16,6 +16,7 @@ export {
   getChallenge,
   listChallenges,
   parseListQuery,
+  patchChallenge,
   toV2Challenge,
 } from './challenges.ts';
 export { getPreferences, patchPreferences } from './preferences.ts';
