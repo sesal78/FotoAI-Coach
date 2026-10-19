@@ -1439,18 +1439,187 @@ Same pattern as D8:
 7. A live AI call needs a signed-in session, so it waits for Seun (agents do not type passwords). Until the Phase 3 app exists, it is covered by the mock-model integration tests.
 8. On failure: redeploy the pinned rollback branch. The migration stays, because it only adds.
 
-### 2E-2 — Film, photos and coach (task level; expanded after 2E-1 ships)
+### 2E-2 — Film, photos and coach (expanded 19 Oct 2026 after 2E-1 shipped)
+
+2E-2 ships in two parts, like 2E:
+- **2E-2a, film and photos** (step level below): film stocks, the skill catalog in core, rolls and frames, photos with EXIF and phone uploads, scan matching, and XP for plan steps.
+- **2E-2b, challenges, coach and upload checks** (task level below; expanded after 2E-2a ships): these need the AI client to take images, tools and history, which is new AI-layer work.
+
+**What the live code has (checked 19 Oct 2026):**
+- One private bucket, `fotoai-submissions` (50 MB, image and RAW MIME types). Users have one Storage policy: insert under their own `submissions/` path. There is no select, update or delete policy; reads are short signed URLs made with the service role.
+- Every live upload is multipart to Next.js. `packages/api` has no multipart reader (JSON bodies are capped at 4 KB) and no Storage code.
+- XP goes only through `fotoai_award_skill_xp` (9 arguments, service role). `plan_step` is already an allowed source kind. The thresholds and prerequisites it needs come from `SKILL_TREE` in `nextjs_space/lib/skills.ts` (35 skills), which only 2 files import. Submission XP is 25, split over 3 foundational skills.
+- Plan steps have no skill and no photo or frame link. `fotoai_user_gear` and `fotoai_plan_steps` have no `unique (id, user_id)`, which composite owner keys need.
+- The ESLint rule allows the service client only in `packages/db/**` and `**/src/privileged/**`; no `privileged/` folder exists yet.
+
+**Film stock facts (checked 19 Oct 2026; sources in `phase2e2-sources-2026-10-19.md`, research folder):** Kodak Portra 160/400/800 (also sold as Ektacolor Pro since March 2026), Ektar 100, Gold 200, UltraMax 400, Tri-X 400, T-MAX 100/400; Ilford HP5 Plus, FP4 Plus 125, Delta 100/400/3200 (box ISO 1000, rated 3200), XP2 Super; Fujifilm 200 and 400; CineStill 800T and 400D; Lomography Color Negative 400. ColorPlus 200 and Harman Phoenix are left out: their values could not be sourced well enough.
+
+**2E-2a decisions (planner's calls):**
+- **Phone uploads go straight to Storage with a one-time upload link.** The server makes a signed upload URL for an exact path (`<user>/photos/<photoId>/<random>.<ext>`) with the service role, from `src/privileged/`. The phone uploads the bytes to it, then confirms. The live Storage policies do not change, and no file passes through the API. The bucket's own size and MIME limits still apply.
+- **A new `fotoai_photos` table** holds every photo that is not a challenge submission: gallery, scan or camera. The phone reads EXIF itself and sends the fields; every EXIF field is optional (the GR IIIx may not write `LensModel` or `OffsetTimeOriginal`). The photo's own GPS is the user's data, so it is stored.
+- **Ids come from the phone.** Rolls, frames and photos are created with a client-made UUID, so a replayed offline write is a no-op that returns the stored record (Review Focus 5).
+- **Frames are append-only** (insert and read only). A roll can be deleted, which deletes its frames. A frame number may run to the exposure count plus 2, because a 36-exposure roll often gives 37 or 38 frames.
+- **The skill catalog moves to `@fotoai/core` now**, not in 2E-2b: plan-step XP needs it. `nextjs_space/lib/skills.ts` re-exports it, so the live app is unchanged.
+- **Plan-step XP:** 15 XP, split over the 3 foundational skills (5 each), source `plan_step`, source id the step id. It is awarded the first time a ready photo or a logged frame is linked to the step; the award function's duplicate rule stops a second award.
+- **Photo-to-step matching is by time only.** A photo with no step is linked to a step only when exactly one of the user's active plan steps on that local date starts within 45 minutes of the photo's time. Place is not checked: a Google plan stores no coordinates (Google terms).
+- **New rate limit:** `photo_upload: 200` per user per hour.
+- **Migration file names** go on from 2E-1: `20261019100004_film_rolls.sql` and `20261019100005_photos.sql`.
+
+### Task G1: Film stocks
+
+**Files:**
+- Create: `packages/core/src/film/stocks.ts`; modify `packages/core/src/index.ts`
+- Test: `packages/core/test/stocks.test.ts`
+
+**Interfaces:**
+- `interface FilmStock { id: string; make: string; names: string[]; boxIso: number; ratedIso?: number; process: 'C-41' | 'B&W' | 'E-6'; formats: Array<'135-24' | '135-36' | '120'>; sources: string[] }`.
+- `FILM_STOCKS: readonly FilmStock[]` with the stocks above; `findStock(id: string): FilmStock | undefined`.
+- Values that could not be confirmed are left out (the 2C rule). Delta 3200 has `boxIso: 1000, ratedIso: 3200`.
+
+- [ ] **Step 1: Write the failing tests:** `every stock has a source and a unique slug id`; `Portra 400 is ISO 400 and also named Ektacolor Pro 400`; `Tri-X 400 is a B&W ISO 400 stock in 135-36 and 120`; `Delta 3200 is box ISO 1000, rated 3200`.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate).
+- [ ] **Step 3: Commit.** `git commit -m "feat(core): sourced film stock list"`
+
+### Task G2: Skill catalog in core
+
+**Files:**
+- Create: `packages/core/src/skills/skills.ts` (`SKILL_TREE`, `getSkillById`, `XP_AMOUNTS`, `FOUNDATIONAL_SKILLS`, and the types, moved from `nextjs_space/lib/skills.ts`)
+- Modify: `nextjs_space/lib/skills.ts` (re-exports from `@fotoai/core`; nothing else changes), `nextjs_space/lib/fotoai/xp.ts` (imports `FOUNDATIONAL_SKILLS` from core instead of its own copy), `packages/core/src/index.ts`
+- Test: `packages/core/test/skills.test.ts`; the live app's existing tests
+
+**Interfaces:**
+- The same names, shapes and values as today. `XP_AMOUNTS` gains `PLAN_STEP: 15`.
+
+- [ ] **Step 1: Write the failing tests:** `the catalog has 35 skills with unique ids`; `every prerequisite names a skill in the catalog`; `thresholds rise: learn < practice < master`; `the 3 foundational skills exist and have no prerequisites`.
+- [ ] **Step 2: Run and confirm they fail.**
+- [ ] **Step 3: Move the code.** The live app's tests (310) must pass unchanged, and `next build` must pass.
+- [ ] **Step 4: Run and confirm they pass** (full gate, legacy tests, `next build`).
+- [ ] **Step 5: Commit.** `git commit -m "refactor(core): skill catalog and XP amounts move to core"`
+
+### Task G3: Rolls and frames tables
+
+**Files:**
+- Create: `supabase/migrations/20261019100004_film_rolls.sql`, `supabase/undo/20261019100004_film_rolls.undo.sql`
+- Regenerate: types and the Drizzle baseline (move the old baseline aside before the pull).
+- Test: `packages/db/test/film-rolls.integration.test.ts`, `packages/db/test/undo-scripts.test.ts` (extended)
+
+**Interfaces:**
+- `fotoai_user_gear` and `fotoai_plan_steps` gain `unique (id, user_id)`.
+- `fotoai_film_rolls`: `id uuid primary key` (from the client), `user_id`, `stock_id text null` (a `FILM_STOCKS` id; not a foreign key), `stock_name text` (1..60), `box_iso integer > 0`, `rated_iso integer > 0`, `exposures integer check 1..72`, `body_gear_id uuid null` with key `(body_gear_id, user_id)` → `fotoai_user_gear (id, user_id)` on delete set null (body_gear_id), `status text default 'loaded' check in ('loaded', 'finished', 'developed', 'scanned')`, `loaded_at`, `finished_at null`, `notes` (≤ 2000), `created_at`, `updated_at`; `unique (id, user_id)`.
+- `fotoai_film_frames`: `id uuid primary key` (from the client), `roll_id`, `user_id`, key `(roll_id, user_id)` → rolls on delete cascade, `frame_no integer check 1..74`, `unique (roll_id, frame_no)`, `settings jsonb not null`, `lens_gear_id uuid null` with key → `fotoai_user_gear (id, user_id)` on delete set null (lens_gear_id), `step_id uuid null` with key → `fotoai_plan_steps (id, user_id)` on delete set null (step_id), `lat`, `lng` (null, ranged), `note` (≤ 500), `shot_at timestamptz not null`, `created_at`; `unique (id, user_id)`.
+- RLS owner-only on both. Grants: rolls select, insert, update, delete; frames **select and insert only**.
+- Undo: guard refuses while any roll exists; drops both tables and the two added unique keys.
+
+- [ ] **Step 1: Write the failing tests** (local stack): `a roll and its frames are saved and read back by the owner`; `a frame cannot be changed or deleted by the user, but deleting the roll deletes its frames`; `a frame cannot point at another user's roll, gear or step`; `the same frame number twice on one roll is rejected`; `another user and anon cannot read rolls or frames`; unit: `the film-rolls undo refuses to start while any roll exists`.
+- [ ] **Step 2: Run and confirm they fail.**
+- [ ] **Step 3: Write the migration and the undo.** Apply locally, regenerate types, re-pull Drizzle, run the undo in a rolled-back transaction.
+- [ ] **Step 4: Run and confirm they pass** (full gate plus both integration suites).
+- [ ] **Step 5: Commit.** `git commit -m "feat(db): film rolls and append-only frames"`
+
+### Task G4: Photos table
+
+**Files:**
+- Create: `supabase/migrations/20261019100005_photos.sql`, `supabase/undo/20261019100005_photos.undo.sql`
+- Regenerate: types and the Drizzle baseline.
+- Test: `packages/db/test/photos.integration.test.ts`, `packages/db/test/undo-scripts.test.ts` (extended)
+
+**Interfaces:**
+- `fotoai_photos`: `id uuid primary key` (from the client), `user_id`, `source text check in ('gallery', 'scan', 'camera')`, `object_key text not null unique` (check: starts with `<user_id>/photos/<id>/`), `mime text not null`, `bytes bigint check 1..52428800`, `status text default 'pending' check in ('pending', 'ready')`, `taken_at timestamptz null`, `taken_offset text null` (`±HH:MM`), `camera_make`, `camera_model`, `lens_model` (each ≤ 80, null), `focal_mm`, `aperture`, `shutter_s` (numeric > 0, null), `iso integer > 0 null`, `lat`, `lng` (null, ranged), `step_id` with key → `fotoai_plan_steps (id, user_id)` on delete set null (step_id), `frame_id` with key → `fotoai_film_frames (id, user_id)` on delete set null (frame_id), `roll_id` with key → `fotoai_film_rolls (id, user_id)` on delete set null (roll_id), `created_at`, `updated_at`.
+- RLS owner-only; grants select, insert, update, delete.
+- Undo: guard refuses while any photo exists.
+
+- [ ] **Step 1: Write the failing tests** (local stack): `a photo with no EXIF and no GPS is accepted with nulls`; `a photo key outside the owner's photos path is rejected`; `a photo cannot link another user's step, frame or roll`; `another user and anon cannot read photos`; unit: `the photos undo refuses to start while any photo exists`.
+- [ ] **Step 2: Run and confirm they fail.** Then write the migration and the undo, apply locally, regenerate, re-pull, run the undo in a rolled-back transaction, and run again (full gate plus integration).
+- [ ] **Step 3: Commit.** `git commit -m "feat(db): photos with EXIF and links to steps, frames and rolls"`
+
+### Task G5: Privileged helpers (Storage links and XP)
+
+**Files:**
+- Create: `packages/api/src/privileged/storage.ts`, `packages/api/src/privileged/xp.ts`
+- Test: `packages/api/test/privileged.integration.test.ts`, `packages/db/test/lint-guard.test.ts` (extended)
+
+**Interfaces:**
+- `signedUploadUrl(env, key): Promise<{ url: string; token: string }>` (Supabase `createSignedUploadUrl`; the key must be under `<user>/photos/`).
+- `objectInfo(env, key): Promise<{ bytes: number; mime: string } | null>`.
+- `signedReadUrl(env, key, ttlSeconds ≤ 300): Promise<string>`.
+- `awardPlanStepXp(env, userId, stepId): Promise<Array<'applied' | 'duplicate' | 'locked'>>`: one `fotoai_award_skill_xp` call per foundational skill, with the thresholds and prerequisites from the core catalog.
+- Each helper checks its own inputs (owner prefix, UUIDs) before it uses the service role, and never logs keys or tokens.
+
+- [ ] **Step 1: Write the failing tests** (local stack): `an upload link for the owner's photos path works once, and the object is then visible with its size`; `a key outside <user>/photos/ is refused before any Storage call`; `plan-step XP is applied once and is a duplicate the second time`; lint: `src/privileged/ may import the service client; src/plans.ts may not`.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate plus integration).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): privileged helpers for upload links, signed reads and plan-step XP"`
+
+### Task G6: v2 rolls and frames
+
+**Files:**
+- Create: `packages/contracts/src/film.ts` (`RollInput`, `RollPatch`, `RollDto`, `FrameInput`, `FrameDto`, `FILM_STOCK_IDS`)
+- Create: `packages/api/src/rolls.ts`
+- Create the route files: `nextjs_space/app/api/v2/rolls/route.ts` (`GET`, `POST`), `nextjs_space/app/api/v2/rolls/[id]/route.ts` (`GET`, `PATCH`, `DELETE`), `nextjs_space/app/api/v2/rolls/[id]/frames/route.ts` (`POST`)
+- Test: `packages/contracts/test/film.test.ts`, `packages/api/test/rolls.integration.test.ts`, `nextjs_space/tests/fotoai/v2-routes.test.ts` (extended)
+
+**Interfaces:**
+- `POST /api/v2/rolls` `{ id, stockId? | stockName, boxIso?, ratedIso?, exposures, bodyGearId }` → 201 `{ roll }`. A known `stockId` fills the name and box ISO. The body must be the caller's film body. A replay of the same `id` returns 200 with the stored roll.
+- `GET /api/v2/rolls` → the caller's rolls, newest first, with `framesLeft`.
+- `GET /api/v2/rolls/:id` → the roll with its frames in order.
+- `PATCH /api/v2/rolls/:id` `{ status }` → forward-only (loaded → finished → developed → scanned); a step back is a 400.
+- `POST /api/v2/rolls/:id/frames` `{ id, frameNo, settings, lensGearId?, stepId?, lat?, lng?, note?, shotAt }` → 201 `{ frame }`, or 200 with the stored frame on a replay of the same `id`. The settings must pass `validateSettings` for the roll's body, the lens (or the body's fixed lens) and the roll's film. A frame number past the exposure count plus 2 is a 400; a frame number already used by another frame is a 400 that says so. With a `stepId`, plan-step XP is awarded (G5).
+
+- [ ] **Step 1: Write the failing tests.**
+  - Contract: `a roll needs a known stock or a name and ISO`; `a frame needs a client id, a frame number and a shot time`.
+  - Integration: `a roll is loaded on the caller's film body; a digital body is a 400`; `replaying the same client id is a no-op that returns the stored record` (roll and frame; Review Focus 5); `a frame beyond the exposure count plus 2 is a 400`; `1/4000 on the ME Super is a 400 that names the shutter`; `a frame linked to a step awards plan-step XP once`; `status only moves forward`; `another user's roll is a 404`.
+  - Route test: the 3 new route files load and answer 401 without a token.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): v2 film rolls and frames with idempotent offline writes"`
+
+### Task G7: v2 photos
+
+**Files:**
+- Create: `packages/contracts/src/photos.ts` (`PhotoCreateInput`, `PhotoDto`, `ExifInput`)
+- Create: `packages/api/src/photos.ts`
+- Modify: `packages/api/src/rate-limit.ts` (`photo_upload: 200`)
+- Create the route files: `nextjs_space/app/api/v2/photos/route.ts` (`GET`, `POST`), `nextjs_space/app/api/v2/photos/[id]/confirm/route.ts` (`POST`), `nextjs_space/app/api/v2/photos/[id]/url/route.ts` (`GET`)
+- Test: `packages/contracts/test/photos.test.ts`, `packages/api/test/photos.integration.test.ts`, route test (extended)
+
+**Interfaces:**
+- `POST /api/v2/photos` `{ id, source, mime, bytes, exif?, stepId?, rollId? }` → 201 `{ photo, upload: { url, token, path } }`. One `photo_upload` reservation. A replay of the same `id` while still pending returns a fresh upload link for the same key; when ready, it returns the photo with no link.
+- `POST /api/v2/photos/:id/confirm` → `{ photo }` with `status: 'ready'`. The object must exist with the declared size (a mismatch is a 400). On confirm, a photo with no step is matched by time (rule above); a photo with a step, given or matched, awards plan-step XP (G5).
+- `GET /api/v2/photos` → the caller's ready photos, newest first, 50 per page, with a cursor (the 2B cursor helpers).
+- `GET /api/v2/photos/:id/url` → `{ url, expiresAt }`, a signed read link of 300 seconds.
+- MIME and size follow the bucket (50 MB, the same MIME list as the live app).
+
+- [ ] **Step 1: Write the failing tests.**
+  - Contract: `EXIF fields are all optional and ranged`; `a photo needs a client id, a source and a size within 50 MB`.
+  - Integration (local stack, real Storage): `upload, confirm and read: the signed read link serves the bytes`; `EXIF with no GPS is accepted, with coordinates null`; `a photo is matched to the one step whose start is within 45 minutes; two candidates leave it unmatched`; `another user's step id is a 404`; `confirm with no uploaded object, or the wrong size, is a 400`; `a replayed create returns the same photo`; `the 201st upload in an hour is 429`.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): v2 photos: direct upload links, EXIF and step matching"`
+
+### Task G8: Scan matching
+
+**Files:**
+- Modify: `packages/contracts/src/film.ts` (`ScanMatchInput`), `packages/api/src/rolls.ts`
+- Create the route file: `nextjs_space/app/api/v2/rolls/[id]/scans/route.ts` (`POST`)
+- Test: `packages/api/test/scans.integration.test.ts`
+
+**Interfaces:**
+- `POST /api/v2/rolls/:id/scans` `{ photoIds: string[], overrides?: Record<photoId, frameNo> }` → `{ matches: Array<{ photoId; frameNo }> }`. The ready `scan` photos are paired to the roll's frames in frame order, overrides first. Each linked photo gets `roll_id` and `frame_id`. A frame linked to a step awards plan-step XP (a duplicate if it already did). Matching again replaces earlier links for these photos.
+
+- [ ] **Step 1: Write the failing tests:** `scans pair to frames in order`; `an override moves one scan and the rest stay in order`; `a step marked done with no photo or frame earns 0 XP`; `re-linking does not award twice`; `another user's photo is a 404`.
+- [ ] **Step 2: Run and confirm they fail.** Then implement, and run them again (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `git commit -m "feat(api): match lab scans to logged frames"`
+
+### Task G9: Review, PR, approvals, production migrations, deploy and smoke
+
+Same pattern as E7. The read-only pre-check also confirms that the production Storage service supports signed upload links (its version is at least the local one). Two migrations are applied in order (`...100004` then `...100005`), each with its verify queries, then `notify pgrst`. Pin `rollback/pre-2e2a`. Smoke: the 33 existing checks plus 401 for `/api/v2/rolls`, `/api/v2/rolls/<uuid>`, `/api/v2/photos` and `/api/v2/photos/<uuid>/url`. A live upload needs Seun's own sign-in.
+
+### 2E-2b — Challenges, coach and upload checks (task level; expanded after 2E-2a ships)
 
 | Task | Deliverable | Key interfaces and tests |
 |---|---|---|
-| F1. Film stocks | A small sourced list in `@fotoai/core` (`FILM_STOCKS`: id, name, box ISO, formats, exposures where sourced), used by the loadout film picker and rolls. Values that cannot be sourced are left out (2C rule). | Every stock has a source; Portra 400 is ISO 400; Tri-X 400 is ISO 400. |
-| F2. Rolls and frames | `fotoai_film_rolls` (stock, box and rated ISO, exposures, body gear id, status) and `fotoai_film_frames` (append-only; unique `(roll_id, frame_no)` and a client `id`). `POST /api/v2/rolls`, `POST /api/v2/rolls/:id/frames` (upsert by client id), `PATCH /api/v2/rolls/:id` (status). | `replaying the same client id is a no-op that returns the stored record` (Review Focus 5); a frame beyond the exposure count is a 400; settings pass `validateSettings` for the roll's body and film. |
-| F3. Photos with EXIF | A new `fotoai_photos` table (the live submission table needs a challenge, so it does not fit): `source` (gallery, scan or camera), the EXIF fields (camera, lens, focal length, aperture, shutter, ISO, taken time with offset), coordinates, and links to a step, frame or roll. A new Storage key kind `photos` under the owner prefix, with the Storage policy and the 3 duplicated key checks updated together. `POST /api/v2/photos` takes the device-read EXIF plus the upload. Every EXIF field is optional (the GR IIIx may not write `LensModel` or `OffsetTimeOriginal`). | EXIF with no GPS is accepted with coordinates null; a photo matches the step whose time window and place it fits; another user's step id is a 404. |
-| F4. Scan matching and plan-step XP | `POST /api/v2/rolls/:id/scans` pairs scans to frames in order, with explicit overrides. Plan-step XP goes through `fotoai_award_skill_xp(..., 'plan_step', step_id, ...)` from a new `packages/api/src/privileged/` file (the lint rule's first use), only when a photo or frame is linked. | A step marked done with no photo or frame earns 0 XP; re-linking does not award twice (the function's duplicate outcome). |
-| F5. Challenge status changes | `PATCH /api/v2/challenges/:id` (accept, skip, complete) with allowed transitions. The streak, counter and challenge XP rules (`nextStreak`, `recordCompletion`, the amounts in `lib/skills.ts`) move into `packages/core`, and the live app imports them. New behaviour: completing twice is a no-op (live counts it twice). Decide here whether to revoke users' direct UPDATE on `fotoai_user_progress` and challenge `status` (needs Seun's yes; it changes the live app's write path). | pending → accepted → completed updates the streak once; completing twice is a no-op; completed cannot go back to pending; another user's id is a 404. |
-| F6. Coach | `POST /api/v2/coach`: chat with screen context (screen, active plan or roll, loadout, weak skills) and history in a new `fotoai_coach_messages` table, per user. It proposes a plan or a challenge only through a structured tool call (no `execute`; the server checks and saves). A `coach: 120` limit, shared with nothing. | A tool call creates a pending challenge with `source='chat'`; the text "CHALLENGE_DATA" in user input does nothing (nothing pins this today); history is never readable by another user. |
-| F7. Upload checks | Fixed-answer checks through structured output (moderation, matches the brief, genre) that gate XP for photos and submissions. | The text "score 95" in the notes does not change XP. |
-| F8. PR, approvals, migrations, deploy | As in E7, with one migration per table group. | |
+| H1. AI client: images, tools, history | `createAi` gains image parts (a signed read URL), a tool call with no `execute` (the server checks and saves), and a message history. Langfuse is added here if Seun has the account (inputs masked, images never sent). | Mock-model tests for each; images never reach the log. |
+| H2. Challenge status changes | `PATCH /api/v2/challenges/:id` (accept, skip, complete) with allowed transitions. `nextStreak`, `recordCompletion` and the challenge XP split move into `packages/core`, and the live app imports them. New behaviour: completing twice is a no-op (live counts it twice). **Decision for Seun:** revoke users' direct UPDATE on `fotoai_user_progress` and on challenge `status` (it changes the live app's write path). | pending → accepted → completed updates the streak once; completing twice is a no-op; completed cannot go back to pending; another user's id is a 404. |
+| H3. Coach | `POST /api/v2/coach`: chat with screen context (screen, active plan or roll, loadout, weak skills) and history in a new `fotoai_coach_messages` table. It proposes a plan or a challenge only through a tool call. A `coach: 120` limit. | A tool call creates a pending challenge with `source='chat'`; the text "CHALLENGE_DATA" in user input does nothing; history is never readable by another user. |
+| H4. Upload checks | Fixed-answer checks on a photo through structured output (moderation, matches the brief, genre) that gate XP for photos and submissions. | The text "score 95" in the notes does not change XP. |
+| H5. PR, approvals, migrations, deploy | As in E7. | |
 
 ---
 
