@@ -5,3 +5,5 @@ export { SHOOT_PLAN_V1, ShootPlanOutput, type PlanInput, type PlanPlace } from '
 export { explainPlace, type PlaceExplanation } from './explain.ts';
 export { PLACE_EXPLAIN_V1, PlaceExplanationOutput, type ExplainInput } from './prompts/place-explain.v1.ts';
 export { COACH_TOOLS, COACH_V1, type CoachPromptInput } from './prompts/coach.v1.ts';
+export { checkPhoto, type PhotoCheck } from './photo-check.ts';
+export { PHOTO_CHECK_V1, PHOTO_GENRES, PhotoCheckOutput, type PhotoCheckInput } from './prompts/photo-check.v1.ts';

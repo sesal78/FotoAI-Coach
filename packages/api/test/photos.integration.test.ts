@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import { createAi } from '@fotoai/ai';
 import { createTokenVerifier, createUserClient } from '@fotoai/db';
 import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
+import { mockModel } from '../../ai/test/support/mock-model.ts';
 import { localDbFromEnv } from '../../db/test/support/local-db.ts';
 import { createTestUser, deleteTestUsers, testEnv, type TestUser } from '../../db/test/support/seed.ts';
 import { confirmPhoto, createPhoto, defineV2Handler, getPhotoUrl, listPhotos, type V2Body, type V2Deps } from '../src/index.ts';
@@ -25,7 +27,8 @@ describe.skipIf(!db)('v2 photos against the local Supabase (real Storage)', () =
       verifyToken: createTokenVerifier(env),
       fetch,
       weather: { get: async () => null },
-      ai: { modelId: 'none', configured: false, generate: async () => { throw new Error('no AI in this test'); }, chat: async () => { throw new Error('no AI in this test'); } },
+      // Every check says safe and on brief, so confirm awards XP as before the checks (2E-2b).
+      ai: createAi({ apiKey: 'sk-test', modelId: 'gpt-6-luna', model: mockModel([JSON.stringify({ safe: true, matchesBrief: 'yes', genre: 'street' })]), log: { info: () => undefined, warn: () => undefined } }),
     };
     [a, b] = await Promise.all([createTestUser(db!, 'photo-a'), createTestUser(db!, 'photo-b')]);
   });
