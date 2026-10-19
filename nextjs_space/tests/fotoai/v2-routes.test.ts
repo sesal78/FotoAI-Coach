@@ -97,3 +97,9 @@ test('the 2E-2a photo route modules load and answer 401 without a token (no netw
   const url = await import('../../app/api/v2/photos/[id]/url/route.ts');
   assert.equal((await url.GET(new Request(`http://localhost/api/v2/photos/${id}/url`), params)).status, 401);
 });
+
+test('the 2E-2a scans route module loads and answers 401 without a token (no network call)', async () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  const scans = await import('../../app/api/v2/rolls/[id]/scans/route.ts');
+  assert.equal((await scans.POST(new Request(`http://localhost/api/v2/rolls/${id}/scans`, { method: 'POST', body: '{}' }), { params: { id } })).status, 401);
+});

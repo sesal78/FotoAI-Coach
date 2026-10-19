@@ -78,3 +78,11 @@ export const RollDto = z.object({
   updatedAt: z.string(),
 });
 export type RollDto = z.infer<typeof RollDto>;
+
+export const ScanMatchInput = z
+  .object({
+    photoIds: z.array(id).min(1).max(80).refine((ids) => new Set(ids).size === ids.length, 'photoIds must be unique'),
+    overrides: z.record(id, z.number().int().min(1).max(74)).optional(),
+  })
+  .strict();
+export type ScanMatchInput = z.infer<typeof ScanMatchInput>;

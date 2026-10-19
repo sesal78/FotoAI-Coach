@@ -3,7 +3,7 @@
 // the roll's film; frames are append-only. A frame linked to a plan step earns plan-step XP (the
 // award is duplicate-safe, so a replay can safely try again).
 
-import { FrameInput, RollInput, RollPatch, ROLL_STATUSES, type FrameDto, type RollDto } from '@fotoai/contracts';
+import { FrameInput, RollInput, RollPatch, ROLL_STATUSES, ScanMatchInput, type FrameDto, type RollDto } from '@fotoai/contracts';
 import { findLens, findStock, framesLeft, validateSettings, type Body, type Lens, type Settings } from '@fotoai/core';
 import { createUserClient } from '@fotoai/db';
 
@@ -307,4 +307,63 @@ export const addFrame: V2Body = async (request, deps, { params }) => {
   const frame = data as unknown as FrameRow;
   await award(frame.step_id);
   return json({ frame: toFrame(frame) }, { status: 201 });
+};
+
+/**
+ * POST /api/v2/rolls/:id/scans: pairs the caller's ready scans to the roll's frames. Overrides go
+ * first; the other scans fill the remaining frames in frame order, in the order sent. A scan past
+ * the last free frame stays on the roll with no frame. Matching again replaces these scans' links.
+ * A frame linked to a plan step earns plan-step XP (a duplicate if it already did).
+ */
+export const matchScans: V2Body = async (request, deps, { params }) => {
+  rejectBrowserIdentity(new URL(request.url).searchParams);
+  const principal = await requirePrincipal(request, deps);
+  const rollId = idParam(params);
+  const body = await readJsonObject(request);
+  rejectBrowserIdentity(body);
+  const parsed = ScanMatchInput.safeParse(body);
+  if (!parsed.success) throw new ApiError('validation', `Invalid scan match: ${fieldsOf(parsed.error.issues)}`);
+  const { photoIds, overrides = {} } = parsed.data;
+  await readRoll(deps, principal, rollId);
+  const db = createUserClient(deps.env, principal.accessToken);
+
+  const { data: photoData, error: photoError } = await db.from('fotoai_photos').select('id, source, status').in('id', photoIds);
+  if (photoError) throw upstream('load the scans');
+  const photos = new Map((photoData as Array<{ id: string; source: string; status: string }>).map((p) => [p.id, p]));
+  for (const id of photoIds) {
+    const photo = photos.get(id);
+    if (!photo) throw new ApiError('not_found', 'Photo not found');
+    if (photo.source !== 'scan' || photo.status !== 'ready') throw new ApiError('validation', 'Only uploaded scans can be matched to frames');
+  }
+
+  const { data: frameData, error: frameError } = await db.from(T_FRAMES).select('id, frame_no, step_id').eq('roll_id', rollId).order('frame_no');
+  if (frameError) throw upstream('load frames');
+  const frames = frameData as Array<{ id: string; frame_no: number; step_id: string | null }>;
+  const byNo = new Map(frames.map((f) => [f.frame_no, f]));
+
+  const taken = new Set<number>();
+  for (const [photoId, frameNo] of Object.entries(overrides)) {
+    if (!photoIds.includes(photoId)) throw new ApiError('validation', 'An override names a photo that is not in photoIds');
+    if (!byNo.has(frameNo)) throw new ApiError('validation', `Frame ${frameNo} is not logged on this roll`);
+    if (taken.has(frameNo)) throw new ApiError('validation', `Two scans are matched to frame ${frameNo}`);
+    taken.add(frameNo);
+  }
+  const free = frames.filter((f) => !taken.has(f.frame_no));
+  const matches = photoIds.map((photoId) => {
+    const frameNo = overrides[photoId] ?? free.shift()?.frame_no ?? null;
+    return { photoId, frameNo };
+  });
+
+  const now = deps.now().toISOString();
+  for (const match of matches) {
+    const frame = match.frameNo === null ? null : byNo.get(match.frameNo)!;
+    const { error } = await db
+      .from('fotoai_photos')
+      .update({ roll_id: rollId, frame_id: frame?.id ?? null, updated_at: now } as never)
+      .eq('id', match.photoId);
+    if (error) throw upstream('link the scans');
+  }
+  const steps = new Set(matches.map((m) => (m.frameNo === null ? null : byNo.get(m.frameNo)!.step_id)).filter((s): s is string => s !== null));
+  for (const stepId of steps) await awardPlanStepXp(deps.env, principal.userId, stepId);
+  return json({ matches });
 };
