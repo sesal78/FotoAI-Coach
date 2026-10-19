@@ -19,7 +19,7 @@ export interface AuthPort {
   resetPasswordForEmail(email: string, o: { redirectTo: string }): Promise<AuthResult>;
   setSession(s: { access_token: string; refresh_token: string }): Promise<AuthResult>;
   updateUser(u: { password: string }): Promise<AuthResult>;
-  signOut(o: { scope: 'local' }): Promise<AuthResult>;
+  signOut(o: { scope: 'local' | 'global' }): Promise<AuthResult>;
 }
 
 export type Outcome<N extends string = never> = { ok: true; next?: N } | { ok: false; message: string; next?: string };
@@ -62,15 +62,34 @@ export async function resendConfirmation(auth: AuthPort, email: string) {
 
 const RESET_SENT = 'If that email has an account, a reset link is on its way.';
 
-/** Always the same answer, whether or not the email has an account. */
+/**
+ * The same answer whether or not the email has an account. Only failures that say nothing about
+ * the account are shown: no connection, and too many requests.
+ */
 export async function requestReset(auth: AuthPort, email: string) {
   const e = clean(email);
-  if (EMAIL.test(e)) await auth.resetPasswordForEmail(e, { redirectTo: RESET_REDIRECT }).catch(() => undefined);
+  if (!EMAIL.test(e)) return { ok: false as const, message: 'Enter a valid email address.' };
+  let error: unknown;
+  try {
+    ({ error } = await auth.resetPasswordForEmail(e, { redirectTo: RESET_REDIRECT }));
+  } catch (thrown) {
+    error = { name: 'AuthRetryableFetchError', status: 0, message: String(thrown) };
+  }
+  const shown = error as { name?: string; status?: number } | null;
+  if (shown && (shown.name === 'AuthRetryableFetchError' || shown.status === 0 || shown.status === 429)) {
+    return { ok: false as const, message: authMessage(error) };
+  }
   return { ok: true as const, message: RESET_SENT };
 }
 
-/** Reads the recovery tokens from the link fragment; null when the link is expired, broken or not a recovery link. */
+/**
+ * Reads the recovery tokens from the link fragment; null when the link is expired, broken, not a
+ * recovery link, or not the reset page itself (another app could open fotoai://reset-password
+ * with its own tokens).
+ */
 export function parseRecoveryLink(url: string): { access_token: string; refresh_token: string } | null {
+  const [base] = url.split('#');
+  if (base !== RESET_REDIRECT && base !== `${RESET_REDIRECT}/`) return null;
   const hash = url.split('#')[1];
   if (!hash) return null;
   const params = new URLSearchParams(hash);
@@ -83,8 +102,9 @@ export function parseRecoveryLink(url: string): { access_token: string; refresh_
 const EXPIRED = 'This reset link has expired or was already used. Ask for a new one.';
 
 /**
- * Sets the new password with the link's recovery session, then always signs that session out, so a
- * link carrying someone else's token never leaves this phone signed in to their account.
+ * Sets the new password with the link's recovery session, then always signs out: everywhere when
+ * it can (a password reset should end other sessions), and at least on this phone, so a link
+ * carrying someone else's token never leaves this phone signed in to their account.
  */
 export async function completeReset(auth: AuthPort, url: string, password: string, confirm: string) {
   const problem = checkNewPassword(password, confirm);
@@ -98,6 +118,7 @@ export async function completeReset(auth: AuthPort, url: string, password: strin
     if (error) return { ok: false as const, next: 'retry' as const, message: authMessage(error) };
     return { ok: true as const, next: 'signed_out' as const };
   } finally {
-    await auth.signOut({ scope: 'local' });
+    const everywhere = await auth.signOut({ scope: 'global' }).catch((err: unknown) => ({ error: err }));
+    if (everywhere.error) await auth.signOut({ scope: 'local' }).catch(() => undefined);
   }
 }

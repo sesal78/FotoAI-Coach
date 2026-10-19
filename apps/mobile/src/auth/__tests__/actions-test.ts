@@ -1,4 +1,4 @@
-import { completeReset, requestReset, RESET_REDIRECT, signIn, signUp, VERIFY_REDIRECT, type AuthPort } from '../actions';
+import { completeReset, parseRecoveryLink, requestReset, RESET_REDIRECT, signIn, signUp, VERIFY_REDIRECT, type AuthPort } from '../actions';
 
 function client(over: Record<string, jest.Mock> = {}) {
   const base = {
@@ -74,7 +74,7 @@ describe('password reset', () => {
     expect(await completeReset(c, LINK, 'brand-new-pw', 'brand-new-pw')).toEqual({ ok: true, next: 'signed_out' });
     expect(c.setSession).toHaveBeenCalledWith({ access_token: 'at-1', refresh_token: 'rt-1' });
     expect(c.updateUser).toHaveBeenCalledWith({ password: 'brand-new-pw' });
-    expect(c.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(c.signOut).toHaveBeenCalledWith({ scope: 'global' });
   });
 
   test('an expired recovery link offers a new link and changes nothing', async () => {
@@ -90,12 +90,36 @@ describe('password reset', () => {
   test('a failed password change still signs the recovery session out', async () => {
     const c = client({ updateUser: jest.fn(async () => ({ data: { user: null }, error: authError('weak_password', 'weak') })) });
     expect(await completeReset(c, LINK, 'brand-new-pw', 'brand-new-pw')).toMatchObject({ ok: false, next: 'retry' });
-    expect(c.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(c.signOut).toHaveBeenCalledWith({ scope: 'global' });
   });
 
   test('mismatched new passwords are refused before the link is used', async () => {
     const c = client();
     expect((await completeReset(c, LINK, 'brand-new-pw', 'other-pw-123')).message).toMatch(/do not match/i);
     expect(c.setSession).not.toHaveBeenCalled();
+  });
+
+  test('only a https://myfoto.topues.com/reset-password link is accepted', () => {
+    const frag = '#access_token=at-1&refresh_token=rt-1&type=recovery';
+    expect(parseRecoveryLink(`https://myfoto.topues.com/reset-password${frag}`)).toEqual({ access_token: 'at-1', refresh_token: 'rt-1' });
+    expect(parseRecoveryLink(`fotoai://reset-password${frag}`)).toBeNull();
+    expect(parseRecoveryLink(`https://evil.example/reset-password${frag}`)).toBeNull();
+    expect(parseRecoveryLink(`https://myfoto.topues.com/other${frag}`)).toBeNull();
+  });
+
+  test('if the global sign-out fails, the recovery session is still removed from this phone', async () => {
+    const c = client({ signOut: jest.fn(async (o: { scope: string }) => ({ error: o.scope === 'global' ? { name: 'AuthRetryableFetchError', status: 0 } : null })) });
+    await completeReset(c, LINK, 'brand-new-pw', 'brand-new-pw');
+    expect(c.signOut).toHaveBeenNthCalledWith(1, { scope: 'global' });
+    expect(c.signOut).toHaveBeenNthCalledWith(2, { scope: 'local' });
+  });
+
+  test('forgot password says so when offline or rate limited (neither tells if the account exists)', async () => {
+    const offline = client({ resetPasswordForEmail: jest.fn(async () => ({ data: null, error: { name: 'AuthRetryableFetchError', message: 'x', status: 0 } })) });
+    expect(await requestReset(offline, 'a@b.co')).toMatchObject({ ok: false, message: expect.stringMatching(/no connection/i) });
+    const limited = client({ resetPasswordForEmail: jest.fn(async () => ({ data: null, error: { name: 'AuthApiError', code: 'over_email_send_rate_limit', status: 429, message: 'x' } })) });
+    expect(await requestReset(limited, 'a@b.co')).toMatchObject({ ok: false, message: expect.stringMatching(/too many/i) });
+    const thrown = client({ resetPasswordForEmail: jest.fn(async () => { throw new TypeError('Network request failed'); }) });
+    expect(await requestReset(thrown, 'a@b.co')).toMatchObject({ ok: false, message: expect.stringMatching(/no connection/i) });
   });
 });

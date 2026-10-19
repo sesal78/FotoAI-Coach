@@ -28,8 +28,11 @@ export interface ApiDeps {
   baseUrl: string;
   /** The current access token, or null when signed out. */
   getToken: () => Promise<string | null>;
-  /** Refreshes the session; true when a new token is ready. */
-  refresh: () => Promise<boolean>;
+  /**
+   * Refreshes the session: 'refreshed' when a new token is ready, 'refused' when the session is no
+   * longer valid. Throws ApiClientError('offline') when Auth cannot be reached (keep the user signed in).
+   */
+  refresh: () => Promise<'refreshed' | 'refused'>;
   /** Called when the server still refuses the token after a refresh. */
   onSignedOut: () => void;
   fetch?: typeof fetch;
@@ -75,9 +78,16 @@ export function createApi(deps: ApiDeps) {
 
   async function request<S extends z.ZodTypeAny>(path: string, opts: RequestOptions<S>): Promise<z.infer<S>> {
     let res = await send(path, opts, await deps.getToken());
-    if (res.status === 401 && (await deps.refresh())) res = await send(path, opts, await deps.getToken());
+    // One refresh and one retry; a refused refresh or a second 401 means signed out.
+    if (res.status === 401 && (await deps.refresh()) === 'refreshed') res = await send(path, opts, await deps.getToken());
 
-    const body: unknown = await res.json().catch(() => null);
+    const text = await res.text().catch(() => '');
+    let body: unknown;
+    try {
+      body = text ? JSON.parse(text) : undefined;
+    } catch {
+      body = null;
+    }
     if (!res.ok) {
       const { code, message } = parseApiError(res.status, body);
       if (res.status === 401) deps.onSignedOut();

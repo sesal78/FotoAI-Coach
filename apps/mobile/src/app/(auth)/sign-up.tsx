@@ -4,23 +4,20 @@ import { Text } from 'react-native';
 
 import { MIN_PASSWORD, signUp } from '../../auth/actions';
 import { getSupabase } from '../../auth/supabase';
-import { Field, Notice, PrimaryButton, Screen, TextLink } from '../../ui/form';
+import { Field, Notice, PrimaryButton, Screen, TextLink, useAction } from '../../ui/form';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAction();
 
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    const out = await signUp(getSupabase()!.auth, email, password, confirm);
-    setBusy(false);
-    if (out.ok) router.replace({ pathname: '/check-email', params: { email: email.trim().toLowerCase() } });
-    else setError(out.message);
-  };
+  const submit = () =>
+    run(async () => {
+      const out = await signUp(getSupabase()!.auth, email, password, confirm);
+      if (out.ok) router.replace({ pathname: '/check-email', params: { email: email.trim().toLowerCase() } });
+      else setError(out.message);
+    });
 
   return (
     <Screen title="Create an account">

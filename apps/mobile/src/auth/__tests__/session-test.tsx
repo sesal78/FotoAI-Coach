@@ -51,6 +51,17 @@ test('sign-out clears the session and the cache', async () => {
   expect(screen.getByText('signed_out')).toBeTruthy();
 });
 
+test('a sign-out that fails still signs this phone out and clears the cache', async () => {
+  const { auth } = fakeAuth({ access_token: 't' });
+  (auth.signOut as jest.Mock).mockRejectedValue(new Error('offline'));
+  const onSignedOut = jest.fn();
+  await render(<SessionProvider auth={auth} onSignedOut={onSignedOut}><Probe /></SessionProvider>);
+  await screen.findByText('signed_in');
+  await act(async () => screen.getByTestId('status').props.onPress());
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('signed_out')).toBeTruthy();
+});
+
 test('the AES text helpers round-trip non-ASCII text', () => {
   const text = JSON.stringify({ email: 'séun@example.com', note: 'café 📷' });
   expect(b64ToUtf8(utf8ToB64(text))).toBe(text);

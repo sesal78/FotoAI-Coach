@@ -31,9 +31,14 @@ export function SessionProvider({ auth, onSignedOut, children }: { auth: Session
   }, [auth]);
 
   const signOut = useCallback(async () => {
-    await auth.signOut({ scope: 'local' });
-    onSignedOut?.();
-    setStatus('signed_out');
+    try {
+      await auth.signOut({ scope: 'local' });
+    } catch {
+      // The phone is signed out below either way.
+    } finally {
+      onSignedOut?.();
+      setStatus('signed_out');
+    }
   }, [auth, onSignedOut]);
 
   const value = useMemo(() => ({ status, signOut }), [status, signOut]);

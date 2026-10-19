@@ -8,7 +8,7 @@ import { Text } from 'react-native';
 
 import { completeReset, parseRecoveryLink } from '../auth/actions';
 import { getSupabase } from '../auth/supabase';
-import { Field, Notice, PrimaryButton, Screen, TextLink } from '../ui/form';
+import { Field, Notice, PrimaryButton, Screen, TextLink, useAction } from '../ui/form';
 import { Loading } from '../ui/states';
 
 export default function ResetPassword() {
@@ -16,9 +16,9 @@ export default function ResetPassword() {
   const [url, setUrl] = useState<string | null | undefined>(undefined);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAction();
   const [expired, setExpired] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (live) setUrl(live);
@@ -26,6 +26,18 @@ export default function ResetPassword() {
   }, [live]);
 
   if (url === undefined) return <Loading />;
+
+  // Shown here, not by navigating: the auth screens are out of the navigator until the
+  // recovery session's sign-out has been processed.
+  if (done) {
+    return (
+      <Screen title="Password changed">
+        <Notice tone="success" text="Your new password is saved. Sign in with it." />
+        <PrimaryButton title="Sign in" onPress={() => router.replace('/sign-in')} />
+      </Screen>
+    );
+  }
+
   const valid = url ? parseRecoveryLink(url) !== null : false;
 
   if (!valid || expired) {
@@ -38,15 +50,13 @@ export default function ResetPassword() {
     );
   }
 
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    const out = await completeReset(getSupabase()!.auth, url!, password, confirm);
-    setBusy(false);
-    if (out.ok) router.replace({ pathname: '/sign-in', params: { changed: '1' } });
-    else if (out.next === 'expired') setExpired(true);
-    else setError(out.message);
-  };
+  const submit = () =>
+    run(async () => {
+      const out = await completeReset(getSupabase()!.auth, url!, password, confirm);
+      if (out.ok) setDone(true);
+      else if (out.next === 'expired') setExpired(true);
+      else setError(out.message);
+    });
 
   return (
     <Screen title="New password">

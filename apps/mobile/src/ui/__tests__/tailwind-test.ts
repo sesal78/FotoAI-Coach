@@ -9,3 +9,7 @@ test('the Tailwind colours match the @fotoai/ui tokens', () => {
   const tokens = Object.values(tailwindColors()).map((v) => /--color-([a-z-]+)/.exec(v)![1]).sort();
   expect(ours).toEqual(tokens);
 });
+
+test('the radius names the app uses exist (rounded-pill is not a Tailwind default)', () => {
+  expect(config.theme.extend.borderRadius).toMatchObject({ sm: expect.any(String), md: expect.any(String), lg: expect.any(String), pill: '9999px' });
+});

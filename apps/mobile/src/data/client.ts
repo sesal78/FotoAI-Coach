@@ -25,7 +25,13 @@ export function getApi(): Api {
   api = createApi({
     baseUrl: appEnv.env.EXPO_PUBLIC_API_URL,
     getToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
-    refresh: async () => !(await supabase.auth.refreshSession()).error,
+    refresh: async () => {
+      const { error } = await supabase.auth.refreshSession();
+      if (!error) return 'refreshed';
+      // Auth unreachable is not a sign-out: the session may still be good.
+      if (error.name === 'AuthRetryableFetchError' || error.status === 0) throw new ApiClientError('offline', 0, 'No connection to FotoAI. Check your signal and try again.');
+      return 'refused';
+    },
     onSignedOut: () => {
       void supabase.auth.signOut({ scope: 'local' });
       queryClient.clear();

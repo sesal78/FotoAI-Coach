@@ -10,6 +10,8 @@ module.exports = {
   theme: {
     extend: {
       colors: Object.fromEntries(KEYS.map((k) => [k, `rgb(var(--color-${k}) / <alpha-value>)`])),
+      // The radius tokens from @fotoai/ui (Golden themes); `pill` is not a Tailwind default.
+      borderRadius: { sm: '6px', md: '12px', lg: '20px', pill: '9999px' },
     },
   },
   plugins: [],

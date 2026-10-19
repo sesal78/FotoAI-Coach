@@ -47,8 +47,11 @@ export function createEncryptedStorage(deps: { secure: SecretStore; kv: KeyValue
     async getItem(name: string): Promise<string | null> {
       const sealed = await deps.kv.getItem(name);
       if (sealed === null) return null;
+      // A key-store failure (for example right after boot) propagates and keeps the value;
+      // only a value the key cannot open is dropped.
+      const k = await key();
       try {
-        return await deps.crypto.open(sealed, await key());
+        return await deps.crypto.open(sealed, k);
       } catch {
         await deps.kv.removeItem(name);
         return null;

@@ -15,9 +15,9 @@ function setup(responses: Array<Response | Error>, token = 'tok-1') {
     return next;
   });
   let current = token;
-  const refresh = jest.fn(async () => {
+  const refresh = jest.fn(async (): Promise<'refreshed' | 'refused'> => {
     current = 'tok-2';
-    return true;
+    return 'refreshed';
   });
   const onSignedOut = jest.fn();
   const api = createApi({ baseUrl: 'https://api.example', getToken: async () => current, refresh, onSignedOut, fetch: fetchFn as unknown as typeof fetch, timeoutMs: 50 });
@@ -51,7 +51,7 @@ test('a network error or a timeout is offline and retryable', async () => {
   await expect(api.request('/api/v2/me', { schema: Me })).rejects.toMatchObject({ code: 'offline', retryable: true });
 
   const slow = createApi({
-    baseUrl: 'https://api.example', getToken: async () => 't', refresh: async () => false, onSignedOut: () => undefined, timeoutMs: 20,
+    baseUrl: 'https://api.example', getToken: async () => 't', refresh: async () => 'refused' as const, onSignedOut: () => undefined, timeoutMs: 20,
     fetch: ((_: string, init: RequestInit) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))) as unknown as typeof fetch,
   });
   await expect(slow.request('/api/v2/me', { schema: Me })).rejects.toMatchObject({ code: 'offline' });
@@ -75,4 +75,29 @@ test('a 401 refreshes once and retries once; a second 401 signs out', async () =
   await expect(second.api.request('/api/v2/me', { schema: Me })).rejects.toMatchObject({ code: 'unauthenticated' });
   expect(second.refresh).toHaveBeenCalledTimes(1);
   expect(second.onSignedOut).toHaveBeenCalledTimes(1);
+});
+
+test('a refresh that fails on the network is offline and keeps the user signed in', async () => {
+  const onSignedOut = jest.fn();
+  const api = createApi({
+    baseUrl: 'https://api.example', getToken: async () => 't', onSignedOut, timeoutMs: 50,
+    refresh: async () => { throw new ApiClientError('offline', 0, 'No connection'); },
+    fetch: (async () => ok({ error: 'Not authenticated', code: 'unauthenticated' }, 401)) as unknown as typeof fetch,
+  });
+  await expect(api.request('/api/v2/me', { schema: Me })).rejects.toMatchObject({ code: 'offline' });
+  expect(onSignedOut).not.toHaveBeenCalled();
+});
+
+test('a refused refresh signs out without a second request', async () => {
+  const onSignedOut = jest.fn();
+  const fetchFn = jest.fn(async () => ok({ error: 'Not authenticated', code: 'unauthenticated' }, 401));
+  const api = createApi({ baseUrl: 'https://api.example', getToken: async () => 't', onSignedOut, refresh: async () => 'refused', fetch: fetchFn as unknown as typeof fetch });
+  await expect(api.request('/api/v2/me', { schema: Me })).rejects.toMatchObject({ code: 'unauthenticated' });
+  expect(fetchFn).toHaveBeenCalledTimes(1);
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
+test('an empty 204 body is passed to the schema as undefined', async () => {
+  const { api } = setup([new Response(null, { status: 204 })]);
+  await expect(api.request('/api/v2/thing', { method: 'DELETE', schema: z.undefined() })).resolves.toBeUndefined();
 });

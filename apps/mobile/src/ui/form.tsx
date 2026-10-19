@@ -1,10 +1,33 @@
 // Shared form parts for the account screens and later forms.
 
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from './ThemeProvider';
+
+export const GENERIC_ERROR = 'Something went wrong. Please try again.';
+
+/**
+ * Runs a form action with a busy flag that always clears, and turns anything thrown into a
+ * visible message (no button left spinning, no silent failure).
+ */
+export function useAction() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = useCallback(async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch {
+      setError(GENERIC_ERROR);
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+  return { busy, error, setError, run };
+}
 
 export function Screen({ title, children }: { title?: string; children: ReactNode }) {
   return (

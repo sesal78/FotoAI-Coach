@@ -59,3 +59,15 @@ test('removeItem deletes the value', async () => {
   expect(kv.size).toBe(0);
   expect(await storage.getItem('sb-auth')).toBeNull();
 });
+
+test('a key-store failure keeps the stored session and reports the error', async () => {
+  const { kv, storage } = fakes();
+  await storage.setItem('sb-auth', SESSION);
+  const broken = createEncryptedStorage({
+    secure: { get: async () => { throw new Error('keystore not ready'); }, set: async () => undefined, remove: async () => undefined },
+    kv: { getItem: async (k) => kv.get(k) ?? null, setItem: async (k, v) => void kv.set(k, v), removeItem: async (k) => void kv.delete(k) },
+    crypto: { newKey: async () => 'k', seal: async (p) => p, open: async (p) => p },
+  });
+  await expect(broken.getItem('sb-auth')).rejects.toThrow('keystore not ready');
+  expect(kv.has('sb-auth')).toBe(true);
+});
