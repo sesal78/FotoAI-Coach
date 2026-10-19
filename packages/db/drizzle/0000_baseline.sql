@@ -111,6 +111,7 @@ CREATE TABLE "fotoai_plan_steps" (
 	"status" text DEFAULT 'todo' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "fotoai_plan_steps_id_user_key" UNIQUE("id","user_id"),
 	CONSTRAINT "fotoai_plan_steps_plan_position_key" UNIQUE("plan_id","position"),
 	CONSTRAINT "fotoai_plan_steps_instruction_check" CHECK ((char_length(instruction) >= 1) AND (char_length(instruction) <= 600)),
 	CONSTRAINT "fotoai_plan_steps_position_check" CHECK (("position" >= 1) AND ("position" <= 20)),
@@ -120,6 +121,97 @@ CREATE TABLE "fotoai_plan_steps" (
 );
 --> statement-breakpoint
 ALTER TABLE "fotoai_plan_steps" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "fotoai_film_rolls" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"user_id" uuid NOT NULL,
+	"stock_id" text,
+	"stock_name" text NOT NULL,
+	"box_iso" integer NOT NULL,
+	"rated_iso" integer NOT NULL,
+	"exposures" integer NOT NULL,
+	"body_gear_id" uuid,
+	"status" text DEFAULT 'loaded' NOT NULL,
+	"loaded_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"finished_at" timestamp with time zone,
+	"notes" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "fotoai_film_rolls_id_user_key" UNIQUE("id","user_id"),
+	CONSTRAINT "fotoai_film_rolls_box_iso_check" CHECK (box_iso > 0),
+	CONSTRAINT "fotoai_film_rolls_exposures_check" CHECK ((exposures >= 1) AND (exposures <= 72)),
+	CONSTRAINT "fotoai_film_rolls_notes_check" CHECK (char_length(notes) <= 2000),
+	CONSTRAINT "fotoai_film_rolls_rated_iso_check" CHECK (rated_iso > 0),
+	CONSTRAINT "fotoai_film_rolls_status_check" CHECK (status = ANY (ARRAY['loaded'::text, 'finished'::text, 'developed'::text, 'scanned'::text])),
+	CONSTRAINT "fotoai_film_rolls_stock_id_check" CHECK (stock_id ~ '^[a-z0-9-]{1,60}$'::text),
+	CONSTRAINT "fotoai_film_rolls_stock_name_check" CHECK ((char_length(stock_name) >= 1) AND (char_length(stock_name) <= 60))
+);
+--> statement-breakpoint
+ALTER TABLE "fotoai_film_rolls" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "fotoai_film_frames" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"roll_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"frame_no" integer NOT NULL,
+	"settings" jsonb NOT NULL,
+	"lens_gear_id" uuid,
+	"step_id" uuid,
+	"lat" double precision,
+	"lng" double precision,
+	"note" text,
+	"shot_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "fotoai_film_frames_id_user_key" UNIQUE("id","user_id"),
+	CONSTRAINT "fotoai_film_frames_roll_frame_key" UNIQUE("roll_id","frame_no"),
+	CONSTRAINT "fotoai_film_frames_frame_no_check" CHECK ((frame_no >= 1) AND (frame_no <= 74)),
+	CONSTRAINT "fotoai_film_frames_lat_check" CHECK ((lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)),
+	CONSTRAINT "fotoai_film_frames_lng_check" CHECK ((lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)),
+	CONSTRAINT "fotoai_film_frames_note_check" CHECK (char_length(note) <= 500)
+);
+--> statement-breakpoint
+ALTER TABLE "fotoai_film_frames" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "fotoai_photos" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"user_id" uuid NOT NULL,
+	"source" text NOT NULL,
+	"object_key" text NOT NULL,
+	"mime" text NOT NULL,
+	"bytes" bigint NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"taken_at" timestamp with time zone,
+	"taken_offset" text,
+	"camera_make" text,
+	"camera_model" text,
+	"lens_model" text,
+	"focal_mm" numeric,
+	"aperture" numeric,
+	"shutter_s" numeric,
+	"iso" integer,
+	"lat" double precision,
+	"lng" double precision,
+	"step_id" uuid,
+	"frame_id" uuid,
+	"roll_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "fotoai_photos_object_key_key" UNIQUE("object_key"),
+	CONSTRAINT "fotoai_photos_aperture_check" CHECK (aperture > (0)::numeric),
+	CONSTRAINT "fotoai_photos_bytes_check" CHECK ((bytes >= 1) AND (bytes <= 52428800)),
+	CONSTRAINT "fotoai_photos_camera_make_check" CHECK (char_length(camera_make) <= 80),
+	CONSTRAINT "fotoai_photos_camera_model_check" CHECK (char_length(camera_model) <= 80),
+	CONSTRAINT "fotoai_photos_focal_mm_check" CHECK (focal_mm > (0)::numeric),
+	CONSTRAINT "fotoai_photos_iso_check" CHECK (iso > 0),
+	CONSTRAINT "fotoai_photos_lat_check" CHECK ((lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)),
+	CONSTRAINT "fotoai_photos_lens_model_check" CHECK (char_length(lens_model) <= 80),
+	CONSTRAINT "fotoai_photos_lng_check" CHECK ((lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)),
+	CONSTRAINT "fotoai_photos_mime_check" CHECK ((char_length(mime) >= 3) AND (char_length(mime) <= 80)),
+	CONSTRAINT "fotoai_photos_object_key_check" CHECK (object_key ~ (((('^'::text || (user_id)::text) || '/photos/'::text) || (id)::text) || '/[a-z0-9-]+\.(jpg|jpeg|png|webp|heic|cr2|cr3|nef|arw|dng|raf|orf|rw2|pef|srw|raw)$'::text)),
+	CONSTRAINT "fotoai_photos_shutter_s_check" CHECK (shutter_s > (0)::numeric),
+	CONSTRAINT "fotoai_photos_source_check" CHECK (source = ANY (ARRAY['gallery'::text, 'scan'::text, 'camera'::text])),
+	CONSTRAINT "fotoai_photos_status_check" CHECK (status = ANY (ARRAY['pending'::text, 'ready'::text])),
+	CONSTRAINT "fotoai_photos_taken_offset_check" CHECK (taken_offset ~ '^[+-][0-9]{2}:[0-9]{2}$'::text)
+);
+--> statement-breakpoint
+ALTER TABLE "fotoai_photos" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "fotoai_user_gear" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -133,6 +225,7 @@ CREATE TABLE "fotoai_user_gear" (
 	"body_id" text,
 	"lens_id" text,
 	"custom" jsonb,
+	CONSTRAINT "fotoai_user_gear_id_user_key" UNIQUE("id","user_id"),
 	CONSTRAINT "fotoai_user_gear_legacy_appwrite_id_key" UNIQUE("legacy_appwrite_id"),
 	CONSTRAINT "fotoai_user_gear_one_link_check" CHECK (num_nonnulls(body_id, lens_id, custom) <= 1)
 );
@@ -433,6 +526,16 @@ ALTER TABLE "fotoai_shoot_plans" ADD CONSTRAINT "fotoai_shoot_plans_spot_fkey" F
 ALTER TABLE "fotoai_shoot_plans" ADD CONSTRAINT "fotoai_shoot_plans_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_plan_steps" ADD CONSTRAINT "fotoai_plan_steps_plan_fkey" FOREIGN KEY ("plan_id","user_id") REFERENCES "public"."fotoai_shoot_plans"("id","user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_plan_steps" ADD CONSTRAINT "fotoai_plan_steps_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_film_rolls" ADD CONSTRAINT "fotoai_film_rolls_body_fkey" FOREIGN KEY ("user_id","body_gear_id") REFERENCES "public"."fotoai_user_gear"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_film_rolls" ADD CONSTRAINT "fotoai_film_rolls_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_film_frames" ADD CONSTRAINT "fotoai_film_frames_lens_fkey" FOREIGN KEY ("user_id","lens_gear_id") REFERENCES "public"."fotoai_user_gear"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_film_frames" ADD CONSTRAINT "fotoai_film_frames_roll_fkey" FOREIGN KEY ("roll_id","user_id") REFERENCES "public"."fotoai_film_rolls"("id","user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_film_frames" ADD CONSTRAINT "fotoai_film_frames_step_fkey" FOREIGN KEY ("user_id","step_id") REFERENCES "public"."fotoai_plan_steps"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_film_frames" ADD CONSTRAINT "fotoai_film_frames_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photos" ADD CONSTRAINT "fotoai_photos_frame_fkey" FOREIGN KEY ("user_id","frame_id") REFERENCES "public"."fotoai_film_frames"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photos" ADD CONSTRAINT "fotoai_photos_roll_fkey" FOREIGN KEY ("user_id","roll_id") REFERENCES "public"."fotoai_film_rolls"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photos" ADD CONSTRAINT "fotoai_photos_step_fkey" FOREIGN KEY ("user_id","step_id") REFERENCES "public"."fotoai_plan_steps"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photos" ADD CONSTRAINT "fotoai_photos_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_user_gear" ADD CONSTRAINT "fotoai_user_gear_body_id_fkey" FOREIGN KEY ("body_id") REFERENCES "public"."fotoai_gear_bodies"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_user_gear" ADD CONSTRAINT "fotoai_user_gear_lens_id_fkey" FOREIGN KEY ("lens_id") REFERENCES "public"."fotoai_gear_lenses"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_user_gear" ADD CONSTRAINT "fotoai_user_gear_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -454,6 +557,10 @@ ALTER TABLE "fotoai_xp_events" ADD CONSTRAINT "fotoai_xp_events_user_id_fkey" FO
 CREATE INDEX "fotoai_places_user_created_idx" ON "fotoai_places" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
 CREATE UNIQUE INDEX "fotoai_places_user_place_key" ON "fotoai_places" USING btree ("user_id" text_ops,"place_id" text_ops) WHERE (place_id IS NOT NULL);--> statement-breakpoint
 CREATE INDEX "fotoai_shoot_plans_user_created_idx" ON "fotoai_shoot_plans" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "fotoai_film_rolls_user_created_idx" ON "fotoai_film_rolls" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "fotoai_film_frames_step_idx" ON "fotoai_film_frames" USING btree ("step_id" uuid_ops) WHERE (step_id IS NOT NULL);--> statement-breakpoint
+CREATE INDEX "fotoai_photos_step_idx" ON "fotoai_photos" USING btree ("step_id" uuid_ops) WHERE (step_id IS NOT NULL);--> statement-breakpoint
+CREATE INDEX "fotoai_photos_user_created_idx" ON "fotoai_photos" USING btree ("user_id" uuid_ops,"created_at" uuid_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_user_gear_user_idx" ON "fotoai_user_gear" USING btree ("user_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_challenge_submissions_challenge_idx" ON "fotoai_challenge_submissions" USING btree ("challenge_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_challenge_submissions_user_submitted_idx" ON "fotoai_challenge_submissions" USING btree ("user_id" uuid_ops,"submitted_at" timestamptz_ops);--> statement-breakpoint
@@ -481,6 +588,16 @@ CREATE POLICY "fotoai_plan_steps_delete" ON "fotoai_plan_steps" AS PERMISSIVE FO
 CREATE POLICY "fotoai_plan_steps_update" ON "fotoai_plan_steps" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_plan_steps_insert" ON "fotoai_plan_steps" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_plan_steps_select" ON "fotoai_plan_steps" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_film_rolls_delete" ON "fotoai_film_rolls" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_film_rolls_update" ON "fotoai_film_rolls" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_film_rolls_insert" ON "fotoai_film_rolls" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_film_rolls_select" ON "fotoai_film_rolls" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_film_frames_insert" ON "fotoai_film_frames" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_film_frames_select" ON "fotoai_film_frames" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_photos_delete" ON "fotoai_photos" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_photos_update" ON "fotoai_photos" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_photos_insert" ON "fotoai_photos" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_photos_select" ON "fotoai_photos" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_user_gear_delete" ON "fotoai_user_gear" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_user_gear_update" ON "fotoai_user_gear" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_user_gear_insert" ON "fotoai_user_gear" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint

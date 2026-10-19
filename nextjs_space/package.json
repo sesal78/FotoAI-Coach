@@ -36,6 +36,7 @@
     "@floating-ui/react": "0.26.0",
     "@fotoai/api": "workspace:*",
     "@fotoai/contracts": "workspace:*",
+    "@fotoai/core": "workspace:*",
     "@fotoai/db": "workspace:*",
     "@fotoai/env": "workspace:*",
     "@headlessui/react": "1.7.18",

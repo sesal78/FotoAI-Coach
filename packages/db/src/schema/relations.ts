@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm/relations";
 import { authUsers as usersInAuth } from "drizzle-orm/supabase";
-import { fotoaiGearLenses, fotoaiGearBodies, fotoaiPlaces, fotoaiShootPlans, fotoaiPlanSteps, fotoaiUserGear, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiUserPreferences, fotoaiXpEvents } from "./schema.ts";
+import { fotoaiGearLenses, fotoaiGearBodies, fotoaiPlaces, fotoaiShootPlans, fotoaiPlanSteps, fotoaiUserGear, fotoaiFilmRolls, fotoaiFilmFrames, fotoaiPhotos, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiUserPreferences, fotoaiXpEvents } from "./schema.ts";
 
 export const fotoaiGearBodiesRelations = relations(fotoaiGearBodies, ({one, many}) => ({
 	fotoaiGearLense: one(fotoaiGearLenses, {
@@ -27,6 +27,9 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiPlaces: many(fotoaiPlaces),
 	fotoaiShootPlans: many(fotoaiShootPlans),
 	fotoaiPlanSteps: many(fotoaiPlanSteps),
+	fotoaiFilmRolls: many(fotoaiFilmRolls),
+	fotoaiFilmFrames: many(fotoaiFilmFrames),
+	fotoaiPhotos: many(fotoaiPhotos),
 	fotoaiUserGears: many(fotoaiUserGear),
 	fotoaiChallengeSubmissions: many(fotoaiChallengeSubmissions),
 	fotoaiItineraries: many(fotoaiItineraries),
@@ -55,7 +58,7 @@ export const fotoaiShootPlansRelations = relations(fotoaiShootPlans, ({one, many
 	fotoaiPlanSteps: many(fotoaiPlanSteps),
 }));
 
-export const fotoaiPlanStepsRelations = relations(fotoaiPlanSteps, ({one}) => ({
+export const fotoaiPlanStepsRelations = relations(fotoaiPlanSteps, ({one, many}) => ({
 	fotoaiShootPlan: one(fotoaiShootPlans, {
 		fields: [fotoaiPlanSteps.planId],
 		references: [fotoaiShootPlans.id]
@@ -64,9 +67,26 @@ export const fotoaiPlanStepsRelations = relations(fotoaiPlanSteps, ({one}) => ({
 		fields: [fotoaiPlanSteps.userId],
 		references: [usersInAuth.id]
 	}),
+	fotoaiFilmFrames: many(fotoaiFilmFrames),
+	fotoaiPhotos: many(fotoaiPhotos),
 }));
 
-export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
+export const fotoaiFilmRollsRelations = relations(fotoaiFilmRolls, ({one, many}) => ({
+	fotoaiUserGear: one(fotoaiUserGear, {
+		fields: [fotoaiFilmRolls.userId],
+		references: [fotoaiUserGear.id]
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiFilmRolls.userId],
+		references: [usersInAuth.id]
+	}),
+	fotoaiFilmFrames: many(fotoaiFilmFrames),
+	fotoaiPhotos: many(fotoaiPhotos),
+}));
+
+export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one, many}) => ({
+	fotoaiFilmRolls: many(fotoaiFilmRolls),
+	fotoaiFilmFrames: many(fotoaiFilmFrames),
 	fotoaiGearBody: one(fotoaiGearBodies, {
 		fields: [fotoaiUserGear.bodyId],
 		references: [fotoaiGearBodies.id]
@@ -77,6 +97,45 @@ export const fotoaiUserGearRelations = relations(fotoaiUserGear, ({one}) => ({
 	}),
 	usersInAuth: one(usersInAuth, {
 		fields: [fotoaiUserGear.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const fotoaiFilmFramesRelations = relations(fotoaiFilmFrames, ({one, many}) => ({
+	fotoaiUserGear: one(fotoaiUserGear, {
+		fields: [fotoaiFilmFrames.userId],
+		references: [fotoaiUserGear.id]
+	}),
+	fotoaiFilmRoll: one(fotoaiFilmRolls, {
+		fields: [fotoaiFilmFrames.rollId],
+		references: [fotoaiFilmRolls.id]
+	}),
+	fotoaiPlanStep: one(fotoaiPlanSteps, {
+		fields: [fotoaiFilmFrames.userId],
+		references: [fotoaiPlanSteps.id]
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiFilmFrames.userId],
+		references: [usersInAuth.id]
+	}),
+	fotoaiPhotos: many(fotoaiPhotos),
+}));
+
+export const fotoaiPhotosRelations = relations(fotoaiPhotos, ({one}) => ({
+	fotoaiFilmFrame: one(fotoaiFilmFrames, {
+		fields: [fotoaiPhotos.userId],
+		references: [fotoaiFilmFrames.id]
+	}),
+	fotoaiFilmRoll: one(fotoaiFilmRolls, {
+		fields: [fotoaiPhotos.userId],
+		references: [fotoaiFilmRolls.id]
+	}),
+	fotoaiPlanStep: one(fotoaiPlanSteps, {
+		fields: [fotoaiPhotos.userId],
+		references: [fotoaiPlanSteps.id]
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiPhotos.userId],
 		references: [usersInAuth.id]
 	}),
 }));

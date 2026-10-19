@@ -26,3 +26,6 @@ export { exploreNearby, exploreSearch, getConditions, getPlace, getPlacePhoto } 
 export { generatePlan, getPlan, listPlans, patchPlan, patchPlanStep } from './plans.ts';
 export { loadSavedLoadout } from './gear.ts';
 export { explainGooglePlace, explainSpot } from './explain.ts';
+export { addFrame, createRoll, deleteRoll, getRoll, listRolls, matchScans, patchRoll } from './rolls.ts';
+export { loadGearItems } from './gear.ts';
+export { confirmPhoto, createPhoto, getPhotoUrl, listPhotos } from './photos.ts';

@@ -12,6 +12,7 @@ import {
   XP_AMOUNTS,
   arePrerequisitesMet,
   getLevelFromXP,
+  FOUNDATIONAL_SKILLS,
   getSkillById,
   getSkillsForCategory,
   getXPForChallenge,
@@ -47,7 +48,6 @@ const CRITIQUE_DIMENSION_SKILLS: Record<string, string[]> = {
   composition: ['rule_of_thirds', 'leading_lines', 'framing', 'symmetry'],
   creative: ['raw_editing', 'color_grading', 'exposure_correction'],
 };
-const FOUNDATIONAL_SKILLS = ['exposure_triangle', 'rule_of_thirds', 'raw_editing'];
 
 export function createXpService(client: FotoaiSupabaseClient) {
   async function award(scope: OwnerScope, skillId: string, xpAmount: number, kind: XpSourceKind, sourceId: string): Promise<XpAwardResult | null> {

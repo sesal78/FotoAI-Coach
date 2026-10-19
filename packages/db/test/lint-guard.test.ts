@@ -18,3 +18,9 @@ test('importing @fotoai/db/service outside privileged/ fails lint', async () => 
 test('importing @fotoai/db/service inside privileged/ passes lint', async () => {
   expect(await restricted('packages/core/src/privileged/xp.ts')).toBe(false);
 }, 30_000);
+
+test('the API may use the service client only in src/privileged/', async () => {
+  expect(await restricted('packages/api/src/privileged/storage.ts')).toBe(false);
+  expect(await restricted('packages/api/src/plans.ts')).toBe(true);
+  expect(await restricted('packages/api/src/photos.ts')).toBe(true);
+}, 30_000);

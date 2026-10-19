@@ -151,12 +151,159 @@ export const fotoaiPlanSteps = pgTable("fotoai_plan_steps", {
 			foreignColumns: [users.id],
 			name: "fotoai_plan_steps_user_id_fkey"
 		}).onDelete("cascade"),
+	unique("fotoai_plan_steps_id_user_key").on(table.id, table.userId),
 	unique("fotoai_plan_steps_plan_position_key").on(table.planId, table.position),
 	check("fotoai_plan_steps_instruction_check", sql`(char_length(instruction) >= 1) AND (char_length(instruction) <= 600)`),
 	check("fotoai_plan_steps_position_check", sql`("position" >= 1) AND ("position" <= 20)`),
 	check("fotoai_plan_steps_status_check", sql`status = ANY (ARRAY['todo'::text, 'done'::text, 'skipped'::text])`),
 	check("fotoai_plan_steps_tip_check", sql`char_length(tip) <= 200`),
 	check("fotoai_plan_steps_title_check", sql`(char_length(title) >= 1) AND (char_length(title) <= 80)`),
+]).enableRLS();
+
+export const fotoaiFilmRolls = pgTable("fotoai_film_rolls", {
+	id: uuid().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	stockId: text("stock_id"),
+	stockName: text("stock_name").notNull(),
+	boxIso: integer("box_iso").notNull(),
+	ratedIso: integer("rated_iso").notNull(),
+	exposures: integer().notNull(),
+	bodyGearId: uuid("body_gear_id"),
+	status: text().default('loaded').notNull(),
+	loadedAt: timestamp("loaded_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("fotoai_film_rolls_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId, table.bodyGearId],
+			foreignColumns: [fotoaiUserGear.id, fotoaiUserGear.userId],
+			name: "fotoai_film_rolls_body_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_film_rolls_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_film_rolls_id_user_key").on(table.id, table.userId),
+	check("fotoai_film_rolls_box_iso_check", sql`box_iso > 0`),
+	check("fotoai_film_rolls_exposures_check", sql`(exposures >= 1) AND (exposures <= 72)`),
+	check("fotoai_film_rolls_notes_check", sql`char_length(notes) <= 2000`),
+	check("fotoai_film_rolls_rated_iso_check", sql`rated_iso > 0`),
+	check("fotoai_film_rolls_status_check", sql`status = ANY (ARRAY['loaded'::text, 'finished'::text, 'developed'::text, 'scanned'::text])`),
+	check("fotoai_film_rolls_stock_id_check", sql`stock_id ~ '^[a-z0-9-]{1,60}$'::text`),
+	check("fotoai_film_rolls_stock_name_check", sql`(char_length(stock_name) >= 1) AND (char_length(stock_name) <= 60)`),
+]).enableRLS();
+
+export const fotoaiFilmFrames = pgTable("fotoai_film_frames", {
+	id: uuid().primaryKey().notNull(),
+	rollId: uuid("roll_id").notNull(),
+	userId: uuid("user_id").notNull(),
+	frameNo: integer("frame_no").notNull(),
+	settings: jsonb().notNull(),
+	lensGearId: uuid("lens_gear_id"),
+	stepId: uuid("step_id"),
+	lat: doublePrecision(),
+	lng: doublePrecision(),
+	note: text(),
+	shotAt: timestamp("shot_at", { withTimezone: true, mode: 'string' }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("fotoai_film_frames_step_idx").using("btree", table.stepId.asc().nullsLast().op("uuid_ops")).where(sql`(step_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.userId, table.lensGearId],
+			foreignColumns: [fotoaiUserGear.id, fotoaiUserGear.userId],
+			name: "fotoai_film_frames_lens_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.rollId, table.userId],
+			foreignColumns: [fotoaiFilmRolls.id, fotoaiFilmRolls.userId],
+			name: "fotoai_film_frames_roll_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId, table.stepId],
+			foreignColumns: [fotoaiPlanSteps.id, fotoaiPlanSteps.userId],
+			name: "fotoai_film_frames_step_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_film_frames_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_film_frames_id_user_key").on(table.id, table.userId),
+	unique("fotoai_film_frames_roll_frame_key").on(table.rollId, table.frameNo),
+	check("fotoai_film_frames_frame_no_check", sql`(frame_no >= 1) AND (frame_no <= 74)`),
+	check("fotoai_film_frames_lat_check", sql`(lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)`),
+	check("fotoai_film_frames_lng_check", sql`(lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)`),
+	check("fotoai_film_frames_note_check", sql`char_length(note) <= 500`),
+]).enableRLS();
+
+export const fotoaiPhotos = pgTable("fotoai_photos", {
+	id: uuid().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	source: text().notNull(),
+	objectKey: text("object_key").notNull(),
+	mime: text().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	bytes: bigint({ mode: "number" }).notNull(),
+	status: text().default('pending').notNull(),
+	takenAt: timestamp("taken_at", { withTimezone: true, mode: 'string' }),
+	takenOffset: text("taken_offset"),
+	cameraMake: text("camera_make"),
+	cameraModel: text("camera_model"),
+	lensModel: text("lens_model"),
+	focalMm: numeric("focal_mm"),
+	aperture: numeric(),
+	shutterS: numeric("shutter_s"),
+	iso: integer(),
+	lat: doublePrecision(),
+	lng: doublePrecision(),
+	stepId: uuid("step_id"),
+	frameId: uuid("frame_id"),
+	rollId: uuid("roll_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("fotoai_photos_step_idx").using("btree", table.stepId.asc().nullsLast().op("uuid_ops")).where(sql`(step_id IS NOT NULL)`),
+	index("fotoai_photos_user_created_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	foreignKey({
+			columns: [table.userId, table.frameId],
+			foreignColumns: [fotoaiFilmFrames.id, fotoaiFilmFrames.userId],
+			name: "fotoai_photos_frame_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId, table.rollId],
+			foreignColumns: [fotoaiFilmRolls.id, fotoaiFilmRolls.userId],
+			name: "fotoai_photos_roll_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId, table.stepId],
+			foreignColumns: [fotoaiPlanSteps.id, fotoaiPlanSteps.userId],
+			name: "fotoai_photos_step_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_photos_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_photos_object_key_key").on(table.objectKey),
+	check("fotoai_photos_aperture_check", sql`aperture > (0)::numeric`),
+	check("fotoai_photos_bytes_check", sql`(bytes >= 1) AND (bytes <= 52428800)`),
+	check("fotoai_photos_camera_make_check", sql`char_length(camera_make) <= 80`),
+	check("fotoai_photos_camera_model_check", sql`char_length(camera_model) <= 80`),
+	check("fotoai_photos_focal_mm_check", sql`focal_mm > (0)::numeric`),
+	check("fotoai_photos_iso_check", sql`iso > 0`),
+	check("fotoai_photos_lat_check", sql`(lat >= ('-90'::integer)::double precision) AND (lat <= (90)::double precision)`),
+	check("fotoai_photos_lens_model_check", sql`char_length(lens_model) <= 80`),
+	check("fotoai_photos_lng_check", sql`(lng >= ('-180'::integer)::double precision) AND (lng <= (180)::double precision)`),
+	check("fotoai_photos_mime_check", sql`(char_length(mime) >= 3) AND (char_length(mime) <= 80)`),
+	check("fotoai_photos_object_key_check", sql`object_key ~ (((('^'::text || (user_id)::text) || '/photos/'::text) || (id)::text) || '/[a-z0-9-]+\\.(jpg|jpeg|png|webp|heic|cr2|cr3|nef|arw|dng|raf|orf|rw2|pef|srw|raw)$'::text)`),
+	check("fotoai_photos_shutter_s_check", sql`shutter_s > (0)::numeric`),
+	check("fotoai_photos_source_check", sql`source = ANY (ARRAY['gallery'::text, 'scan'::text, 'camera'::text])`),
+	check("fotoai_photos_status_check", sql`status = ANY (ARRAY['pending'::text, 'ready'::text])`),
+	check("fotoai_photos_taken_offset_check", sql`taken_offset ~ '^[+-][0-9]{2}:[0-9]{2}$'::text`),
 ]).enableRLS();
 
 export const fotoaiUserGear = pgTable("fotoai_user_gear", {
@@ -189,6 +336,7 @@ export const fotoaiUserGear = pgTable("fotoai_user_gear", {
 			foreignColumns: [users.id],
 			name: "fotoai_user_gear_user_id_fkey"
 		}).onDelete("cascade"),
+	unique("fotoai_user_gear_id_user_key").on(table.id, table.userId),
 	unique("fotoai_user_gear_legacy_appwrite_id_key").on(table.legacyAppwriteId),
 	check("fotoai_user_gear_one_link_check", sql`num_nonnulls(body_id, lens_id, custom) <= 1`),
 ]).enableRLS();
