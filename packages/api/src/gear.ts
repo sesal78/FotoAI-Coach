@@ -164,6 +164,12 @@ async function loadGearRows(deps: Parameters<V2Body>[1], token: string, ids: str
   return new Map((data as unknown as GearRow[]).map((row) => [row.id, row]));
 }
 
+/** The caller's gear rows by id, as gear items with capabilities (RLS: another user's ids are absent). */
+export async function loadGearItems(deps: Parameters<V2Body>[1], token: string, ids: string[]): Promise<Map<string, GearItem>> {
+  const rows = await loadGearRows(deps, token, ids);
+  return new Map([...rows].map(([id, row]) => [id, toGearItem(row)]));
+}
+
 /** Resolves stored gear ids to a loadout; throws 404/400 when the gear is missing or does not fit. */
 async function resolveLoadout(deps: Parameters<V2Body>[1], token: string, stored: StoredLoadout): Promise<LoadoutDto> {
   const rows = await loadGearRows(deps, token, [stored.bodyGearId, ...(stored.lensGearId ? [stored.lensGearId] : [])]);

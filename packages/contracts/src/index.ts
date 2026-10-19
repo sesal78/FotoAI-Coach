@@ -45,3 +45,4 @@ export {
   STEP_STATUSES,
   StepPatch,
 } from './plans.ts';
+export { FrameDto, FrameInput, ROLL_STATUSES, RollDto, RollInput, RollPatch } from './film.ts';

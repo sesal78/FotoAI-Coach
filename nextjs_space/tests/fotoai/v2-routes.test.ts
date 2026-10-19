@@ -71,3 +71,17 @@ test('the 2E-1 explain route modules load and answer 401 without a token (no net
   const spot = await import('../../app/api/v2/me/spots/[id]/explain/route.ts');
   assert.equal((await spot.GET(new Request('http://localhost/api/v2/me/spots/x/explain'), { params: { id } })).status, 401);
 });
+
+test('the 2E-2a roll route modules load and answer 401 without a token (no network call)', async () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  const params = { params: { id } };
+  const rolls = await import('../../app/api/v2/rolls/route.ts');
+  assert.equal((await rolls.GET(new Request('http://localhost/api/v2/rolls'), params)).status, 401);
+  assert.equal((await rolls.POST(new Request('http://localhost/api/v2/rolls', { method: 'POST', body: '{}' }), params)).status, 401);
+  const one = await import('../../app/api/v2/rolls/[id]/route.ts');
+  assert.equal((await one.GET(new Request(`http://localhost/api/v2/rolls/${id}`), params)).status, 401);
+  assert.equal((await one.PATCH(new Request(`http://localhost/api/v2/rolls/${id}`, { method: 'PATCH', body: '{}' }), params)).status, 401);
+  assert.equal((await one.DELETE(new Request(`http://localhost/api/v2/rolls/${id}`, { method: 'DELETE' }), params)).status, 401);
+  const frames = await import('../../app/api/v2/rolls/[id]/frames/route.ts');
+  assert.equal((await frames.POST(new Request(`http://localhost/api/v2/rolls/${id}/frames`, { method: 'POST', body: '{}' }), params)).status, 401);
+});
