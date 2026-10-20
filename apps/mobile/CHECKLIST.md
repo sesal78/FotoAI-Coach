@@ -5,7 +5,7 @@ build named at the top of the section, and report any failure with the step numb
 
 ## 3A: foundation
 
-Build: _(EAS build link)_
+Build: first preview APK, 20 Oct 2026: https://expo.dev/accounts/topues/projects/fotoai-coach/builds/61ffb00d-9a6f-43e6-b9bb-170250397446
 
 1. Install the APK from the EAS link (allow installs from this source if Android asks).
 2. Open FotoAI. The sign-in screen shows, in the Golden light look (or Golden dark if the phone is in dark mode).
