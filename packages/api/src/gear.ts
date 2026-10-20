@@ -249,3 +249,9 @@ export const putLoadout: V2Body = async (request, deps) => {
   if (error) throw upstream('save the loadout');
   return json({ loadout });
 };
+
+/** The loadout as one line of names for a prompt: body + lens, and the film when loaded. */
+export function describeLoadout(loadout: LoadoutDto): string {
+  const film = loadout.film ? `, film ${loadout.film.stock}` : '';
+  return `${loadout.body.name} + ${loadout.lens.make} ${loadout.lens.model}${film}`;
+}

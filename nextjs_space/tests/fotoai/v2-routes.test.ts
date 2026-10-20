@@ -135,4 +135,6 @@ test('assetlinks.json names the FotoAI Android app and its EAS signing certifica
 test('the 3B route modules load and answer 401 without a token (no network call)', async () => {
   const progress = await import('../../app/api/v2/me/progress/route.ts');
   assert.equal((await progress.GET(new Request('http://localhost/api/v2/me/progress'), { params: {} })).status, 401);
+  const challenges = await import('../../app/api/v2/challenges/route.ts');
+  assert.equal((await challenges.POST(new Request('http://localhost/api/v2/challenges', { method: 'POST', body: '{}' }), { params: {} })).status, 401);
 });

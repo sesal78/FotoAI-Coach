@@ -12,7 +12,7 @@ import { PLACE_ID } from '@fotoai/places';
 
 import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
 import { recordIssued, toV2Challenge } from './challenges.ts';
-import { loadSavedLoadout } from './gear.ts';
+import { describeLoadout, loadSavedLoadout } from './gear.ts';
 import { ApiError, json, type V2Body, type V2Deps } from './handler.ts';
 import { readJsonObject } from './http.ts';
 import { placesConfigured, placesFor } from './places-client.ts';
@@ -42,10 +42,9 @@ async function loadContext(deps: V2Deps, principal: Principal, client: UserClien
     context.rollId ? loadRoll(client, context.rollId) : null,
   ]);
   if (skills.error) throw upstream('load your skills');
-  const film = loadout?.film ? `, film ${loadout.film.stock}` : '';
   return {
     screen: context.screen,
-    loadout: loadout ? `${loadout.body.name} + ${loadout.lens.make} ${loadout.lens.model}${film}` : null,
+    loadout: loadout ? describeLoadout(loadout) : null,
     weakSkills: skills.data.map((s) => getSkillById(s.skill_id)?.name).filter((n): n is string => Boolean(n)),
     plan,
     roll,

@@ -12,6 +12,7 @@ export { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.
 export {
   decodeCursor,
   encodeCursor,
+  generateChallenge,
   getActiveChallenge,
   getChallenge,
   listChallenges,

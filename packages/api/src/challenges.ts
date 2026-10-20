@@ -1,21 +1,28 @@
-// v2 challenges: the active challenge, a paged list, one challenge's detail and status changes.
+// v2 challenges: the active challenge, a paged list, one challenge's detail, status changes and a
+// new challenge from Today.
 // Rows come through the user's own token (createUserClient), so RLS limits them to the owner.
 
+import { generateChallenge as draftChallenge } from '@fotoai/ai';
 import {
   CHALLENGE_STATUSES,
+  CHALLENGE_TYPES,
   ChallengeStatusPatch,
+  GenerateChallengeInput,
   type ChallengeDto,
   type ChallengeListResponse,
   type ChallengeSource,
   type ChallengeStatus,
 } from '@fotoai/contracts';
-import { canMove, CHALLENGE_MOVES, progressAfterCompletion, progressAfterIssue } from '@fotoai/core';
+import { canMove, CHALLENGE_MOVES, getSkillById, localDate, progressAfterCompletion, progressAfterIssue, startOfLocalDay, timezoneAt } from '@fotoai/core';
 import { createUserClient, type Database } from '@fotoai/db';
 
 import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
+import { describeLoadout, loadSavedLoadout } from './gear.ts';
 import { ApiError, json, type V2Body } from './handler.ts';
 import { readJsonObject } from './http.ts';
+import { fromAi, requireAi } from './plans.ts';
 import { awardChallengeXp } from './privileged/xp.ts';
+import { reserveCalls } from './rate-limit.ts';
 
 type ChallengeRow = Database['public']['Tables']['fotoai_daily_challenges']['Row'];
 
@@ -256,4 +263,101 @@ export const patchChallenge: V2Body = async (request, deps, { params }) => {
     await awardChallengeXp(deps.env, principal.userId, row);
   }
   return json({ challenge: toV2Challenge(row), changed: true });
+};
+
+const DEFAULT_TYPE = 'WEEKEND_DEEP_DIVE';
+
+/**
+ * POST /api/v2/challenges { type?, force? }. Unless force, today's open dashboard challenge is
+ * returned (200); "today" starts at midnight in the home area's timezone, else UTC. Otherwise a
+ * new pending dashboard challenge is made (201) with no location, and counted as issued.
+ */
+export const generateChallenge: V2Body = async (request, deps) => {
+  rejectBrowserIdentity(new URL(request.url).searchParams);
+  const principal = await requirePrincipal(request, deps);
+  const body = await readJsonObject(request);
+  rejectBrowserIdentity(body);
+  const parsed = GenerateChallengeInput.safeParse(body);
+  if (!parsed.success) throw new ApiError('validation', `type must be one of ${CHALLENGE_TYPES.join(', ')}; force must be true or false`);
+  requireAi(deps);
+  const type = parsed.data.type ?? DEFAULT_TYPE;
+
+  const client = createUserClient(deps.env, principal.accessToken);
+  const prefs = await client.from('fotoai_user_preferences').select('skill_level, photography_interests, avoids_styles, home_lat, home_lng').maybeSingle();
+  if (prefs.error) throw new ApiError('upstream', 'Could not load your preferences');
+  const p = prefs.data;
+  const home = p && p.home_lat !== null && p.home_lng !== null ? { lat: p.home_lat, lng: p.home_lng } : null;
+  const timezone = home ? timezoneAt(home.lat, home.lng) : 'UTC';
+  const now = deps.now();
+
+  if (!parsed.data.force) {
+    const open = await client
+      .from(TABLE)
+      .select('*')
+      .eq('status', 'pending')
+      .eq('source', 'dashboard')
+      .gte('issued_date', startOfLocalDay(now, timezone).toISOString())
+      .order('issued_date', { ascending: false })
+      .limit(1);
+    if (open.error) throw loadFailed();
+    const row = open.data[0];
+    if (row) return json({ challenge: toV2Challenge(row), created: false });
+  }
+
+  await reserveCalls(deps.env, principal, 'challenge_generate', 1, now);
+  const [loadout, skills, recent, weather] = await Promise.all([
+    loadSavedLoadout(deps, principal),
+    client.from('fotoai_user_skills').select('skill_id').eq('user_id', principal.userId).order('current_xp', { ascending: true }).limit(5),
+    client.from(TABLE).select('challenge_text').order('issued_date', { ascending: false }).limit(5),
+    home ? deps.weather.get(home.lat, home.lng) : null,
+  ]);
+  if (skills.error) throw new ApiError('upstream', 'Could not load your skills');
+  if (recent.error) throw loadFailed();
+
+  let draft;
+  try {
+    draft = await draftChallenge(deps.ai, {
+      type,
+      today: localDate(now, timezone),
+      skillLevel: p?.skill_level ?? 'intermediate',
+      interests: p?.photography_interests ?? [],
+      avoidsStyles: p?.avoids_styles ?? [],
+      loadout: loadout ? describeLoadout(loadout) : null,
+      weakSkills: skills.data.map((s) => getSkillById(s.skill_id)?.name).filter((n): n is string => Boolean(n)),
+      recentChallenges: recent.data.map((c) => c.challenge_text),
+      weather,
+    });
+  } catch (err) {
+    throw fromAi(err);
+  }
+
+  const { data: row, error } = await client
+    .from(TABLE)
+    .insert({
+      user_id: principal.userId,
+      challenge_type: type,
+      source: 'dashboard',
+      status: 'pending',
+      issued_date: now.toISOString(),
+      location: null,
+      weather_conditions: weather ? `${weather.current.condition}, ${Math.round(weather.current.temperatureC)}°C` : null,
+      challenge_text: draft.challengeText,
+      category: draft.category,
+      difficulty: draft.difficulty,
+      duration: draft.duration,
+      tips: draft.tips,
+      recommended_gear: draft.recommendedGear,
+      shot_list: draft.shotList,
+      narrative_context: draft.narrativeContext,
+      editing_direction: draft.editingDirection,
+      mastery_area: draft.masteryArea,
+      technical_level: draft.technicalLevel,
+      success_criteria: draft.successCriteria,
+      what_to_look_for: draft.whatToLookFor,
+    })
+    .select('*')
+    .single();
+  if (error || !row) throw new ApiError('upstream', 'Could not save the challenge');
+  await recordIssued(client, principal, type, now);
+  return json({ challenge: toV2Challenge(row), created: true }, { status: 201 });
 };

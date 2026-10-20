@@ -3,11 +3,15 @@ export {
   CHALLENGE_SOURCES,
   ActiveChallengeResponse,
   CHALLENGE_STATUSES,
+  CHALLENGE_TYPES,
   ChallengeDto,
   ChallengeListResponse,
   ChallengeStatusPatch,
+  GenerateChallengeInput,
+  GenerateChallengeResponse,
   type ChallengeSource,
   type ChallengeStatus,
+  type ChallengeType,
 } from './challenges.ts';
 export { Preferences, PreferencesPatch, THEMES, UNITS, type Theme, type Units } from './preferences.ts';
 export {
