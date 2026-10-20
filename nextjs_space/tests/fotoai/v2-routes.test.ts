@@ -118,3 +118,16 @@ test('the 2E-2b coach route modules load and answer 401 without a token (no netw
   assert.equal((await history.GET(new Request('http://localhost/api/v2/coach/history'), { params: {} })).status, 401);
   assert.equal((await history.DELETE(new Request('http://localhost/api/v2/coach/history', { method: 'DELETE' }), { params: {} })).status, 401);
 });
+
+test('assetlinks.json names the FotoAI Android app and its EAS signing certificate (3B)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const file = new URL('../../public/.well-known/assetlinks.json', import.meta.url);
+  const statements = JSON.parse(await readFile(file, 'utf8'));
+  assert.equal(statements.length, 1);
+  assert.deepEqual(statements[0].relation, ['delegate_permission/common.handle_all_urls']);
+  assert.equal(statements[0].target.namespace, 'android_app');
+  assert.equal(statements[0].target.package_name, 'com.topues.fotoai');
+  assert.deepEqual(statements[0].target.sha256_cert_fingerprints, [
+    '88:AB:10:E2:6B:F7:1D:7D:95:AF:A0:17:F4:00:20:42:92:B8:5D:74:80:6A:C0:64:D5:A3:DD:C9:06:A5:6A:4D',
+  ]);
+});
