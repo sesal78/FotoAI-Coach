@@ -9,7 +9,7 @@ import {
   type ChallengeSource,
   type ChallengeStatus,
 } from '@fotoai/contracts';
-import { canMove, CHALLENGE_MOVES, progressAfterCompletion } from '@fotoai/core';
+import { canMove, CHALLENGE_MOVES, progressAfterCompletion, progressAfterIssue } from '@fotoai/core';
 import { createUserClient, type Database } from '@fotoai/db';
 
 import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
@@ -178,6 +178,23 @@ export async function ownProgress(client: UserClient, principal: Principal) {
     if (again.data) return again.data;
   }
   throw progressFailed();
+}
+
+/**
+ * Counts one new challenge as issued on the caller's progress row (the live generator's rule).
+ * A failure is logged, not thrown: the challenge itself is already saved.
+ */
+export async function recordIssued(client: UserClient, principal: Principal, challengeType: string, now: Date): Promise<void> {
+  try {
+    const progress = await ownProgress(client, principal);
+    const { error } = await client
+      .from('fotoai_user_progress')
+      .update(progressAfterIssue(progress, challengeType, now) as never)
+      .eq('id', progress.id);
+    if (error) throw error;
+  } catch {
+    console.warn('FotoAI v2: challenge saved but the issued counter was not updated');
+  }
 }
 
 /** One completion on the caller's progress row. */

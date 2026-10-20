@@ -37,8 +37,10 @@ export {
   canMove,
   CHALLENGE_MOVES,
   completedFieldForChallengeType,
+  issuedFieldForChallengeType,
   nextStreak,
   progressAfterCompletion,
+  progressAfterIssue,
   type ChallengeState,
   type ProgressCounts,
 } from './challenges/rules.ts';
