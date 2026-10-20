@@ -69,3 +69,15 @@ test('the coach undo refuses while coach messages or photo checks exist', () => 
   const guard = text.slice(0, drop);
   for (const column of ['check_safe', 'check_matches', 'check_genre', 'checked_at', 'check_prompt']) expect(guard, column).toContain(column);
 });
+
+test('the analyses undo refuses while v2 analyses or Auto themes exist', () => {
+  const text = read('20261020100001_photo_analyses_and_auto_theme.undo.sql');
+  const drop = firstIndex(text, /\bdrop\b/i);
+  const analyses = firstIndex(text, /raise exception[^;]*analys/i);
+  const themes = firstIndex(text, /raise exception[^;]*auto/i);
+  expect(analyses).toBeGreaterThan(-1);
+  expect(themes).toBeGreaterThan(-1);
+  expect(Math.max(analyses, themes)).toBeLessThan(drop);
+  const guard = text.slice(0, drop);
+  for (const words of ['photo_id is not null', "mode <> 'critique'", "theme = 'auto'"]) expect(guard, words).toContain(words);
+});

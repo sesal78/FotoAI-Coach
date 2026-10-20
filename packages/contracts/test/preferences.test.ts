@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { PreferencesPatch, THEMES, UNITS } from '../src/index.ts';
 
 test('themes and units match the database checks', () => {
-  expect(THEMES).toEqual(['golden', 'golden_dark', 'camera']);
+  expect(THEMES).toEqual(['golden', 'golden_dark', 'camera', 'auto']);
   expect(UNITS).toEqual(['metric', 'imperial']);
 });
 

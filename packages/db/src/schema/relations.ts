@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm/relations";
 import { authUsers as usersInAuth } from "drizzle-orm/supabase";
-import { fotoaiGearLenses, fotoaiGearBodies, fotoaiPlaces, fotoaiShootPlans, fotoaiPlanSteps, fotoaiUserGear, fotoaiFilmRolls, fotoaiFilmFrames, fotoaiPhotos, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiPhotoCritiques, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiUserPreferences, fotoaiXpEvents, fotoaiCoachMessages } from "./schema.ts";
+import { fotoaiGearLenses, fotoaiGearBodies, fotoaiPlaces, fotoaiShootPlans, fotoaiPlanSteps, fotoaiUserGear, fotoaiFilmRolls, fotoaiFilmFrames, fotoaiPhotos, fotoaiDailyChallenges, fotoaiChallengeSubmissions, fotoaiItineraries, fotoaiUserProgress, fotoaiAgentActions, fotoaiReverseAnalyses, fotoaiEditingRecipes, fotoaiWeeklyReports, fotoaiPortfolioAnalyses, fotoaiUserSkills, fotoaiXpEvents, fotoaiCoachMessages, fotoaiPhotoCritiques, fotoaiUserPreferences } from "./schema.ts";
 
 export const fotoaiGearBodiesRelations = relations(fotoaiGearBodies, ({one, many}) => ({
 	fotoaiGearLense: one(fotoaiGearLenses, {
@@ -35,16 +35,16 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	fotoaiItineraries: many(fotoaiItineraries),
 	fotoaiUserProgresses: many(fotoaiUserProgress),
 	fotoaiAgentActions: many(fotoaiAgentActions),
-	fotoaiPhotoCritiques: many(fotoaiPhotoCritiques),
 	fotoaiReverseAnalyses: many(fotoaiReverseAnalyses),
 	fotoaiEditingRecipes: many(fotoaiEditingRecipes),
 	fotoaiWeeklyReports: many(fotoaiWeeklyReports),
 	fotoaiPortfolioAnalyses: many(fotoaiPortfolioAnalyses),
 	fotoaiUserSkills: many(fotoaiUserSkills),
-	fotoaiUserPreferences: many(fotoaiUserPreferences),
 	fotoaiDailyChallenges: many(fotoaiDailyChallenges),
 	fotoaiXpEvents: many(fotoaiXpEvents),
 	fotoaiCoachMessages: many(fotoaiCoachMessages),
+	fotoaiPhotoCritiques: many(fotoaiPhotoCritiques),
+	fotoaiUserPreferences: many(fotoaiUserPreferences),
 }));
 
 export const fotoaiShootPlansRelations = relations(fotoaiShootPlans, ({one, many}) => ({
@@ -122,7 +122,7 @@ export const fotoaiFilmFramesRelations = relations(fotoaiFilmFrames, ({one, many
 	fotoaiPhotos: many(fotoaiPhotos),
 }));
 
-export const fotoaiPhotosRelations = relations(fotoaiPhotos, ({one}) => ({
+export const fotoaiPhotosRelations = relations(fotoaiPhotos, ({one, many}) => ({
 	fotoaiFilmFrame: one(fotoaiFilmFrames, {
 		fields: [fotoaiPhotos.userId],
 		references: [fotoaiFilmFrames.id]
@@ -139,6 +139,7 @@ export const fotoaiPhotosRelations = relations(fotoaiPhotos, ({one}) => ({
 		fields: [fotoaiPhotos.userId],
 		references: [usersInAuth.id]
 	}),
+	fotoaiPhotoCritiques: many(fotoaiPhotoCritiques),
 }));
 
 export const fotoaiChallengeSubmissionsRelations = relations(fotoaiChallengeSubmissions, ({one, many}) => ({
@@ -182,17 +183,6 @@ export const fotoaiAgentActionsRelations = relations(fotoaiAgentActions, ({one})
 	}),
 }));
 
-export const fotoaiPhotoCritiquesRelations = relations(fotoaiPhotoCritiques, ({one}) => ({
-	fotoaiChallengeSubmission: one(fotoaiChallengeSubmissions, {
-		fields: [fotoaiPhotoCritiques.userId],
-		references: [fotoaiChallengeSubmissions.id]
-	}),
-	usersInAuth: one(usersInAuth, {
-		fields: [fotoaiPhotoCritiques.userId],
-		references: [usersInAuth.id]
-	}),
-}));
-
 export const fotoaiReverseAnalysesRelations = relations(fotoaiReverseAnalyses, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [fotoaiReverseAnalyses.userId],
@@ -228,13 +218,6 @@ export const fotoaiUserSkillsRelations = relations(fotoaiUserSkills, ({one}) => 
 	}),
 }));
 
-export const fotoaiUserPreferencesRelations = relations(fotoaiUserPreferences, ({one}) => ({
-	usersInAuth: one(usersInAuth, {
-		fields: [fotoaiUserPreferences.userId],
-		references: [usersInAuth.id]
-	}),
-}));
-
 export const fotoaiXpEventsRelations = relations(fotoaiXpEvents, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [fotoaiXpEvents.userId],
@@ -245,6 +228,28 @@ export const fotoaiXpEventsRelations = relations(fotoaiXpEvents, ({one}) => ({
 export const fotoaiCoachMessagesRelations = relations(fotoaiCoachMessages, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [fotoaiCoachMessages.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const fotoaiPhotoCritiquesRelations = relations(fotoaiPhotoCritiques, ({one}) => ({
+	fotoaiPhoto: one(fotoaiPhotos, {
+		fields: [fotoaiPhotoCritiques.userId],
+		references: [fotoaiPhotos.id]
+	}),
+	fotoaiChallengeSubmission: one(fotoaiChallengeSubmissions, {
+		fields: [fotoaiPhotoCritiques.userId],
+		references: [fotoaiChallengeSubmissions.id]
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiPhotoCritiques.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const fotoaiUserPreferencesRelations = relations(fotoaiUserPreferences, ({one}) => ({
+	usersInAuth: one(usersInAuth, {
+		fields: [fotoaiUserPreferences.userId],
 		references: [usersInAuth.id]
 	}),
 }));

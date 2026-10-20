@@ -272,7 +272,7 @@ export const fotoaiPhotos = pgTable("fotoai_photos", {
 	checkPrompt: text("check_prompt"),
 }, (table) => [
 	index("fotoai_photos_step_idx").using("btree", table.stepId.asc().nullsLast().op("uuid_ops")).where(sql`(step_id IS NOT NULL)`),
-	index("fotoai_photos_user_created_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	index("fotoai_photos_user_created_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
 	foreignKey({
 			columns: [table.userId, table.frameId],
 			foreignColumns: [fotoaiFilmFrames.id, fotoaiFilmFrames.userId],
@@ -293,6 +293,7 @@ export const fotoaiPhotos = pgTable("fotoai_photos", {
 			foreignColumns: [users.id],
 			name: "fotoai_photos_user_id_fkey"
 		}).onDelete("cascade"),
+	unique("fotoai_photos_id_user_key").on(table.id, table.userId),
 	unique("fotoai_photos_object_key_key").on(table.objectKey),
 	check("fotoai_photos_aperture_check", sql`aperture > (0)::numeric`),
 	check("fotoai_photos_bytes_check", sql`(bytes >= 1) AND (bytes <= 52428800)`),
@@ -477,46 +478,6 @@ export const fotoaiAgentActions = pgTable("fotoai_agent_actions", {
 	unique("fotoai_agent_actions_legacy_appwrite_id_key").on(table.legacyAppwriteId),
 ]).enableRLS();
 
-export const fotoaiPhotoCritiques = pgTable("fotoai_photo_critiques", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	legacyAppwriteId: text("legacy_appwrite_id"),
-	submissionId: uuid("submission_id"),
-	photoObjectKey: text("photo_object_key").notNull(),
-	technicalScore: integer("technical_score"),
-	compositionScore: integer("composition_score"),
-	creativeScore: integer("creative_score"),
-	overallScore: integer("overall_score"),
-	technicalFeedback: text("technical_feedback"),
-	compositionFeedback: text("composition_feedback"),
-	creativeFeedback: text("creative_feedback"),
-	strengths: text().array().default([]).notNull(),
-	improvements: text().array().default([]).notNull(),
-	suggestedSettings: text("suggested_settings"),
-	critiqueDate: timestamp("critique_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("fotoai_photo_critiques_submission_idx").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops")),
-	index("fotoai_photo_critiques_user_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.critiqueDate.desc().nullsFirst().op("timestamptz_ops")),
-	foreignKey({
-			columns: [table.userId, table.submissionId],
-			foreignColumns: [fotoaiChallengeSubmissions.id, fotoaiChallengeSubmissions.userId],
-			name: "fotoai_photo_critiques_submission_owner_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "fotoai_photo_critiques_user_id_fkey"
-		}).onDelete("cascade"),
-	unique("fotoai_photo_critiques_id_user_key").on(table.id, table.userId),
-	unique("fotoai_photo_critiques_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_photo_critiques_check", sql`split_part(photo_object_key, '/'::text, 1) = (user_id)::text`),
-	check("fotoai_photo_critiques_composition_score_check", sql`(composition_score >= 0) AND (composition_score <= 100)`),
-	check("fotoai_photo_critiques_creative_score_check", sql`(creative_score >= 0) AND (creative_score <= 100)`),
-	check("fotoai_photo_critiques_overall_score_check", sql`(overall_score >= 0) AND (overall_score <= 100)`),
-	check("fotoai_photo_critiques_technical_score_check", sql`(technical_score >= 0) AND (technical_score <= 100)`),
-]).enableRLS();
-
 export const fotoaiReverseAnalyses = pgTable("fotoai_reverse_analyses", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
@@ -619,51 +580,6 @@ export const fotoaiUserSkills = pgTable("fotoai_user_skills", {
 	check("fotoai_user_skills_status_check", sql`status = ANY (ARRAY['locked'::text, 'available'::text, 'learned'::text, 'practiced'::text, 'mastered'::text])`),
 ]).enableRLS();
 
-export const fotoaiUserPreferences = pgTable("fotoai_user_preferences", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	legacyAppwriteId: text("legacy_appwrite_id"),
-	skillLevel: text("skill_level").default('intermediate').notNull(),
-	photographyInterests: text("photography_interests").array().default([]).notNull(),
-	avoidsStyles: text("avoids_styles").array().default([]).notNull(),
-	workDays: text("work_days").array().default([]).notNull(),
-	workStartTime: text("work_start_time").default('09:00').notNull(),
-	workEndTime: text("work_end_time").default('17:00').notNull(),
-	lunchStartTime: text("lunch_start_time").default('12:00').notNull(),
-	lunchEndTime: text("lunch_end_time").default('13:00').notNull(),
-	primaryPhotoDay: text("primary_photo_day").default('Saturday').notNull(),
-	secondaryPhotoDays: text("secondary_photo_days").array().default([]).notNull(),
-	lunchBreakPhotography: boolean("lunch_break_photography").default(true).notNull(),
-	eveningPhotography: boolean("evening_photography").default(true).notNull(),
-	wfhFlexibility: boolean("wfh_flexibility").default(true).notNull(),
-	adaptToWeather: boolean("adapt_to_weather").default(true).notNull(),
-	adaptToCalendar: boolean("adapt_to_calendar").default(true).notNull(),
-	officeLocation: text("office_location"),
-	homeLocation: text("home_location"),
-	currentLocation: text("current_location"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-	theme: text().default('golden').notNull(),
-	units: text().default('metric').notNull(),
-	homeLat: doublePrecision("home_lat"),
-	homeLng: doublePrecision("home_lng"),
-	loadout: jsonb(),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "fotoai_user_preferences_user_id_fkey"
-		}).onDelete("cascade"),
-	unique("fotoai_user_preferences_user_id_key").on(table.userId),
-	unique("fotoai_user_preferences_legacy_appwrite_id_key").on(table.legacyAppwriteId),
-	check("fotoai_user_preferences_home_lat_check", sql`(home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))`),
-	check("fotoai_user_preferences_home_lng_check", sql`(home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))`),
-	check("fotoai_user_preferences_home_pair_check", sql`(home_lat IS NULL) = (home_lng IS NULL)`),
-	check("fotoai_user_preferences_skill_level_check", sql`skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])`),
-	check("fotoai_user_preferences_theme_check", sql`theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text])`),
-	check("fotoai_user_preferences_units_check", sql`units = ANY (ARRAY['metric'::text, 'imperial'::text])`),
-]).enableRLS();
-
 export const fotoaiDailyChallenges = pgTable("fotoai_daily_challenges", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
@@ -745,4 +661,100 @@ export const fotoaiCoachMessages = pgTable("fotoai_coach_messages", {
 	check("fotoai_coach_messages_context_check", sql`octet_length((context)::text) <= 2000`),
 	check("fotoai_coach_messages_proposal_check", sql`octet_length((proposal)::text) <= 8000`),
 	check("fotoai_coach_messages_role_check", sql`role = ANY (ARRAY['user'::text, 'assistant'::text])`),
+]).enableRLS();
+
+export const fotoaiPhotoCritiques = pgTable("fotoai_photo_critiques", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	legacyAppwriteId: text("legacy_appwrite_id"),
+	submissionId: uuid("submission_id"),
+	photoObjectKey: text("photo_object_key").notNull(),
+	technicalScore: integer("technical_score"),
+	compositionScore: integer("composition_score"),
+	creativeScore: integer("creative_score"),
+	overallScore: integer("overall_score"),
+	technicalFeedback: text("technical_feedback"),
+	compositionFeedback: text("composition_feedback"),
+	creativeFeedback: text("creative_feedback"),
+	strengths: text().array().default([]).notNull(),
+	improvements: text().array().default([]).notNull(),
+	suggestedSettings: text("suggested_settings"),
+	critiqueDate: timestamp("critique_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	photoId: uuid("photo_id"),
+	mode: text().default('critique').notNull(),
+	details: jsonb(),
+}, (table) => [
+	index("fotoai_photo_critiques_photo_idx").using("btree", table.photoId.asc().nullsLast().op("uuid_ops")).where(sql`(photo_id IS NOT NULL)`),
+	index("fotoai_photo_critiques_submission_idx").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops")),
+	index("fotoai_photo_critiques_user_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.critiqueDate.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.userId, table.photoId],
+			foreignColumns: [fotoaiPhotos.id, fotoaiPhotos.userId],
+			name: "fotoai_photo_critiques_photo_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId, table.submissionId],
+			foreignColumns: [fotoaiChallengeSubmissions.id, fotoaiChallengeSubmissions.userId],
+			name: "fotoai_photo_critiques_submission_owner_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_photo_critiques_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_photo_critiques_id_user_key").on(table.id, table.userId),
+	unique("fotoai_photo_critiques_legacy_appwrite_id_key").on(table.legacyAppwriteId),
+	check("fotoai_photo_critiques_check", sql`split_part(photo_object_key, '/'::text, 1) = (user_id)::text`),
+	check("fotoai_photo_critiques_composition_score_check", sql`(composition_score >= 0) AND (composition_score <= 100)`),
+	check("fotoai_photo_critiques_creative_score_check", sql`(creative_score >= 0) AND (creative_score <= 100)`),
+	check("fotoai_photo_critiques_details_check", sql`octet_length((details)::text) <= 16000`),
+	check("fotoai_photo_critiques_mode_check", sql`mode = ANY (ARRAY['critique'::text, 'editing'::text, 'recreate'::text])`),
+	check("fotoai_photo_critiques_overall_score_check", sql`(overall_score >= 0) AND (overall_score <= 100)`),
+	check("fotoai_photo_critiques_technical_score_check", sql`(technical_score >= 0) AND (technical_score <= 100)`),
+]).enableRLS();
+
+export const fotoaiUserPreferences = pgTable("fotoai_user_preferences", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	legacyAppwriteId: text("legacy_appwrite_id"),
+	skillLevel: text("skill_level").default('intermediate').notNull(),
+	photographyInterests: text("photography_interests").array().default([]).notNull(),
+	avoidsStyles: text("avoids_styles").array().default([]).notNull(),
+	workDays: text("work_days").array().default([]).notNull(),
+	workStartTime: text("work_start_time").default('09:00').notNull(),
+	workEndTime: text("work_end_time").default('17:00').notNull(),
+	lunchStartTime: text("lunch_start_time").default('12:00').notNull(),
+	lunchEndTime: text("lunch_end_time").default('13:00').notNull(),
+	primaryPhotoDay: text("primary_photo_day").default('Saturday').notNull(),
+	secondaryPhotoDays: text("secondary_photo_days").array().default([]).notNull(),
+	lunchBreakPhotography: boolean("lunch_break_photography").default(true).notNull(),
+	eveningPhotography: boolean("evening_photography").default(true).notNull(),
+	wfhFlexibility: boolean("wfh_flexibility").default(true).notNull(),
+	adaptToWeather: boolean("adapt_to_weather").default(true).notNull(),
+	adaptToCalendar: boolean("adapt_to_calendar").default(true).notNull(),
+	officeLocation: text("office_location"),
+	homeLocation: text("home_location"),
+	currentLocation: text("current_location"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	theme: text().default('golden').notNull(),
+	units: text().default('metric').notNull(),
+	homeLat: doublePrecision("home_lat"),
+	homeLng: doublePrecision("home_lng"),
+	loadout: jsonb(),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "fotoai_user_preferences_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("fotoai_user_preferences_user_id_key").on(table.userId),
+	unique("fotoai_user_preferences_legacy_appwrite_id_key").on(table.legacyAppwriteId),
+	check("fotoai_user_preferences_home_lat_check", sql`(home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))`),
+	check("fotoai_user_preferences_home_lng_check", sql`(home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))`),
+	check("fotoai_user_preferences_home_pair_check", sql`(home_lat IS NULL) = (home_lng IS NULL)`),
+	check("fotoai_user_preferences_skill_level_check", sql`skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])`),
+	check("fotoai_user_preferences_theme_check", sql`theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text, 'auto'::text])`),
+	check("fotoai_user_preferences_units_check", sql`units = ANY (ARRAY['metric'::text, 'imperial'::text])`),
 ]).enableRLS();
