@@ -19,3 +19,10 @@ Build: first preview APK, 20 Oct 2026: https://expo.dev/accounts/topues/projects
 10. Turn airplane mode off. Sign out on Me. The sign-in screen shows.
 11. Tap "Forgot password?", send the link, open it on the phone. Until 3B ships the App Link file, it opens the web reset page: finish it there, then sign in in the app with the new password.
 12. Sign in with a wrong password. "Wrong email or password." shows.
+
+## 3B: server gaps
+
+Build: the 3A preview APK, reinstalled after the 3B deploy (Android checks App Links at install). Passed 20 Oct 2026.
+
+1. Reinstall the APK. Sign out, tap "Forgot password?" and send the link.
+2. Tap the link in the email on the phone. The app opens on the New password screen (not the web page).

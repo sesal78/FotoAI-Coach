@@ -18,9 +18,8 @@ const config: ExpoConfig = {
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
-    // The password-reset email link opens the app (Android App Link). Verification needs
-    // https://myfoto.topues.com/.well-known/assetlinks.json, which ships with 3B; until then the
-    // link opens the web reset page.
+    // The password-reset email link opens the app (Android App Link), verified through
+    // https://myfoto.topues.com/.well-known/assetlinks.json (live since 3B).
     intentFilters: [
       {
         action: 'VIEW',
@@ -35,6 +34,8 @@ const config: ExpoConfig = {
     ['expo-splash-screen', { backgroundColor: '#F6E7CF', image: './assets/images/splash-icon.png', imageWidth: 76 }],
     'expo-secure-store',
     'expo-sqlite',
+    // Foreground only: Today's light and weather, and setting the home area. Never in the background.
+    ['expo-location', { locationWhenInUsePermission: 'FotoAI uses your location to show the light and weather where you are, and to set your home area.', isAndroidBackgroundLocationEnabled: false }],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
   // The EAS project (Expo account topues) that builds the APK. Public ids, not secrets.
