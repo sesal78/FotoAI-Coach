@@ -50,6 +50,8 @@ packageExtensions:
   '@react-native/jest-preset@0': { peerDependencies: { react: '*', 'react-native': '*' } }
   'nativewind@4': { peerDependencies: { 'react': '*' } }
   'standard-navigation@0': { peerDependencies: { 'react': '*' } }
+  # NativeWind's Babel plugin loads the JSX transform without declaring it (the EAS release bundle fails without it).
+  'react-native-css-interop@0': { dependencies: { '@babel/plugin-transform-react-jsx': '^7.25.0' } }
 
 # Two React versions live here (18 for the live app, 19 for apps/mobile), with their types and
 # two React Native copies (an optional peer of the live app's react-query makes one with React 18). Keep
