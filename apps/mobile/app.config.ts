@@ -37,6 +37,9 @@ const config: ExpoConfig = {
     'expo-sqlite',
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
+  // The EAS project (Expo account topues) that builds the APK. Public ids, not secrets.
+  owner: 'topues',
+  extra: { eas: { projectId: 'da8a3077-a742-4365-b8cf-7392759e6210' } },
 };
 
 export default config;
