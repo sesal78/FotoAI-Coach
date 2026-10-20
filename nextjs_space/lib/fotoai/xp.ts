@@ -20,6 +20,8 @@ import {
   type SkillStatus,
   type UserSkillState,
 } from '../skills.ts';
+import { CRITIQUE_DIMENSION_SKILLS } from '@fotoai/core';
+
 import { requireUuid } from './object-keys.ts';
 import type { OwnerScope } from './repository.ts';
 import type { FotoaiSupabaseClient } from './supabase-http.ts';
@@ -43,11 +45,6 @@ interface AwardRow {
   leveled_up: boolean;
 }
 
-const CRITIQUE_DIMENSION_SKILLS: Record<string, string[]> = {
-  technical: ['exposure_triangle', 'iso_management', 'depth_of_field', 'white_balance'],
-  composition: ['rule_of_thirds', 'leading_lines', 'framing', 'symmetry'],
-  creative: ['raw_editing', 'color_grading', 'exposure_correction'],
-};
 
 export function createXpService(client: FotoaiSupabaseClient) {
   async function award(scope: OwnerScope, skillId: string, xpAmount: number, kind: XpSourceKind, sourceId: string): Promise<XpAwardResult | null> {

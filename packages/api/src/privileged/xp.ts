@@ -3,7 +3,7 @@
 // award function's (user, skill, source kind, source id) key turns a repeat into 'duplicate'.
 // Callers must have proven the step is the caller's and that a photo or frame is linked to it.
 
-import { FOUNDATIONAL_SKILLS, getSkillById, getSkillsForCategory, getXPForChallenge, XP_AMOUNTS } from '@fotoai/core';
+import { CRITIQUE_DIMENSION_SKILLS, FOUNDATIONAL_SKILLS, getSkillById, getSkillsForCategory, getXPForChallenge, getXPForCritiqueScores, XP_AMOUNTS } from '@fotoai/core';
 import { createServiceClient } from '@fotoai/db/service';
 import type { ServerEnv } from '@fotoai/env';
 
@@ -39,13 +39,43 @@ export async function awardChallengeXp(
   return awardEach(env, userId, skills, per, 'challenge_complete', challenge.id);
 }
 
+/**
+ * The live critique bonus (XP per dimension over the threshold, split over that dimension's
+ * skills, kind 'critique_bonus'), keyed by the photo id: only a photo's first awarded critique
+ * counts, so analysing it again never earns more. Callers must have proven the photo is the caller's.
+ */
+export async function awardCritiqueXp(
+  env: Pick<ServerEnv, 'FOTOAI_SUPABASE_URL' | 'FOTOAI_SUPABASE_SERVICE_ROLE_KEY'>,
+  userId: string,
+  photoId: string,
+  scores: { technical: number; composition: number; creative: number },
+): Promise<XpOutcome[]> {
+  if (!UUID.test(userId) || !UUID.test(photoId)) throw new ApiError('validation', 'XP needs a user and a photo id');
+  const { breakdown } = getXPForCritiqueScores(scores);
+  if (Object.keys(breakdown).length === 0) return [];
+  const earned = await createServiceClient(env)
+    .from('fotoai_xp_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('source_kind', 'critique_bonus')
+    .eq('source_id', photoId);
+  if (earned.error || earned.count === null) throw new ApiError('upstream', 'Could not award XP');
+  if (earned.count > 0) return [];
+  const outcomes: XpOutcome[] = [];
+  for (const [dimension, xp] of Object.entries(breakdown)) {
+    const skills = CRITIQUE_DIMENSION_SKILLS[dimension] ?? [];
+    if (skills.length > 0) outcomes.push(...(await awardEach(env, userId, skills, Math.max(1, Math.ceil(xp / skills.length)), 'critique_bonus', photoId)));
+  }
+  return outcomes;
+}
+
 // One at a time: a later skill's prerequisites may depend on an earlier award.
 async function awardEach(
   env: Pick<ServerEnv, 'FOTOAI_SUPABASE_URL' | 'FOTOAI_SUPABASE_SERVICE_ROLE_KEY'>,
   userId: string,
   skillIds: readonly string[],
   per: number,
-  kind: 'plan_step' | 'challenge_complete',
+  kind: 'plan_step' | 'challenge_complete' | 'critique_bonus',
   sourceId: string,
 ): Promise<XpOutcome[]> {
   const service = createServiceClient(env);

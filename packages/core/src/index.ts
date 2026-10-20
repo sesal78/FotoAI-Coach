@@ -24,6 +24,7 @@ export {
   getSkillsForCategory,
   getStatusForXP,
   getXPForChallenge,
+  CRITIQUE_DIMENSION_SKILLS,
   getXPForCritiqueScores,
   SKILL_TREE,
   XP_AMOUNTS,

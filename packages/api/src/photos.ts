@@ -29,7 +29,7 @@ const READ_TTL_S = 300;
 const CHECK_TTL_S = 120;
 const PAGE = 50;
 
-type PhotoRow = {
+export type PhotoRow = {
   id: string;
   source: PhotoDto['source'];
   status: PhotoDto['status'];
@@ -95,7 +95,7 @@ function idParam(params: Record<string, string>): string {
   return id;
 }
 
-async function readPhoto(deps: V2Deps, principal: Principal, id: string): Promise<PhotoRow | null> {
+export async function readPhoto(deps: V2Deps, principal: Principal, id: string): Promise<PhotoRow | null> {
   const { data, error } = await createUserClient(deps.env, principal.accessToken).from(T_PHOTOS).select(COLUMNS).eq('id', id).maybeSingle();
   if (error) throw upstream('load the photo');
   return data as unknown as PhotoRow | null;
@@ -233,6 +233,13 @@ async function awardIfEarned(deps: V2Deps, principal: Principal, row: PhotoRow):
   }
 }
 
+/** Checks a photo that was never checked (as a confirm replay does), then any plan-step XP it earns. */
+export async function ensureChecked(deps: V2Deps, principal: Principal, row: PhotoRow): Promise<PhotoRow> {
+  const checked = row.checked_at ? row : await runCheck(deps, principal, row);
+  await awardIfEarned(deps, principal, checked);
+  return checked;
+}
+
 export const confirmPhoto: V2Body = async (request, deps, { params }) => {
   rejectBrowserIdentity(new URL(request.url).searchParams);
   const principal = await requirePrincipal(request, deps);
@@ -240,9 +247,7 @@ export const confirmPhoto: V2Body = async (request, deps, { params }) => {
   if (!row) throw new ApiError('not_found', 'Photo not found');
   if (row.status === 'ready') {
     // A replay checks a photo that was never checked, and completes an award a crash may have missed.
-    const checked = row.checked_at ? row : await runCheck(deps, principal, row);
-    await awardIfEarned(deps, principal, checked);
-    return json({ photo: toPhoto(checked) });
+    return json({ photo: toPhoto(await ensureChecked(deps, principal, row)) });
   }
 
   // A crash after the move, or a parallel confirm, leaves the bytes at the final key: carry on from there.

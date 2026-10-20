@@ -137,4 +137,9 @@ test('the 3B route modules load and answer 401 without a token (no network call)
   assert.equal((await progress.GET(new Request('http://localhost/api/v2/me/progress'), { params: {} })).status, 401);
   const challenges = await import('../../app/api/v2/challenges/route.ts');
   assert.equal((await challenges.POST(new Request('http://localhost/api/v2/challenges', { method: 'POST', body: '{}' }), { params: {} })).status, 401);
+  const id = { params: { id: '00000000-0000-4000-8000-000000000001' } };
+  const analyse = await import('../../app/api/v2/photos/[id]/analyse/route.ts');
+  assert.equal((await analyse.POST(new Request('http://localhost/api/v2/photos/x/analyse', { method: 'POST', body: '{"mode":"critique"}' }), id)).status, 401);
+  const analyses = await import('../../app/api/v2/photos/[id]/analyses/route.ts');
+  assert.equal((await analyses.GET(new Request('http://localhost/api/v2/photos/x/analyses'), id)).status, 401);
 });

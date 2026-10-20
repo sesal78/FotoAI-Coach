@@ -475,6 +475,13 @@ export function getXPForChallenge(challengeType: string, difficulty: string): nu
   return XP_AMOUNTS.CHALLENGE_COMPLETE_BASE;
 }
 
+/** The skills each critique dimension's bonus is split over (moved here from the live app's xp.ts). */
+export const CRITIQUE_DIMENSION_SKILLS: Record<string, string[]> = {
+  technical: ['exposure_triangle', 'iso_management', 'depth_of_field', 'white_balance'],
+  composition: ['rule_of_thirds', 'leading_lines', 'framing', 'symmetry'],
+  creative: ['raw_editing', 'color_grading', 'exposure_correction'],
+};
+
 /**
  * Calculate XP bonus from critique scores.
  * Awards XP_AMOUNTS.CRITIQUE_SCORE_BONUS per dimension above threshold.

@@ -56,3 +56,14 @@ export { ExifInput, MAX_PHOTO_BYTES, PHOTO_MIME_EXTENSIONS, PHOTO_SOURCES, Photo
 export { COACH_SCREENS, CoachInput, CoachMessageDto, CoachProposal, CoachReply } from './coach.ts';
 export { MeResponse } from './me.ts';
 export { ProgressResponse, SKILL_STATUSES, SkillDto } from './progress.ts';
+export {
+  ANALYSIS_MODES,
+  AnalyseInput,
+  AnalyseResponse,
+  AnalysisDto,
+  AnalysisListResponse,
+  CritiqueDto,
+  EditingDto,
+  RecreateDto,
+  type AnalysisMode,
+} from './analyses.ts';
