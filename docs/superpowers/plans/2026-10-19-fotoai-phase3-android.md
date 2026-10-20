@@ -176,41 +176,94 @@
 
 ---
 
-## Sub-phase 3B: Server gaps for the app (task level; expanded before it starts)
+## Sub-phase 3B: Server gaps for the app (step level, expanded 20 Oct 2026)
 
-**Ships:** read endpoints for Me, a new challenge from Today, Analyse on a v2 photo, the Auto theme, and any fresh-user default found in A4. **Production:** one migration and one deploy (Seun's yes for each).
+**Ships:** the Android App Link file, `GET /api/v2/me/progress`, `POST /api/v2/challenges` (a new challenge from Today), Analyse on a v2 photo (critique, editing tips, recreate) with a `GET` of its results, and the Auto theme. **Production:** one migration (`20261020100001`) and one deploy, each on Seun's yes.
+
+**Facts this expansion is built on (read 20 Oct 2026):**
+- A4's fresh-user check found no gap: preferences, the active challenge and the loadout all answer 200 for a user who never used the web login. So the old Task B1 has no work of its own; the new progress endpoint is tested for a fresh user (zeros, no rows needed).
+- The live critique (`nextjs_space/lib/llm.ts` `critiquePhoto`) returns three 0–100 scores, three feedback texts, strengths, improvements and suggested settings. Critique XP (`nextjs_space/lib/fotoai/xp.ts` `awardCritiqueXP`) gives 50 XP per dimension above 70, split over that dimension's skills (technical: exposure_triangle, iso_management, depth_of_field, white_balance; composition: rule_of_thirds, leading_lines, framing, symmetry; creative: raw_editing, color_grading, exposure_correction), kind `critique_bonus`.
+- The live recreate (`reverseEngineerPhoto`) returns estimated settings, lighting, camera position, lens, post-processing, a 5–8 step recipe, difficulty and gear. The live "editing" page compares a before and after pair; editing tips for one photo are new.
+- `fotoai_photo_critiques`: users may select, insert and delete (no update); the key CHECK only needs the user's id as the first path part, so a v2 photo key fits.
+- The live generator returns today's pending challenge unless forced (server-local day), stores the preference city as `location`, and bumps the issued counters. v2 keeps the rule but uses the home area's timezone (UTC when none), stores **no location**, and bumps the same counters.
+- The theme CHECK is `fotoai_user_preferences_theme_check` (golden, golden_dark, camera). The live web app never reads the theme, so adding `auto` cannot break it.
+- `/.well-known/` is not under the middleware matcher (`/dashboard`, `/chat` only) and `next.config` has no redirects, so a file in `nextjs_space/public/.well-known/` is served as is.
 
 ### Task B0: Android App Link file
-- `nextjs_space/public/.well-known/assetlinks.json` for `com.topues.fotoai` with the EAS signing certificate's SHA-256 (from `eas credentials`; it is public data). Served with `Content-Type: application/json`, no redirect.
-- Test: a route test that the file parses and names the package; the smoke check adds `GET /.well-known/assetlinks.json` → 200.
 
-### Task B1: Fresh-user defaults
-- Fix every gap the A4 check found, so a user who signs in only from the app gets 200 with defaults from every v2 read (get-or-create in the handler, user token).
-- Test: the A4 integration test, now passing for every endpoint.
+**Files:** create `nextjs_space/public/.well-known/assetlinks.json`; extend `nextjs_space/tests/fotoai/v2-routes.test.ts`.
 
-### Task B2: `GET /api/v2/me/progress`
-- Returns `{ xp: { total, level, levelStart, nextLevelAt }, streak: { current, longest, lastCompletionDate }, challenges: { completed, issued }, skills: SkillDto[] }`, using the skill tree and level rules in `@fotoai/core` and the caller's `fotoai_user_skills` and `fotoai_user_progress` rows.
-- `SkillDto`: id, name, category, tier, icon, prerequisites, status, currentXP and the three thresholds (the live `/api/skills` shape, in camelCase).
-- Tests: a new user is level 1 with empty skills shown as available or locked; XP totals match the rows; another user's rows never show.
+**Interface:** one statement: relation `delegate_permission/common.handle_all_urls`, target `android_app` / `com.topues.fotoai` / SHA-256 `88:AB:10:E2:6B:F7:1D:7D:95:AF:A0:17:F4:00:20:42:92:B8:5D:74:80:6A:C0:64:D5:A3:DD:C9:06:A5:6A:4D` (the EAS signing certificate, public data).
+
+- [ ] **Step 1: Write the failing test:** `assetlinks.json parses, names com.topues.fotoai and the EAS SHA-256, and allows only handle_all_urls`.
+- [ ] **Step 2: Run it (RED), add the file, run it again.**
+- [ ] **Step 3: Commit.** `feat(web): Android App Link file for the FotoAI app`
+
+### Task B1: `GET /api/v2/me/progress`
+
+**Files:** create `packages/contracts/src/progress.ts` (`ProgressResponse`, `SkillDto`), `packages/api/src/progress.ts`, `nextjs_space/app/api/v2/me/progress/route.ts`; tests `packages/api/test/progress.integration.test.ts` and the route test.
+
+**Interface:** `{ xp: { total, level, levelStart, nextLevelAt, progress }, streak: { current, longest, lastCompletionDate }, challenges: { completed, issued }, skills: SkillDto[] }`, from `getLevelFromXP` (`levelStart` = `xpForCurrentLevel`, `nextLevelAt` = `xpForNextLevel`) and the caller's `fotoai_user_skills` and `fotoai_user_progress` rows (user token). `SkillDto` = the live `/api/fotoai/skills` item: `id, name, category, description, prerequisites, tier, icon, xpToLearn, xpToPractice, xpToMaster, currentXP, status`. No progress row reads as zeros (a GET writes nothing).
+
+- [ ] **Step 1: Write the failing tests:** `a new user is level 1 with zero XP and every skill available or locked by its prerequisites`; `XP totals and streak match the rows`; `another user's rows never show`; route test `401 without a token`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(api): v2 progress, XP level and skills for Me`
+
+### Task B2: One issued-counter rule
+
+**Files:** modify `packages/core/src/challenges/rules.ts` (`issuedFieldForChallengeType`, `progressAfterIssue`), `nextjs_space/lib/fotoai/repo-generation.ts` (re-exports the map; behaviour unchanged), `packages/api/src/challenges.ts` (`recordIssued(client, principal, type, now)`), `packages/api/src/coach.ts` (uses `recordIssued` instead of its own bump).
+
+- [ ] **Step 1: Write the failing tests:** core `the issued map matches the live one` and `progressAfterIssue bumps the total, the type counter and last_challenge_date`; the coach integration test (issued counter +1) stays green.
+- [ ] **Step 2: RED, implement, GREEN** (core, api integration, the live app's tests).
+- [ ] **Step 3: Commit.** `refactor(core): one issued-counter rule for the live app and v2`
 
 ### Task B3: `POST /api/v2/challenges` (a new challenge from Today)
-- Body `{ type?: <the live challenge types>, force?: boolean }` → `{ challenge, created }`. Without `force`, today's open dashboard challenge is returned (200, `created: false`). A new one is saved `pending` with `source = 'dashboard'`; older ones are never overwritten.
-- A versioned prompt `packages/ai/src/prompts/challenge.v1.ts` (structured output, **no location field**), fed with the weakest skills, preferences (`avoidsStyles`), the loadout and today's weather at the home location when set.
-- Rate limit `challenge_generate: 20` per hour (the live value); the issued counter goes up, as the live generator does.
-- Tests (mock model): `a forced call makes a new pending challenge and keeps the old one`; `no location is stored`; `the 21st call in an hour is 429 and the model is not called`.
 
-### Task B4: Analyse a photo, and the Auto theme (migration)
-- Migration `2026MMDDhhmmss_photo_analyses_and_auto_theme.sql`:
-  - `fotoai_photo_critiques` gains `photo_id uuid` (composite FK `(photo_id, user_id)` → `fotoai_photos (id, user_id)` `on delete set null (photo_id)`), `mode text not null default 'critique' check in ('critique', 'editing', 'recreate')`, and `details jsonb` (editing steps or recreate settings);
-  - the `fotoai_user_preferences.theme` CHECK is replaced, in one transaction, to also allow `auto`.
-- Undo guarded: refuses while any row has `photo_id` set or `mode <> 'critique'`, or any theme is `auto`.
-- `POST /api/v2/photos/:id/analyse` `{ mode }` → `{ analysis }`. Only for a ready photo whose check says safe (an unchecked photo is checked first). The model sees the photo on a 120-second signed link plus the EXIF and the linked step's brief as data. Critique scores award critique XP (service role, duplicate-safe, the live rule). Rate limit `photo_analyse: 30` per hour.
-- `GET /api/v2/photos/:id/analyses` → the photo's analyses, newest first.
-- Contracts: `THEMES` gains `auto` (the app's resolver already handles it).
-- Tests: `an unsafe photo cannot be analysed`; `another user's photo is 404`; `critique XP is awarded once`; `editing and recreate store details and award no XP`; the undo refuses with data.
+**Files:** create `packages/ai/src/prompts/challenge.v1.ts` and `packages/ai/src/challenge.ts`; modify `packages/contracts/src/challenges.ts` (`CHALLENGE_TYPES`, `GenerateChallengeInput`, `GenerateChallengeResponse`), `packages/api/src/challenges.ts` (`generateChallenge`), `packages/api/src/rate-limit.ts` (`challenge_generate: 20`), `nextjs_space/app/api/v2/challenges/route.ts` (adds `POST`); tests `packages/ai/test/challenge.test.ts`, `packages/api/test/challenge-generate.integration.test.ts`, the route test.
 
-### Task B5: 3B release
-- Review, fix pass, PR, CI. **Stop for Seun's yes**, then the pre-check, the migration with verify queries, the schema reload, the rollback pin, the merge, the deploy, the smoke checks plus a 401 check for each new route, and the log watch.
+**Interfaces:**
+- Body `{ type?: WEEKEND_DEEP_DIVE | LUNCH_BREAK | AFTER_WORK | WFH_MICRO | STORY_DRIVEN | TECHNICAL_MASTERY, force?: boolean }` (strict) → `{ challenge, created }`: 201 when created, 200 when today's is returned.
+- Order: sign-in, identity keys, body, AI configured; today's open dashboard challenge (pending, source `dashboard`, issued since the start of today in the home area's timezone, else UTC) unless `force`; then the `challenge_generate` reservation, the context, the model call, the insert (pending, source `dashboard`, `location = null`), `recordIssued`.
+- Prompt `challenge.v1` (strict schema, **no location field**): `challengeText`, `category`, `difficulty`, `duration`, `tips`, `recommendedGear[]`, and the live extra fields for STORY_DRIVEN and TECHNICAL_MASTERY (`shotList`, `narrativeContext`, `editingDirection`, `masteryArea`, `technicalLevel` 1–5, `successCriteria`, `whatToLookFor`) as nullable. The context goes in the user message only: the type, skill level, interests, `avoidsStyles`, the loadout's names, the 5 weakest skills, the last 5 challenge texts, and today's weather at the home area when set.
+
+- [ ] **Step 1: Write the failing tests:** AI `the instructions are fixed and the context is in the user message`, `the schema has no location field`; integration (mock model) `a first call creates a pending dashboard challenge with no location and bumps the issued counter`, `a second call returns the same one (200, created false) without calling the model`, `force makes a new one and keeps the old one pending`, `the 21st call in an hour is 429 and the model is not called`, `no AI key is a config error before the reservation`; route test `401 without a token`.
+- [ ] **Step 2: RED, implement, GREEN** (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `feat(api): v2 new challenge from Today, with no location`
+
+### Task B4: Migration: analyses on v2 photos, and the Auto theme
+
+**Files:** create `supabase/migrations/20261020100001_photo_analyses_and_auto_theme.sql` and its undo; regenerate the types and the Drizzle baseline; modify `packages/contracts/src/preferences.ts` (`THEMES` gains `auto`) and the `packages/ui` theme-id test; tests `packages/db/test/analyses.integration.test.ts`, `packages/db/test/undo-scripts.test.ts`.
+
+**Interfaces:**
+- `fotoai_photo_critiques` gains `photo_id uuid` with FK `(photo_id, user_id)` → `fotoai_photos (id, user_id)` `on delete set null (photo_id)`, `mode text not null default 'critique' check (mode in ('critique', 'editing', 'recreate'))`, `details jsonb check (octet_length(details::text) <= 16000)`, and an index on `photo_id` where it is set. The grants stay select, insert, delete.
+- In the same transaction, `fotoai_user_preferences_theme_check` is replaced to allow golden, golden_dark, camera and auto.
+- Undo (guarded): refuses while any row has `photo_id` set or `mode <> 'critique'`, or any theme is `auto`; then restores the old CHECK and drops the three columns.
+
+- [ ] **Step 1: Write the failing tests:** `an analysis can only link the owner's photo`; `a mode outside the three is rejected`; `theme auto is accepted`; undo unit `refuses while v2 analyses or auto themes exist`.
+- [ ] **Step 2: RED; write the migration and undo, apply locally, regenerate, run the undo in a rolled-back transaction (empty: runs; with data: refused); GREEN.**
+- [ ] **Step 3: Commit.** `feat(db): analyses on v2 photos and the Auto theme`
+
+### Task B5: Analyse a photo
+
+**Files:** create `packages/ai/src/prompts/critique.v1.ts`, `editing.v1.ts`, `recreate.v1.ts` and `packages/ai/src/analyse.ts`; create `packages/contracts/src/analyses.ts` (`AnalyseInput`, `AnalysisDto`); create `packages/api/src/analyses.ts`; modify `packages/api/src/privileged/xp.ts` (`awardCritiqueXp`), `packages/api/src/photos.ts` (export the check runner) and `packages/api/src/rate-limit.ts` (`photo_analyse: 30`); create the routes `nextjs_space/app/api/v2/photos/[id]/analyse/route.ts` (POST) and `nextjs_space/app/api/v2/photos/[id]/analyses/route.ts` (GET); tests `packages/ai/test/analyse.test.ts`, `packages/api/test/analyses.integration.test.ts`, the route test.
+
+**Interfaces:**
+- `POST /api/v2/photos/:id/analyse` `{ mode: critique | editing | recreate }` → `{ analysis: AnalysisDto }` (201). Order: sign-in, identity keys, id, body, AI configured, the `photo_analyse` reservation, the caller's ready photo (404 otherwise), the photo check (run it when the photo was never checked), refuse when the check is not safe (400 "This photo cannot be analysed"), the model call on a 120-second signed read link with the EXIF, the skill level, the loadout's names and the linked step's brief as data, the insert (user token), and for a critique the XP.
+- Prompts (strict schemas, the photo as an image part, data only in the user message): `critique.v1` = the live critique fields with integer scores 0–100; `editing.v1` = `{ summary, steps: [{ tool, change, why }] (3–8), filmSimulation | null }`; `recreate.v1` = the live recreate fields.
+- Storage: one `fotoai_photo_critiques` row per analysis, with `photo_id`, `mode` and the photo's `object_key`. A critique fills the score and feedback columns; editing and recreate put their answer in `details`.
+- Critique XP (service role): the live rule, but with `source_id` = **the photo id**, so analysing the same photo again never earns more critique XP. Editing and recreate earn none.
+- `GET /api/v2/photos/:id/analyses` → `{ analyses: AnalysisDto[] }`, newest first, the caller's only.
+- `AnalysisDto` = `{ id, photoId, createdAt, mode: 'critique', critique }` or `{ ..., mode: 'editing', editing }` or `{ ..., mode: 'recreate', recreate }`.
+
+- [ ] **Step 1: Write the failing tests:** AI `each mode sends the photo as an image part and its data only in the user message`, `scores outside 0–100 are refused by the schema`; integration (real local Storage, mock model) `a critique stores scores and awards critique XP`, `a second critique of the same photo awards no more XP`, `editing and recreate store details and award no XP`, `an unsafe photo cannot be analysed and the model is not called`, `an unchecked photo is checked first`, `another user's photo is 404`, `the 31st analysis in an hour is 429 and the model is not called`, `GET lists only the caller's analyses, newest first`; route tests `401 without a token` for both routes.
+- [ ] **Step 2: RED, implement, GREEN** (full gate, integration, `next build`).
+- [ ] **Step 3: Commit.** `feat(api): v2 Analyse (critique, editing tips, recreate) on checked photos`
+
+### Task B6: 3B release
+
+- [ ] One fresh reviewer checks the whole branch; one fix pass; push; PR; CI green in all four jobs.
+- [ ] **Stop for Seun's yes.** Then: a read-only pre-check (no `photo_id`, `mode` or `details` columns yet; the theme CHECK as expected); apply `20261020100001` with verify queries; reload the schema cache; pin `rollback/pre-3b` at the current master; merge; deploy; smoke (the 2E-2b set, plus `GET /.well-known/assetlinks.json` → 200 JSON, and 401 for `GET /api/v2/me/progress`, `POST /api/v2/challenges`, `POST /api/v2/photos/<uuid>/analyse` and `GET /api/v2/photos/<uuid>/analyses`); a 10-minute log watch.
+- [ ] After the deploy: Android checks App Links at install, so Seun reinstalls the APK (or installs the next one) and taps a reset email link, which should open the app's New password screen. That step goes into `CHECKLIST.md` 3B.
 
 ---
 
