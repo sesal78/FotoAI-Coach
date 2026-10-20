@@ -8,7 +8,7 @@ overrides:
   '@types/react-dom@18.2.7>@types/react': 18.2.22
   '@types/react-plotly.js@2.6.3>@types/react': 18.2.22
 
-packageExtensionsChecksum: sha256-38L2hcNOx8BbwfQxPg1MI5zeiBB81yp4tvsle6DExtI=
+packageExtensionsChecksum: sha256-EkNL9aFhMb1/WXu5khbd4incycjNE4rEQ+WGkey/sl8=
 
 importers:
 
@@ -12864,9 +12864,7 @@ snapshots:
       metro-runtime: 0.87.1
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.88.0': {}
 
@@ -17599,6 +17597,7 @@ snapshots:
 
   nativewind@4.2.7(ddbe225a718a2ae09c319266e188e23e):
     dependencies:
+      '@babel/plugin-transform-react-jsx': 7.29.7(@babel/core@7.29.7)
       comment-json: 4.6.2
       debug: 4.4.3
       react: 19.3.0
