@@ -7,3 +7,10 @@ export { PLACE_EXPLAIN_V1, PlaceExplanationOutput, type ExplainInput } from './p
 export { COACH_TOOLS, COACH_V1, type CoachPromptInput } from './prompts/coach.v1.ts';
 export { checkPhoto, type PhotoCheck } from './photo-check.ts';
 export { PHOTO_CHECK_V1, PHOTO_GENRES, PhotoCheckOutput, type PhotoCheckInput } from './prompts/photo-check.v1.ts';
+export { generateChallenge, type ChallengeDraft } from './challenge.ts';
+export { CHALLENGE_V1, ChallengeOutput, type ChallengeInput } from './prompts/challenge.v1.ts';
+export { analysePhoto, type Analysis, type AnalysisMode } from './analyse.ts';
+export { CRITIQUE_V1, CritiqueOutput } from './prompts/critique.v1.ts';
+export { EDITING_V1, EditingOutput } from './prompts/editing.v1.ts';
+export { RECREATE_V1, RecreateOutput } from './prompts/recreate.v1.ts';
+export type { AnalyseInput, PhotoExif } from './prompts/photo-context.ts';

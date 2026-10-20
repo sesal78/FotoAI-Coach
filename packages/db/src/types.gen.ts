@@ -173,16 +173,22 @@ isOneToOne: false
                   ]
                 },"fotoai_photo_critiques": {
                   Row: {
-                    "composition_feedback": string | null,"composition_score": number | null,"created_at": string,"creative_feedback": string | null,"creative_score": number | null,"critique_date": string,"id": string,"improvements": (string)[],"legacy_appwrite_id": string | null,"overall_score": number | null,"photo_object_key": string,"strengths": (string)[],"submission_id": string | null,"suggested_settings": string | null,"technical_feedback": string | null,"technical_score": number | null,"user_id": string
+                    "composition_feedback": string | null,"composition_score": number | null,"created_at": string,"creative_feedback": string | null,"creative_score": number | null,"critique_date": string,"details": Json | null,"id": string,"improvements": (string)[],"legacy_appwrite_id": string | null,"mode": string,"overall_score": number | null,"photo_id": string | null,"photo_object_key": string,"strengths": (string)[],"submission_id": string | null,"suggested_settings": string | null,"technical_feedback": string | null,"technical_score": number | null,"user_id": string
                   }
                   Insert: {
-                    "composition_feedback"?: string | null,"composition_score"?: number | null,"created_at"?: string,"creative_feedback"?: string | null,"creative_score"?: number | null,"critique_date"?: string,"id"?: string,"improvements"?: (string)[],"legacy_appwrite_id"?: string | null,"overall_score"?: number | null,"photo_object_key": string,"strengths"?: (string)[],"submission_id"?: string | null,"suggested_settings"?: string | null,"technical_feedback"?: string | null,"technical_score"?: number | null,"user_id": string
+                    "composition_feedback"?: string | null,"composition_score"?: number | null,"created_at"?: string,"creative_feedback"?: string | null,"creative_score"?: number | null,"critique_date"?: string,"details"?: Json | null,"id"?: string,"improvements"?: (string)[],"legacy_appwrite_id"?: string | null,"mode"?: string,"overall_score"?: number | null,"photo_id"?: string | null,"photo_object_key": string,"strengths"?: (string)[],"submission_id"?: string | null,"suggested_settings"?: string | null,"technical_feedback"?: string | null,"technical_score"?: number | null,"user_id": string
                   }
                   Update: {
-                    "composition_feedback"?: string | null,"composition_score"?: number | null,"created_at"?: string,"creative_feedback"?: string | null,"creative_score"?: number | null,"critique_date"?: string,"id"?: string,"improvements"?: (string)[],"legacy_appwrite_id"?: string | null,"overall_score"?: number | null,"photo_object_key"?: string,"strengths"?: (string)[],"submission_id"?: string | null,"suggested_settings"?: string | null,"technical_feedback"?: string | null,"technical_score"?: number | null,"user_id"?: string
+                    "composition_feedback"?: string | null,"composition_score"?: number | null,"created_at"?: string,"creative_feedback"?: string | null,"creative_score"?: number | null,"critique_date"?: string,"details"?: Json | null,"id"?: string,"improvements"?: (string)[],"legacy_appwrite_id"?: string | null,"mode"?: string,"overall_score"?: number | null,"photo_id"?: string | null,"photo_object_key"?: string,"strengths"?: (string)[],"submission_id"?: string | null,"suggested_settings"?: string | null,"technical_feedback"?: string | null,"technical_score"?: number | null,"user_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "fotoai_photo_critiques_photo_fkey"
+      columns: ["photo_id","user_id"]
+isOneToOne: false
+      referencedRelation: "fotoai_photos"
+      referencedColumns: ["id","user_id"]
+    },{
       foreignKeyName: "fotoai_photo_critiques_submission_owner_fkey"
       columns: ["submission_id","user_id"]
 isOneToOne: false

@@ -11,8 +11,8 @@ import { createUserClient } from '@fotoai/db';
 import { PLACE_ID } from '@fotoai/places';
 
 import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
-import { ownProgress, toV2Challenge } from './challenges.ts';
-import { loadSavedLoadout } from './gear.ts';
+import { recordIssued, toV2Challenge } from './challenges.ts';
+import { describeLoadout, loadSavedLoadout } from './gear.ts';
 import { ApiError, json, type V2Body, type V2Deps } from './handler.ts';
 import { readJsonObject } from './http.ts';
 import { placesConfigured, placesFor } from './places-client.ts';
@@ -42,10 +42,9 @@ async function loadContext(deps: V2Deps, principal: Principal, client: UserClien
     context.rollId ? loadRoll(client, context.rollId) : null,
   ]);
   if (skills.error) throw upstream('load your skills');
-  const film = loadout?.film ? `, film ${loadout.film.stock}` : '';
   return {
     screen: context.screen,
-    loadout: loadout ? `${loadout.body.name} + ${loadout.lens.make} ${loadout.lens.model}${film}` : null,
+    loadout: loadout ? describeLoadout(loadout) : null,
     weakSkills: skills.data.map((s) => getSkillById(s.skill_id)?.name).filter((n): n is string => Boolean(n)),
     plan,
     roll,
@@ -105,16 +104,7 @@ async function saveChallenge(deps: V2Deps, principal: Principal, client: UserCli
   if (error || !data) throw upstream('save the challenge');
 
   // As the live chat does: count it as issued. The challenge is saved either way.
-  try {
-    const progress = await ownProgress(client, principal);
-    const bump = await client
-      .from('fotoai_user_progress')
-      .update({ total_challenges_issued: (progress.total_challenges_issued || 0) + 1, last_challenge_date: now, updated_at: now })
-      .eq('id', progress.id);
-    if (bump.error) throw bump.error;
-  } catch {
-    console.warn('FotoAI v2 coach: challenge saved but the issued counter was not updated');
-  }
+  await recordIssued(client, principal, CHATBOT_TYPE, deps.now());
   return data;
 }
 

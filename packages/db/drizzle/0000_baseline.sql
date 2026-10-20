@@ -198,6 +198,7 @@ CREATE TABLE "fotoai_photos" (
 	"check_genre" text,
 	"checked_at" timestamp with time zone,
 	"check_prompt" text,
+	CONSTRAINT "fotoai_photos_id_user_key" UNIQUE("id","user_id"),
 	CONSTRAINT "fotoai_photos_object_key_key" UNIQUE("object_key"),
 	CONSTRAINT "fotoai_photos_aperture_check" CHECK (aperture > (0)::numeric),
 	CONSTRAINT "fotoai_photos_bytes_check" CHECK ((bytes >= 1) AND (bytes <= 52428800)),
@@ -337,34 +338,6 @@ CREATE TABLE "fotoai_agent_actions" (
 );
 --> statement-breakpoint
 ALTER TABLE "fotoai_agent_actions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "fotoai_photo_critiques" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" uuid NOT NULL,
-	"legacy_appwrite_id" text,
-	"submission_id" uuid,
-	"photo_object_key" text NOT NULL,
-	"technical_score" integer,
-	"composition_score" integer,
-	"creative_score" integer,
-	"overall_score" integer,
-	"technical_feedback" text,
-	"composition_feedback" text,
-	"creative_feedback" text,
-	"strengths" text[] DEFAULT '{""}' NOT NULL,
-	"improvements" text[] DEFAULT '{""}' NOT NULL,
-	"suggested_settings" text,
-	"critique_date" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "fotoai_photo_critiques_id_user_key" UNIQUE("id","user_id"),
-	CONSTRAINT "fotoai_photo_critiques_legacy_appwrite_id_key" UNIQUE("legacy_appwrite_id"),
-	CONSTRAINT "fotoai_photo_critiques_check" CHECK (split_part(photo_object_key, '/'::text, 1) = (user_id)::text),
-	CONSTRAINT "fotoai_photo_critiques_composition_score_check" CHECK ((composition_score >= 0) AND (composition_score <= 100)),
-	CONSTRAINT "fotoai_photo_critiques_creative_score_check" CHECK ((creative_score >= 0) AND (creative_score <= 100)),
-	CONSTRAINT "fotoai_photo_critiques_overall_score_check" CHECK ((overall_score >= 0) AND (overall_score <= 100)),
-	CONSTRAINT "fotoai_photo_critiques_technical_score_check" CHECK ((technical_score >= 0) AND (technical_score <= 100))
-);
---> statement-breakpoint
-ALTER TABLE "fotoai_photo_critiques" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "fotoai_reverse_analyses" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -439,46 +412,6 @@ CREATE TABLE "fotoai_user_skills" (
 );
 --> statement-breakpoint
 ALTER TABLE "fotoai_user_skills" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "fotoai_user_preferences" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" uuid NOT NULL,
-	"legacy_appwrite_id" text,
-	"skill_level" text DEFAULT 'intermediate' NOT NULL,
-	"photography_interests" text[] DEFAULT '{""}' NOT NULL,
-	"avoids_styles" text[] DEFAULT '{""}' NOT NULL,
-	"work_days" text[] DEFAULT '{""}' NOT NULL,
-	"work_start_time" text DEFAULT '09:00' NOT NULL,
-	"work_end_time" text DEFAULT '17:00' NOT NULL,
-	"lunch_start_time" text DEFAULT '12:00' NOT NULL,
-	"lunch_end_time" text DEFAULT '13:00' NOT NULL,
-	"primary_photo_day" text DEFAULT 'Saturday' NOT NULL,
-	"secondary_photo_days" text[] DEFAULT '{""}' NOT NULL,
-	"lunch_break_photography" boolean DEFAULT true NOT NULL,
-	"evening_photography" boolean DEFAULT true NOT NULL,
-	"wfh_flexibility" boolean DEFAULT true NOT NULL,
-	"adapt_to_weather" boolean DEFAULT true NOT NULL,
-	"adapt_to_calendar" boolean DEFAULT true NOT NULL,
-	"office_location" text,
-	"home_location" text,
-	"current_location" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone,
-	"theme" text DEFAULT 'golden' NOT NULL,
-	"units" text DEFAULT 'metric' NOT NULL,
-	"home_lat" double precision,
-	"home_lng" double precision,
-	"loadout" jsonb,
-	CONSTRAINT "fotoai_user_preferences_user_id_key" UNIQUE("user_id"),
-	CONSTRAINT "fotoai_user_preferences_legacy_appwrite_id_key" UNIQUE("legacy_appwrite_id"),
-	CONSTRAINT "fotoai_user_preferences_home_lat_check" CHECK ((home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))),
-	CONSTRAINT "fotoai_user_preferences_home_lng_check" CHECK ((home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))),
-	CONSTRAINT "fotoai_user_preferences_home_pair_check" CHECK ((home_lat IS NULL) = (home_lng IS NULL)),
-	CONSTRAINT "fotoai_user_preferences_skill_level_check" CHECK (skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])),
-	CONSTRAINT "fotoai_user_preferences_theme_check" CHECK (theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text])),
-	CONSTRAINT "fotoai_user_preferences_units_check" CHECK (units = ANY (ARRAY['metric'::text, 'imperial'::text]))
-);
---> statement-breakpoint
-ALTER TABLE "fotoai_user_preferences" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "fotoai_daily_challenges" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -543,6 +476,79 @@ CREATE TABLE "fotoai_coach_messages" (
 );
 --> statement-breakpoint
 ALTER TABLE "fotoai_coach_messages" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "fotoai_photo_critiques" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"legacy_appwrite_id" text,
+	"submission_id" uuid,
+	"photo_object_key" text NOT NULL,
+	"technical_score" integer,
+	"composition_score" integer,
+	"creative_score" integer,
+	"overall_score" integer,
+	"technical_feedback" text,
+	"composition_feedback" text,
+	"creative_feedback" text,
+	"strengths" text[] DEFAULT '{""}' NOT NULL,
+	"improvements" text[] DEFAULT '{""}' NOT NULL,
+	"suggested_settings" text,
+	"critique_date" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"photo_id" uuid,
+	"mode" text DEFAULT 'critique' NOT NULL,
+	"details" jsonb,
+	CONSTRAINT "fotoai_photo_critiques_id_user_key" UNIQUE("id","user_id"),
+	CONSTRAINT "fotoai_photo_critiques_legacy_appwrite_id_key" UNIQUE("legacy_appwrite_id"),
+	CONSTRAINT "fotoai_photo_critiques_check" CHECK (split_part(photo_object_key, '/'::text, 1) = (user_id)::text),
+	CONSTRAINT "fotoai_photo_critiques_composition_score_check" CHECK ((composition_score >= 0) AND (composition_score <= 100)),
+	CONSTRAINT "fotoai_photo_critiques_creative_score_check" CHECK ((creative_score >= 0) AND (creative_score <= 100)),
+	CONSTRAINT "fotoai_photo_critiques_details_check" CHECK (octet_length((details)::text) <= 16000),
+	CONSTRAINT "fotoai_photo_critiques_mode_check" CHECK (mode = ANY (ARRAY['critique'::text, 'editing'::text, 'recreate'::text])),
+	CONSTRAINT "fotoai_photo_critiques_overall_score_check" CHECK ((overall_score >= 0) AND (overall_score <= 100)),
+	CONSTRAINT "fotoai_photo_critiques_technical_score_check" CHECK ((technical_score >= 0) AND (technical_score <= 100))
+);
+--> statement-breakpoint
+ALTER TABLE "fotoai_photo_critiques" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "fotoai_user_preferences" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"legacy_appwrite_id" text,
+	"skill_level" text DEFAULT 'intermediate' NOT NULL,
+	"photography_interests" text[] DEFAULT '{""}' NOT NULL,
+	"avoids_styles" text[] DEFAULT '{""}' NOT NULL,
+	"work_days" text[] DEFAULT '{""}' NOT NULL,
+	"work_start_time" text DEFAULT '09:00' NOT NULL,
+	"work_end_time" text DEFAULT '17:00' NOT NULL,
+	"lunch_start_time" text DEFAULT '12:00' NOT NULL,
+	"lunch_end_time" text DEFAULT '13:00' NOT NULL,
+	"primary_photo_day" text DEFAULT 'Saturday' NOT NULL,
+	"secondary_photo_days" text[] DEFAULT '{""}' NOT NULL,
+	"lunch_break_photography" boolean DEFAULT true NOT NULL,
+	"evening_photography" boolean DEFAULT true NOT NULL,
+	"wfh_flexibility" boolean DEFAULT true NOT NULL,
+	"adapt_to_weather" boolean DEFAULT true NOT NULL,
+	"adapt_to_calendar" boolean DEFAULT true NOT NULL,
+	"office_location" text,
+	"home_location" text,
+	"current_location" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone,
+	"theme" text DEFAULT 'golden' NOT NULL,
+	"units" text DEFAULT 'metric' NOT NULL,
+	"home_lat" double precision,
+	"home_lng" double precision,
+	"loadout" jsonb,
+	CONSTRAINT "fotoai_user_preferences_user_id_key" UNIQUE("user_id"),
+	CONSTRAINT "fotoai_user_preferences_legacy_appwrite_id_key" UNIQUE("legacy_appwrite_id"),
+	CONSTRAINT "fotoai_user_preferences_home_lat_check" CHECK ((home_lat IS NULL) OR ((home_lat >= ('-90'::integer)::double precision) AND (home_lat <= (90)::double precision))),
+	CONSTRAINT "fotoai_user_preferences_home_lng_check" CHECK ((home_lng IS NULL) OR ((home_lng >= ('-180'::integer)::double precision) AND (home_lng <= (180)::double precision))),
+	CONSTRAINT "fotoai_user_preferences_home_pair_check" CHECK ((home_lat IS NULL) = (home_lng IS NULL)),
+	CONSTRAINT "fotoai_user_preferences_skill_level_check" CHECK (skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'professional'::text])),
+	CONSTRAINT "fotoai_user_preferences_theme_check" CHECK (theme = ANY (ARRAY['golden'::text, 'golden_dark'::text, 'camera'::text, 'auto'::text])),
+	CONSTRAINT "fotoai_user_preferences_units_check" CHECK (units = ANY (ARRAY['metric'::text, 'imperial'::text]))
+);
+--> statement-breakpoint
+ALTER TABLE "fotoai_user_preferences" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "fotoai_gear_bodies" ADD CONSTRAINT "fotoai_gear_bodies_fixed_lens_id_fkey" FOREIGN KEY ("fixed_lens_id") REFERENCES "public"."fotoai_gear_lenses"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_places" ADD CONSTRAINT "fotoai_places_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_shoot_plans" ADD CONSTRAINT "fotoai_shoot_plans_spot_fkey" FOREIGN KEY ("user_id","spot_id") REFERENCES "public"."fotoai_places"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -567,31 +573,30 @@ ALTER TABLE "fotoai_challenge_submissions" ADD CONSTRAINT "fotoai_challenge_subm
 ALTER TABLE "fotoai_itineraries" ADD CONSTRAINT "fotoai_itineraries_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_user_progress" ADD CONSTRAINT "fotoai_user_progress_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_agent_actions" ADD CONSTRAINT "fotoai_agent_actions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "fotoai_photo_critiques" ADD CONSTRAINT "fotoai_photo_critiques_submission_owner_fkey" FOREIGN KEY ("user_id","submission_id") REFERENCES "public"."fotoai_challenge_submissions"("id","user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "fotoai_photo_critiques" ADD CONSTRAINT "fotoai_photo_critiques_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_reverse_analyses" ADD CONSTRAINT "fotoai_reverse_analyses_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_editing_recipes" ADD CONSTRAINT "fotoai_editing_recipes_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_weekly_reports" ADD CONSTRAINT "fotoai_weekly_reports_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_portfolio_analyses" ADD CONSTRAINT "fotoai_portfolio_analyses_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_user_skills" ADD CONSTRAINT "fotoai_user_skills_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "fotoai_user_preferences" ADD CONSTRAINT "fotoai_user_preferences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_daily_challenges" ADD CONSTRAINT "fotoai_daily_challenges_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_xp_events" ADD CONSTRAINT "fotoai_xp_events_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fotoai_coach_messages" ADD CONSTRAINT "fotoai_coach_messages_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photo_critiques" ADD CONSTRAINT "fotoai_photo_critiques_photo_fkey" FOREIGN KEY ("user_id","photo_id") REFERENCES "public"."fotoai_photos"("id","user_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photo_critiques" ADD CONSTRAINT "fotoai_photo_critiques_submission_owner_fkey" FOREIGN KEY ("user_id","submission_id") REFERENCES "public"."fotoai_challenge_submissions"("id","user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_photo_critiques" ADD CONSTRAINT "fotoai_photo_critiques_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fotoai_user_preferences" ADD CONSTRAINT "fotoai_user_preferences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "fotoai_places_user_created_idx" ON "fotoai_places" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
 CREATE UNIQUE INDEX "fotoai_places_user_place_key" ON "fotoai_places" USING btree ("user_id" text_ops,"place_id" text_ops) WHERE (place_id IS NOT NULL);--> statement-breakpoint
 CREATE INDEX "fotoai_shoot_plans_user_created_idx" ON "fotoai_shoot_plans" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_film_rolls_user_created_idx" ON "fotoai_film_rolls" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_film_frames_step_idx" ON "fotoai_film_frames" USING btree ("step_id" uuid_ops) WHERE (step_id IS NOT NULL);--> statement-breakpoint
 CREATE INDEX "fotoai_photos_step_idx" ON "fotoai_photos" USING btree ("step_id" uuid_ops) WHERE (step_id IS NOT NULL);--> statement-breakpoint
-CREATE INDEX "fotoai_photos_user_created_idx" ON "fotoai_photos" USING btree ("user_id" uuid_ops,"created_at" uuid_ops);--> statement-breakpoint
+CREATE INDEX "fotoai_photos_user_created_idx" ON "fotoai_photos" USING btree ("user_id" uuid_ops,"created_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_user_gear_user_idx" ON "fotoai_user_gear" USING btree ("user_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_challenge_submissions_challenge_idx" ON "fotoai_challenge_submissions" USING btree ("challenge_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_challenge_submissions_user_submitted_idx" ON "fotoai_challenge_submissions" USING btree ("user_id" uuid_ops,"submitted_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_itineraries_user_idx" ON "fotoai_itineraries" USING btree ("user_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_agent_actions_user_idx" ON "fotoai_agent_actions" USING btree ("user_id" timestamptz_ops,"executed_at" timestamptz_ops);--> statement-breakpoint
-CREATE INDEX "fotoai_photo_critiques_submission_idx" ON "fotoai_photo_critiques" USING btree ("submission_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "fotoai_photo_critiques_user_idx" ON "fotoai_photo_critiques" USING btree ("user_id" uuid_ops,"critique_date" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_reverse_analyses_user_idx" ON "fotoai_reverse_analyses" USING btree ("user_id" timestamptz_ops,"analysis_date" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_editing_recipes_user_idx" ON "fotoai_editing_recipes" USING btree ("user_id" timestamptz_ops,"analysis_date" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_portfolio_analyses_user_idx" ON "fotoai_portfolio_analyses" USING btree ("user_id" timestamptz_ops,"analysis_date" timestamptz_ops);--> statement-breakpoint
@@ -599,6 +604,9 @@ CREATE INDEX "fotoai_daily_challenges_user_issued_idx" ON "fotoai_daily_challeng
 CREATE UNIQUE INDEX "fotoai_xp_events_dedupe_idx" ON "fotoai_xp_events" USING btree ("user_id" text_ops,"skill_id" text_ops,"source_kind" text_ops,"source_id" text_ops) WHERE (source_id IS NOT NULL);--> statement-breakpoint
 CREATE INDEX "fotoai_xp_events_user_awarded_idx" ON "fotoai_xp_events" USING btree ("user_id" timestamptz_ops,"awarded_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "fotoai_coach_messages_user_created_idx" ON "fotoai_coach_messages" USING btree ("user_id" timestamptz_ops,"created_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "fotoai_photo_critiques_photo_idx" ON "fotoai_photo_critiques" USING btree ("photo_id" uuid_ops) WHERE (photo_id IS NOT NULL);--> statement-breakpoint
+CREATE INDEX "fotoai_photo_critiques_submission_idx" ON "fotoai_photo_critiques" USING btree ("submission_id" uuid_ops);--> statement-breakpoint
+CREATE INDEX "fotoai_photo_critiques_user_idx" ON "fotoai_photo_critiques" USING btree ("user_id" uuid_ops,"critique_date" timestamptz_ops);--> statement-breakpoint
 CREATE POLICY "fotoai_gear_lenses_read" ON "fotoai_gear_lenses" AS PERMISSIVE FOR SELECT TO "authenticated" USING (true);--> statement-breakpoint
 CREATE POLICY "fotoai_gear_bodies_read" ON "fotoai_gear_bodies" AS PERMISSIVE FOR SELECT TO "authenticated" USING (true);--> statement-breakpoint
 CREATE POLICY "fotoai_places_delete" ON "fotoai_places" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
@@ -641,9 +649,6 @@ CREATE POLICY "fotoai_user_progress_insert" ON "fotoai_user_progress" AS PERMISS
 CREATE POLICY "fotoai_user_progress_select" ON "fotoai_user_progress" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_agent_actions_insert" ON "fotoai_agent_actions" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_agent_actions_select" ON "fotoai_agent_actions" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_photo_critiques_delete" ON "fotoai_photo_critiques" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_photo_critiques_insert" ON "fotoai_photo_critiques" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_photo_critiques_select" ON "fotoai_photo_critiques" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_reverse_analyses_delete" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_reverse_analyses_insert" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_reverse_analyses_select" ON "fotoai_reverse_analyses" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
@@ -655,10 +660,6 @@ CREATE POLICY "fotoai_portfolio_analyses_delete" ON "fotoai_portfolio_analyses" 
 CREATE POLICY "fotoai_portfolio_analyses_insert" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_portfolio_analyses_select" ON "fotoai_portfolio_analyses" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_user_skills_select" ON "fotoai_user_skills" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_delete" ON "fotoai_user_preferences" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_update" ON "fotoai_user_preferences" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_insert" ON "fotoai_user_preferences" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_user_preferences_select" ON "fotoai_user_preferences" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_daily_challenges_delete" ON "fotoai_daily_challenges" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_daily_challenges_update" ON "fotoai_daily_challenges" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
 CREATE POLICY "fotoai_daily_challenges_insert" ON "fotoai_daily_challenges" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
@@ -666,5 +667,12 @@ CREATE POLICY "fotoai_daily_challenges_select" ON "fotoai_daily_challenges" AS P
 CREATE POLICY "fotoai_xp_events_select" ON "fotoai_xp_events" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_coach_messages_delete" ON "fotoai_coach_messages" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "fotoai_coach_messages_insert" ON "fotoai_coach_messages" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
-CREATE POLICY "fotoai_coach_messages_select" ON "fotoai_coach_messages" AS PERMISSIVE FOR SELECT TO "authenticated";
+CREATE POLICY "fotoai_coach_messages_select" ON "fotoai_coach_messages" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_photo_critiques_delete" ON "fotoai_photo_critiques" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_photo_critiques_insert" ON "fotoai_photo_critiques" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_photo_critiques_select" ON "fotoai_photo_critiques" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_delete" ON "fotoai_user_preferences" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((user_id = auth.uid()));--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_update" ON "fotoai_user_preferences" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_insert" ON "fotoai_user_preferences" AS PERMISSIVE FOR INSERT TO "authenticated";--> statement-breakpoint
+CREATE POLICY "fotoai_user_preferences_select" ON "fotoai_user_preferences" AS PERMISSIVE FOR SELECT TO "authenticated";
 */

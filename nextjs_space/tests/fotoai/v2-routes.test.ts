@@ -118,3 +118,28 @@ test('the 2E-2b coach route modules load and answer 401 without a token (no netw
   assert.equal((await history.GET(new Request('http://localhost/api/v2/coach/history'), { params: {} })).status, 401);
   assert.equal((await history.DELETE(new Request('http://localhost/api/v2/coach/history', { method: 'DELETE' }), { params: {} })).status, 401);
 });
+
+test('assetlinks.json names the FotoAI Android app and its EAS signing certificate (3B)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const file = new URL('../../public/.well-known/assetlinks.json', import.meta.url);
+  const statements = JSON.parse(await readFile(file, 'utf8'));
+  assert.equal(statements.length, 1);
+  assert.deepEqual(statements[0].relation, ['delegate_permission/common.handle_all_urls']);
+  assert.equal(statements[0].target.namespace, 'android_app');
+  assert.equal(statements[0].target.package_name, 'com.topues.fotoai');
+  assert.deepEqual(statements[0].target.sha256_cert_fingerprints, [
+    '88:AB:10:E2:6B:F7:1D:7D:95:AF:A0:17:F4:00:20:42:92:B8:5D:74:80:6A:C0:64:D5:A3:DD:C9:06:A5:6A:4D',
+  ]);
+});
+
+test('the 3B route modules load and answer 401 without a token (no network call)', async () => {
+  const progress = await import('../../app/api/v2/me/progress/route.ts');
+  assert.equal((await progress.GET(new Request('http://localhost/api/v2/me/progress'), { params: {} })).status, 401);
+  const challenges = await import('../../app/api/v2/challenges/route.ts');
+  assert.equal((await challenges.POST(new Request('http://localhost/api/v2/challenges', { method: 'POST', body: '{}' }), { params: {} })).status, 401);
+  const id = { params: { id: '00000000-0000-4000-8000-000000000001' } };
+  const analyse = await import('../../app/api/v2/photos/[id]/analyse/route.ts');
+  assert.equal((await analyse.POST(new Request('http://localhost/api/v2/photos/x/analyse', { method: 'POST', body: '{"mode":"critique"}' }), id)).status, 401);
+  const analyses = await import('../../app/api/v2/photos/[id]/analyses/route.ts');
+  assert.equal((await analyses.GET(new Request('http://localhost/api/v2/photos/x/analyses'), id)).status, 401);
+});

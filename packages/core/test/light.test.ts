@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { lightTimes, localDate, timezoneAt, toZonedIso } from '../src/index.ts';
+import { lightTimes, localDate, startOfLocalDay, timezoneAt, toZonedIso } from '../src/index.ts';
 
 const minutesApart = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 60_000;
 const offsetOf = (iso: string) => iso.slice(-6);
@@ -67,4 +67,11 @@ test('timezoneAt and toZonedIso agree on a known instant', () => {
   expect(toZonedIso(new Date('2026-10-18T08:41:10Z'), zone)).toBe('2026-10-18T19:41:10+11:00');
   expect(toZonedIso(new Date('2026-10-18T08:41:10.900Z'), 'UTC')).toBe('2026-10-18T08:41:10+00:00');
   expect(localDate(new Date('2026-10-18T14:00:00Z'), zone)).toBe('2026-10-19');
+});
+
+test('startOfLocalDay is local midnight as an instant, also on a daylight-saving day', () => {
+  expect(startOfLocalDay(new Date('2026-10-18T08:41:10Z'), 'Australia/Melbourne').toISOString()).toBe('2026-10-17T13:00:00.000Z');
+  expect(startOfLocalDay(new Date('2026-10-18T08:41:10Z'), 'UTC').toISOString()).toBe('2026-10-18T00:00:00.000Z');
+  // Melbourne moved to +11:00 at 02:00 on 4 Oct 2026; that midnight was still +10:00.
+  expect(startOfLocalDay(new Date('2026-10-04T02:00:00Z'), 'Australia/Melbourne').toISOString()).toBe('2026-10-03T14:00:00.000Z');
 });

@@ -1,5 +1,6 @@
-// Challenge status moves and the progress rules for a completion. nextStreak and the counter map
-// moved here unchanged from nextjs_space/lib/fotoai/progress-rules.ts (which re-exports them).
+// Challenge status moves and the progress rules for a completion or a new challenge. nextStreak
+// and the counter maps moved here unchanged from the live app (progress-rules.ts and
+// repo-generation.ts re-export them).
 
 export type ChallengeState = 'pending' | 'accepted' | 'skipped' | 'completed' | 'superseded';
 
@@ -43,6 +44,20 @@ export function completedFieldForChallengeType(challengeType: string): string | 
   return COMPLETED_FIELD_BY_TYPE[challengeType] ?? null;
 }
 
+/** Per-type "issued" counter in fotoai_user_progress. Types without one only bump the total. */
+const ISSUED_FIELD_BY_TYPE: Record<string, string> = {
+  WEEKEND_DEEP_DIVE: 'saturday_challenges_issued',
+  LUNCH_BREAK: 'lunch_break_issued',
+  LUNCH_MICRO: 'lunch_break_issued',
+  AFTER_WORK: 'after_work_issued',
+  WFH_MICRO: 'wfh_issued',
+  WORK_FROM_HOME: 'wfh_issued',
+};
+
+export function issuedFieldForChallengeType(challengeType: string): string | null {
+  return ISSUED_FIELD_BY_TYPE[challengeType] ?? null;
+}
+
 export interface ProgressCounts {
   total_challenges_completed?: number | null;
   current_streak?: number | null;
@@ -63,6 +78,18 @@ export function progressAfterCompletion(progress: ProgressCounts, challengeType:
     updated_at: now.toISOString(),
   };
   const typeField = completedFieldForChallengeType(challengeType);
+  if (typeField) patch[typeField] = ((progress[typeField] as number) || 0) + 1;
+  return patch;
+}
+
+/** The progress patch for one new challenge: the same fields the live incrementIssued writes. */
+export function progressAfterIssue(progress: { total_challenges_issued?: number | null; [counter: string]: unknown }, challengeType: string, now: Date): Record<string, unknown> {
+  const patch: Record<string, unknown> = {
+    total_challenges_issued: (progress.total_challenges_issued || 0) + 1,
+    last_challenge_date: now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  const typeField = issuedFieldForChallengeType(challengeType);
   if (typeField) patch[typeField] = ((progress[typeField] as number) || 0) + 1;
   return patch;
 }

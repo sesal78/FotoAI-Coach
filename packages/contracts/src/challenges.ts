@@ -51,3 +51,18 @@ export type ChallengeStatusPatch = z.infer<typeof ChallengeStatusPatch>;
 export const ActiveChallengeResponse = z.object({ challenge: ChallengeDto.nullable() });
 
 export type ActiveChallengeResponse = z.infer<typeof ActiveChallengeResponse>;
+
+/** The types Today can ask for: the live generator's six. */
+export const CHALLENGE_TYPES = ['WEEKEND_DEEP_DIVE', 'LUNCH_BREAK', 'AFTER_WORK', 'WFH_MICRO', 'STORY_DRIVEN', 'TECHNICAL_MASTERY'] as const;
+
+export type ChallengeType = (typeof CHALLENGE_TYPES)[number];
+
+/** POST /api/v2/challenges. With no type, a weekend deep dive (the live default). */
+export const GenerateChallengeInput = z.object({ type: z.enum(CHALLENGE_TYPES).optional(), force: z.boolean().optional() }).strict();
+
+export type GenerateChallengeInput = z.infer<typeof GenerateChallengeInput>;
+
+/** 201 with created: true for a new challenge; 200 with created: false for today's open one. */
+export const GenerateChallengeResponse = z.object({ challenge: ChallengeDto, created: z.boolean() });
+
+export type GenerateChallengeResponse = z.infer<typeof GenerateChallengeResponse>;

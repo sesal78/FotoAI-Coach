@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-export const THEMES = ['golden', 'golden_dark', 'camera'] as const;
+export const THEMES = ['golden', 'golden_dark', 'camera', 'auto'] as const;
 export const UNITS = ['metric', 'imperial'] as const;
 
 export type Theme = (typeof THEMES)[number];

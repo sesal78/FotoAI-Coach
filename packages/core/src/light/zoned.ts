@@ -51,3 +51,11 @@ export function localDate(instant: Date, timeZone: string): string {
   const p = partsAt(instant, timeZone);
   return `${p.year}-${p.month}-${p.day}`;
 }
+
+/** Local midnight of the instant's calendar date in that zone, as an instant. */
+export function startOfLocalDay(instant: Date, timeZone: string): Date {
+  const midnightUtc = Date.parse(`${localDate(instant, timeZone)}T00:00:00Z`);
+  // The offset at midnight can differ from the offset now (daylight saving), so take it twice.
+  const guess = midnightUtc - offsetMinutes(instant, timeZone) * 60_000;
+  return new Date(midnightUtc - offsetMinutes(new Date(guess), timeZone) * 60_000);
+}

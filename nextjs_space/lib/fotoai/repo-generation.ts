@@ -5,6 +5,8 @@
 // user_id = scope.userId, and the session token is forwarded so Postgres RLS
 // applies the same rule again.
 
+import { issuedFieldForChallengeType } from '@fotoai/core';
+
 import { FotoaiNotFoundError } from './errors.ts';
 import { requireUuid } from './object-keys.ts';
 import type { ChallengeRow, OwnerScope, ProgressRow } from './repository.ts';
@@ -46,19 +48,8 @@ const PREFERENCE_COLUMNS = [
   'home_location', 'current_location',
 ].join(',');
 
-/** Per-type "issued" counter in fotoai_user_progress. Types without one only bump the total. */
-const ISSUED_FIELD_BY_TYPE: Record<string, string> = {
-  WEEKEND_DEEP_DIVE: 'saturday_challenges_issued',
-  LUNCH_BREAK: 'lunch_break_issued',
-  LUNCH_MICRO: 'lunch_break_issued',
-  AFTER_WORK: 'after_work_issued',
-  WFH_MICRO: 'wfh_issued',
-  WORK_FROM_HOME: 'wfh_issued',
-};
-
-export function issuedFieldForChallengeType(challengeType: string): string | null {
-  return ISSUED_FIELD_BY_TYPE[challengeType] ?? null;
-}
+// The per-type "issued" counter map lives in @fotoai/core (refactor 3B) so v2 counts the same way.
+export { issuedFieldForChallengeType } from '@fotoai/core';
 
 function owner(scope: OwnerScope): Record<string, string> {
   return { user_id: `eq.${requireUuid(scope.userId, 'session user id')}` };

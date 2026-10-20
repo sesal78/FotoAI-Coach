@@ -12,6 +12,7 @@ export { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.
 export {
   decodeCursor,
   encodeCursor,
+  generateChallenge,
   getActiveChallenge,
   getChallenge,
   listChallenges,
@@ -31,3 +32,5 @@ export { addFrame, createRoll, deleteRoll, getRoll, listRolls, matchScans, patch
 export { loadGearItems } from './gear.ts';
 export { confirmPhoto, createPhoto, getPhotoUrl, listPhotos } from './photos.ts';
 export { clearCoachHistory, coachReply, getCoachHistory } from './coach.ts';
+export { getProgress } from './progress.ts';
+export { analysePhoto, listPhotoAnalyses } from './analyses.ts';

@@ -394,3 +394,15 @@ test('client: critique fetchers send no identity and map the API shape', async (
   const form = calls[2].init?.body as FormData;
   assert.deepEqual([...form.keys()], ['photo']);
 });
+
+test('critiques GET: v2 editing and recreate analyses in the same table never show (list or detail)', async () => {
+  const kept = seedCritique(ALICE, { critique_date: '2026-10-01T00:00:00.000Z' });
+  const editing = seedCritique(ALICE, { critique_date: '2026-10-04T00:00:00.000Z', mode: 'editing', technical_score: null, details: { summary: 'x' } });
+  seedCritique(ALICE, { critique_date: '2026-10-05T00:00:00.000Z', mode: 'recreate', technical_score: null, details: {} });
+  const { critiques } = await (await h.list(request('/api/fotoai/critiques', { cookie: alice }))).json();
+  assert.ok(critiques.some((c: any) => c.id === kept.id));
+  assert.equal(critiques.some((c: any) => c.id === editing.id), false);
+  assert.equal(critiques.length, critiques.filter((c: any) => c.overallScore !== undefined).length);
+  const detail = await h.get(request(`/api/fotoai/critiques/${editing.id}`, { cookie: alice }), { params: { id: editing.id } });
+  assert.equal(detail.status, 404);
+});

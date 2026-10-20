@@ -10,7 +10,8 @@ const COLOR_KEYS: Array<keyof ThemeColors> = [
 
 describe('theme tokens', () => {
   test('the theme ids match THEMES from contracts', () => {
-    // 'auto' joins THEMES in 3B; it is a setting, not a token set.
+    // 'auto' joined THEMES in 3B; it is a setting, not a token set.
+    expect(THEMES).toContain('auto');
     expect([...THEME_IDS].sort()).toEqual(([...THEMES] as string[]).filter((t) => t !== 'auto').sort());
   });
 

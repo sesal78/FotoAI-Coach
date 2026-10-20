@@ -12,7 +12,7 @@ export {
 export type { Body, BodyType, ExposureMode, Lens } from './gear/types.ts';
 export { framesLeft, nearestShutter, pushPullStops, STANDARD_SHUTTER_SECONDS, sunny16, type Scene } from './film/exposure.ts';
 export { lightTimes, type LightTimes, type Window } from './light/light.ts';
-export { localDate, offsetMinutes, timezoneAt, toZonedIso } from './light/zoned.ts';
+export { localDate, offsetMinutes, startOfLocalDay, timezoneAt, toZonedIso } from './light/zoned.ts';
 export { FILM_STOCKS, findStock, type FilmFormat, type FilmProcess, type FilmStock } from './film/stocks.ts';
 export {
   arePrerequisitesMet,
@@ -24,6 +24,7 @@ export {
   getSkillsForCategory,
   getStatusForXP,
   getXPForChallenge,
+  CRITIQUE_DIMENSION_SKILLS,
   getXPForCritiqueScores,
   SKILL_TREE,
   XP_AMOUNTS,
@@ -37,8 +38,10 @@ export {
   canMove,
   CHALLENGE_MOVES,
   completedFieldForChallengeType,
+  issuedFieldForChallengeType,
   nextStreak,
   progressAfterCompletion,
+  progressAfterIssue,
   type ChallengeState,
   type ProgressCounts,
 } from './challenges/rules.ts';
