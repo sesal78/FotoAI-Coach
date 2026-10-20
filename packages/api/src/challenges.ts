@@ -268,8 +268,8 @@ export const patchChallenge: V2Body = async (request, deps, { params }) => {
 const DEFAULT_TYPE = 'WEEKEND_DEEP_DIVE';
 
 /**
- * POST /api/v2/challenges { type?, force? }. Unless force, today's open dashboard challenge is
- * returned (200); "today" starts at midnight in the home area's timezone, else UTC. Otherwise a
+ * POST /api/v2/challenges { type?, force? }. Unless force, today's open challenge (any but a chat
+ * one, as the live generator) is returned (200); "today" starts at midnight in the home area's timezone, else UTC. Otherwise a
  * new pending dashboard challenge is made (201) with no location, and counted as issued.
  */
 export const generateChallenge: V2Body = async (request, deps) => {
@@ -295,7 +295,7 @@ export const generateChallenge: V2Body = async (request, deps) => {
       .from(TABLE)
       .select('*')
       .eq('status', 'pending')
-      .eq('source', 'dashboard')
+      .neq('challenge_type', 'CHATBOT_GENERATED') // the live rule: the daily job's challenge counts too
       .gte('issued_date', startOfLocalDay(now, timezone).toISOString())
       .order('issued_date', { ascending: false })
       .limit(1);

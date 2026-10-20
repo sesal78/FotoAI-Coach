@@ -1,6 +1,7 @@
 -- UNDO for 20261020100001_photo_analyses_and_auto_theme.sql. Run only with Seun's approval, atomically:
 --   psql -1 -v ON_ERROR_STOP=1 -f - < this file   (one transaction; any error changes nothing)
 -- Discards: the photo link, mode and details columns of fotoai_photo_critiques, and the Auto theme.
+-- Restores the users' full insert and update grants on fotoai_photos.
 -- Stops before any change while any v2 analysis exists or any user has the Auto theme. Run this
 -- before the photos undo (the photo link points at fotoai_photos).
 
@@ -13,6 +14,9 @@ begin
     raise exception 'undo refused: users have the auto theme; move them to golden first';
   end if;
 end $$;
+
+revoke insert, update on table public.fotoai_photos from authenticated;
+grant insert, update on table public.fotoai_photos to authenticated;
 
 alter table public.fotoai_user_preferences drop constraint fotoai_user_preferences_theme_check;
 alter table public.fotoai_user_preferences

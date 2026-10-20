@@ -79,6 +79,8 @@ export function createCritiquesRepo(client: FotoaiSupabaseClient) {
       const limit = Math.min(Math.max(1, Math.floor(opts.limit ?? DEFAULT_CRITIQUE_LIMIT)), MAX_CRITIQUE_LIMIT);
       const query: Record<string, string> = {
         ...owner(scope),
+        // v2 editing and recreate analyses share the table (refactor 3B); the live pages show critiques only.
+        mode: 'eq.critique',
         select: '*',
         order: 'critique_date.desc',
         limit: String(limit),
@@ -92,7 +94,7 @@ export function createCritiquesRepo(client: FotoaiSupabaseClient) {
     async getCritique(scope: OwnerScope, critiqueId: string): Promise<CritiqueRow> {
       const id = requireUuid(critiqueId, 'critique id');
       const rows = await client.restSelect<CritiqueRow>(
-        T_CRITIQUES, { ...owner(scope), id: `eq.${id}`, select: '*', limit: '1' }, scope.accessToken,
+        T_CRITIQUES, { ...owner(scope), id: `eq.${id}`, mode: 'eq.critique', select: '*', limit: '1' }, scope.accessToken,
       );
       if (rows.length !== 1) throw new FotoaiNotFoundError('Critique not found');
       return rows[0];

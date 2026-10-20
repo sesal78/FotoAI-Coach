@@ -7,7 +7,14 @@
 -- change (select, insert, delete).
 -- Verify: select count(*) from public.fotoai_photo_critiques where photo_id is not null or mode <> 'critique';  -- 0
 --         select pg_get_constraintdef(oid) from pg_constraint where conname = 'fotoai_user_preferences_theme_check';
+-- Users may no longer write a photo's status, key or AI check: the server writes those with the
+-- service role (packages/api/src/privileged/photos.ts), so the check that gates plan-step XP and
+-- Analyse cannot be set by hand. Users keep insert of the upload fields and update of the roll links.
 -- Undo:   supabase/undo/20261020100001_photo_analyses_and_auto_theme.undo.sql
+
+-- Fail fast instead of queueing live traffic behind a lock; rerun the whole file if it times out.
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
 
 alter table public.fotoai_photos
   add constraint fotoai_photos_id_user_key unique (id, user_id);
@@ -26,3 +33,9 @@ create index fotoai_photo_critiques_photo_idx on public.fotoai_photo_critiques (
 alter table public.fotoai_user_preferences drop constraint fotoai_user_preferences_theme_check;
 alter table public.fotoai_user_preferences
   add constraint fotoai_user_preferences_theme_check check (theme in ('golden', 'golden_dark', 'camera', 'auto'));
+
+revoke insert, update on table public.fotoai_photos from authenticated;
+grant insert (id, user_id, source, object_key, mime, bytes, taken_at, taken_offset, camera_make, camera_model,
+  lens_model, focal_mm, aperture, shutter_s, iso, lat, lng, step_id, frame_id, roll_id)
+  on table public.fotoai_photos to authenticated;
+grant update (frame_id, roll_id, updated_at) on table public.fotoai_photos to authenticated;

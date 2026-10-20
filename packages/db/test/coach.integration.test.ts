@@ -56,16 +56,30 @@ describe.skipIf(!db)('fotoai_coach_messages and photo checks', () => {
     expect((await from(a, 'fotoai_coach_messages').insert(base({ content: 'x'.repeat(4000), proposal: { kind: 'challenge' } }) as never)).error).toBeNull();
   });
 
-  test('a photo check outside the allowed answers is rejected', async () => {
+  test('a photo check outside the allowed answers is rejected (server writes)', async () => {
     const id = randomUUID();
     const photo = { id, user_id: a.id, source: 'gallery', object_key: `${a.id}/photos/${id}/abc123.jpg`, mime: 'image/jpeg', bytes: 1024 };
     expect((await from(a, 'fotoai_photos').insert(photo as never)).error).toBeNull();
+    const server = createClient(db!.url, db!.serviceRoleKey, { auth: { persistSession: false } }).from('fotoai_photos');
     for (const bad of [{ check_matches: 'maybe' }, { check_genre: 'g'.repeat(41) }]) {
-      expect((await from(a, 'fotoai_photos').update(bad as never).eq('id', id)).error, JSON.stringify(bad).slice(0, 40)).not.toBeNull();
+      expect((await server.update(bad as never).eq('id', id)).error, JSON.stringify(bad).slice(0, 40)).not.toBeNull();
     }
     const ok = { check_safe: true, check_matches: 'unclear', check_genre: 'street', checked_at: '2026-10-19T09:00:00Z', check_prompt: 'photo-check@v1' };
-    expect((await from(a, 'fotoai_photos').update(ok as never).eq('id', id)).error).toBeNull();
+    expect((await server.update(ok as never).eq('id', id)).error).toBeNull();
     const read = await from(a, 'fotoai_photos').select('check_safe, check_matches, check_genre, check_prompt').eq('id', id).single();
     expect(read.data).toEqual({ check_safe: true, check_matches: 'unclear', check_genre: 'street', check_prompt: 'photo-check@v1' });
+  });
+
+  test("a user cannot write a photo's status, key, step or check, on insert or update", async () => {
+    const id = randomUUID();
+    const photo = { id, user_id: a.id, source: 'gallery', object_key: `${a.id}/photos/${id}/abc123.jpg`, mime: 'image/jpeg', bytes: 1024 };
+    for (const forged of [{ status: 'ready' }, { check_safe: true, checked_at: '2026-10-19T09:00:00Z' }]) {
+      expect((await from(a, 'fotoai_photos').insert({ ...photo, ...forged } as never)).error?.message, JSON.stringify(forged)).toMatch(/permission denied/);
+    }
+    expect((await from(a, 'fotoai_photos').insert(photo as never)).error).toBeNull();
+    for (const forged of [{ status: 'ready' }, { check_safe: true }, { checked_at: '2026-10-19T09:00:00Z' }, { object_key: `${a.id}/photos/${id}/other.jpg` }, { step_id: null }]) {
+      expect((await from(a, 'fotoai_photos').update(forged as never).eq('id', id)).error?.message, JSON.stringify(forged)).toMatch(/permission denied/);
+    }
+    expect((await from(a, 'fotoai_photos').update({ roll_id: null, frame_id: null, updated_at: '2026-10-20T09:00:00Z' } as never).eq('id', id)).error).toBeNull();
   });
 });

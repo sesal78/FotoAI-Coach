@@ -290,7 +290,7 @@ const weeklyReportJob: UserJob = async (deps, user, now) => {
     svc.select<Row>(T_SUBMISSIONS, { select: 'submitted_at', order: 'submitted_at.desc', limit }),
     svc.select<Row>(T_CRITIQUES, {
       select: 'overall_score,technical_score,composition_score,creative_score,critique_date',
-      order: 'critique_date.desc', limit,
+      mode: 'eq.critique', order: 'critique_date.desc', limit,
     }),
     svc.select<Row>(T_PREFERENCES, { select: 'skill_level', limit: '1' }),
   ]);

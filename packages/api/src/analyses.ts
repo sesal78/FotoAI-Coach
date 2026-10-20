@@ -5,7 +5,7 @@
 // critique earns XP, once per photo (privileged/xp.ts).
 
 import { analysePhoto as runAnalysis, type Analysis } from '@fotoai/ai';
-import { AnalyseInput, type AnalysisDto, type EditingDto, type RecreateDto } from '@fotoai/contracts';
+import { AnalyseInput, EditingDto, RecreateDto, type AnalysisDto } from '@fotoai/contracts';
 import { createUserClient } from '@fotoai/db';
 
 import { rejectBrowserIdentity, requirePrincipal, type Principal } from './auth.ts';
@@ -46,10 +46,17 @@ type AnalysisRow = {
 const upstream = (what: string) => new ApiError('upstream', `Could not ${what}`);
 const num = (v: number | string | null) => (v === null ? null : Number(v));
 
-function toAnalysis(row: AnalysisRow): AnalysisDto {
+/** The row as a DTO, or null when stored details do not have the right shape (a row written by hand). */
+function toAnalysis(row: AnalysisRow): AnalysisDto | null {
   const base = { id: row.id, photoId: row.photo_id, createdAt: row.created_at };
-  if (row.mode === 'editing') return { ...base, mode: 'editing', editing: row.details as EditingDto };
-  if (row.mode === 'recreate') return { ...base, mode: 'recreate', recreate: row.details as RecreateDto };
+  if (row.mode === 'editing') {
+    const editing = EditingDto.safeParse(row.details);
+    return editing.success ? { ...base, mode: 'editing', editing: editing.data } : null;
+  }
+  if (row.mode === 'recreate') {
+    const recreate = RecreateDto.safeParse(row.details);
+    return recreate.success ? { ...base, mode: 'recreate', recreate: recreate.data } : null;
+  }
   return {
     ...base,
     mode: 'critique',
@@ -123,6 +130,24 @@ function columnsFor(result: Analysis): Record<string, unknown> {
   };
 }
 
+/**
+ * Critique XP only for a photo's first critique, so re-running a critique for better scores, or
+ * two at once, never earns more. The analysis is already saved, so a failure is logged, not thrown.
+ */
+async function awardFirstCritique(deps: V2Deps, principal: Principal, photoId: string, c: { technicalScore: number; compositionScore: number; creativeScore: number }) {
+  try {
+    const { count, error } = await createUserClient(deps.env, principal.accessToken)
+      .from(T_ANALYSES)
+      .select('id', { count: 'exact', head: true })
+      .eq('photo_id', photoId)
+      .eq('mode', 'critique');
+    if (error || count !== 1) return;
+    await awardCritiqueXp(deps.env, principal.userId, photoId, { technical: c.technicalScore, composition: c.compositionScore, creative: c.creativeScore });
+  } catch {
+    console.warn('FotoAI v2: analysis saved but the critique XP was not awarded');
+  }
+}
+
 /** POST /api/v2/photos/:id/analyse { mode } → 201 { analysis }. */
 export const analysePhoto: V2Body = async (request, deps, { params }) => {
   rejectBrowserIdentity(new URL(request.url).searchParams);
@@ -161,10 +186,7 @@ export const analysePhoto: V2Body = async (request, deps, { params }) => {
     .select(COLUMNS)
     .single();
   if (error || !data) throw upstream('save the analysis');
-  if (result.mode === 'critique') {
-    const c = result.critique;
-    await awardCritiqueXp(deps.env, principal.userId, photo.id, { technical: c.technicalScore, composition: c.compositionScore, creative: c.creativeScore });
-  }
+  if (result.mode === 'critique') await awardFirstCritique(deps, principal, photo.id, result.critique);
   return json({ analysis: toAnalysis(data as unknown as AnalysisRow) }, { status: 201 });
 };
 
@@ -182,5 +204,5 @@ export const listPhotoAnalyses: V2Body = async (request, deps, { params }) => {
     .order('id', { ascending: false })
     .limit(PAGE);
   if (error) throw upstream('load the analyses');
-  return json({ analyses: (data as unknown as AnalysisRow[]).map(toAnalysis) });
+  return json({ analyses: (data as unknown as AnalysisRow[]).map(toAnalysis).filter((a): a is AnalysisDto => a !== null) });
 };

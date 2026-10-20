@@ -41,8 +41,8 @@ export async function awardChallengeXp(
 
 /**
  * The live critique bonus (XP per dimension over the threshold, split over that dimension's
- * skills, kind 'critique_bonus'), keyed by the photo id: only a photo's first awarded critique
- * counts, so analysing it again never earns more. Callers must have proven the photo is the caller's.
+ * skills, kind 'critique_bonus'), keyed by the photo id, so a repeated award is a duplicate.
+ * Callers must have proven the photo is the caller's and that this is its first critique.
  */
 export async function awardCritiqueXp(
   env: Pick<ServerEnv, 'FOTOAI_SUPABASE_URL' | 'FOTOAI_SUPABASE_SERVICE_ROLE_KEY'>,
@@ -52,15 +52,6 @@ export async function awardCritiqueXp(
 ): Promise<XpOutcome[]> {
   if (!UUID.test(userId) || !UUID.test(photoId)) throw new ApiError('validation', 'XP needs a user and a photo id');
   const { breakdown } = getXPForCritiqueScores(scores);
-  if (Object.keys(breakdown).length === 0) return [];
-  const earned = await createServiceClient(env)
-    .from('fotoai_xp_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('source_kind', 'critique_bonus')
-    .eq('source_id', photoId);
-  if (earned.error || earned.count === null) throw new ApiError('upstream', 'Could not award XP');
-  if (earned.count > 0) return [];
   const outcomes: XpOutcome[] = [];
   for (const [dimension, xp] of Object.entries(breakdown)) {
     const skills = CRITIQUE_DIMENSION_SKILLS[dimension] ?? [];

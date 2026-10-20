@@ -100,6 +100,13 @@ describe.skipIf(!db)('v2 Analyse against the local Supabase (real Storage, mock 
     expect(await critiqueXp(a, critiqued)).toBe(firstXp);
   });
 
+  test('a first critique with no XP cannot be re-run for XP', async () => {
+    const id = await readyPhoto(a, CHECK());
+    expect((await analyse(withAnswers(critique(50)).deps, a, id, { mode: 'critique' })).status).toBe(201);
+    expect((await analyse(withAnswers(critique(95, 95, 95)).deps, a, id, { mode: 'critique' })).status).toBe(201);
+    expect(await critiqueXp(a, id)).toBe(0);
+  });
+
   test('editing and recreate store details and award no XP', async () => {
     const id = await readyPhoto(a, CHECK());
     const edit = await (await analyse(withAnswers(EDITING).deps, a, id, { mode: 'editing' })).json();

@@ -98,6 +98,17 @@ describe.skipIf(!db)('v2 new challenge against the local Supabase', () => {
     expect(rows[1]!.id).toBe(body.challenge.id);
   });
 
+  test("today's challenge from the daily job is reused, as the live rule; a chat one is not", async () => {
+    const issued = new Date().toISOString();
+    await seedRows(db!, 'fotoai_daily_challenges', [{ user_id: c.id, challenge_type: 'CHATBOT_GENERATED', challenge_text: 'chat one', source: 'chat', issued_date: issued }]);
+    const [job] = await seedRows(db!, 'fotoai_daily_challenges', [{ user_id: c.id, challenge_type: 'LUNCH_BREAK', challenge_text: 'job one', source: 'job', issued_date: issued }]);
+    const { deps, model } = withModel();
+    const res = await post(deps, c);
+    expect(res.status).toBe(200);
+    expect((await res.json()).challenge.id).toBe(job!.id);
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
   test('the 21st call in an hour is 429 and the model is not called', async () => {
     const now = new Date().toISOString();
     await seedRows(db!, 'fotoai_agent_actions', Array.from({ length: V2_RATE_LIMITS.challenge_generate }, () => ({ user_id: r.id, action_type: 'API_REQUEST_CHALLENGE_GENERATE', details: { route: 'challenge_generate' }, executed_at: now })));

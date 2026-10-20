@@ -50,6 +50,9 @@ function parseFilter(value: string): { op: string; arg: string } {
   return { op: value.slice(0, dot), arg: value.slice(dot + 1) };
 }
 
+// Column defaults the real tables have that the tests rely on.
+const DEFAULTS: Record<string, Row> = { fotoai_photo_critiques: { mode: 'critique' } };
+
 function matches(row: Row, query: Record<string, string>): boolean {
   for (const [col, raw] of Object.entries(query)) {
     if (['select', 'order', 'limit', 'offset'].includes(col)) continue;
@@ -96,7 +99,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     serviceCalls,
 
     seed(table, row) {
-      const full = { id: nextUuid(), ...row };
+      const full = { id: nextUuid(), ...DEFAULTS[table], ...row };
       rowsOf(table).push(full);
       return full;
     },
@@ -168,7 +171,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         // RLS with-check violation: PostgREST answers 403 for authenticated.
         throw new FotoaiForbiddenError('fake RLS: new row violates row-level security policy');
       }
-      const full = { id: nextUuid(), ...row };
+      const full = { id: nextUuid(), ...DEFAULTS[table], ...row };
       rowsOf(table).push(full);
       return full as any;
     },
@@ -183,7 +186,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         Object.assign(existing, row);
         return existing as any;
       }
-      const full = { id: nextUuid(), ...row };
+      const full = { id: nextUuid(), ...DEFAULTS[table], ...row };
       rowsOf(table).push(full);
       return full as any;
     },
@@ -272,7 +275,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
 
     async serviceInsert(table, row) {
       serviceCalls.push({ op: 'insert', keys: [table] });
-      const full = { id: nextUuid(), ...row };
+      const full = { id: nextUuid(), ...DEFAULTS[table], ...row };
       rowsOf(table).push(full);
       return full as any;
     },
