@@ -131,3 +131,8 @@ test('assetlinks.json names the FotoAI Android app and its EAS signing certifica
     '88:AB:10:E2:6B:F7:1D:7D:95:AF:A0:17:F4:00:20:42:92:B8:5D:74:80:6A:C0:64:D5:A3:DD:C9:06:A5:6A:4D',
   ]);
 });
+
+test('the 3B route modules load and answer 401 without a token (no network call)', async () => {
+  const progress = await import('../../app/api/v2/me/progress/route.ts');
+  assert.equal((await progress.GET(new Request('http://localhost/api/v2/me/progress'), { params: {} })).status, 401);
+});
