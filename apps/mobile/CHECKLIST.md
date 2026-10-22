@@ -26,3 +26,22 @@ Build: the 3A preview APK, reinstalled after the 3B deploy (Android checks App L
 
 1. Reinstall the APK. Sign out, tap "Forgot password?" and send the link.
 2. Tap the link in the email on the phone. The app opens on the New password screen (not the web page).
+
+## 3C: Today and Me
+
+Build: the 3C preview APK (link added when it is built).
+
+1. Install the APK over the old one. Sign in with an account that has gear. Today opens (no onboarding).
+2. Today without a home area: allow location when asked. The light card says "Light at Where you are", with a countdown and the light times.
+3. The weather shows in °C, with "Weather data by …" under it. If the weather is down, "Weather unavailable" shows.
+4. With no active challenge, tap New challenge. A new challenge shows on Today.
+5. Tap Continue. Accept the challenge, then Complete it. The status says Completed.
+6. Open Me. The challenges count and the XP bar went up. Open Skills: the skills show by category.
+7. Me > My gear > Add from the catalog: search "fuji", add one lens. It shows "Owned". Remove it again (the app asks first).
+8. Me > My gear > Add custom gear: a lens with smallest aperture f/2 and widest f/2.8. The app says the aperture range is not possible.
+9. Me > Loadout: pick the Nikon FE2 with a Fujifilm lens. The misfit message shows under the picker. Pick a fitting lens, add a film stock and box ISO, save.
+10. Me > Settings: choose Camera body. Close the app fully and open it: Camera body shows at once, with no flash of another theme.
+11. Settings: switch to Imperial. Today shows °F and mph.
+12. Settings > Home area > Use my location, name it, save. Today now says "Light at <name>".
+13. Turn on airplane mode and reopen Today and Me. The saved answers show with "Last updated <time>".
+14. Sign out on Settings. Sign in with a new account with no gear. Onboarding shows: add one camera, skip the home area. Today opens. Sign out and in again: onboarding does not come back.
