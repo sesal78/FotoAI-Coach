@@ -3,6 +3,7 @@ import { Camera, Compass, Images, Sun, UserRound } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { CoachButton } from '../../ui/CoachButton';
+import { OnboardingGate } from '../../ui/OnboardingGate';
 import { ThemeSync, useTheme } from '../../ui/ThemeProvider';
 
 export default function TabsLayout() {
@@ -26,6 +27,7 @@ export default function TabsLayout() {
       </Tabs>
       <CoachButton />
       <ThemeSync />
+      <OnboardingGate />
     </View>
   );
 }
