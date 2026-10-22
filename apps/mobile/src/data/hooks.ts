@@ -2,6 +2,7 @@
 // data); each write updates or invalidates exactly the reads it changes.
 
 import {
+  type SpotDto,
   type SpotInput,
   type SpotPatch,
   ActiveChallengeResponse,
@@ -136,6 +137,9 @@ export function usePatchChallenge() {
 // --- Explore (3D). Places answers are never saved on the phone (Google terms): `meta.save: false`.
 
 const FRESH_ONLY = { save: false } as const;
+// The server reserves the hourly limit before calling Google or the AI, so a retry uses it again:
+// retry only when the request never left the phone.
+const offlineOnly = (count: number, error: unknown) => error instanceof ApiClientError && error.code === 'offline' && count < 2;
 const coords = (at: { lat: number; lng: number }) => `lat=${at.lat.toFixed(4)}&lng=${at.lng.toFixed(4)}`;
 
 /** True when the server says a feature is not set up yet (a missing key): show "unavailable", not an error. */
@@ -187,6 +191,7 @@ export function usePlacePhoto(placeId: string, name: string | null, maxPx = 800)
     meta: FRESH_ONLY,
     staleTime: 30 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    retry: offlineOnly,
     queryFn: () =>
       getApi().request(`/api/v2/places/${encodeURIComponent(placeId)}/photo?name=${encodeURIComponent(name!)}&maxPx=${maxPx}`, { schema: PlacePhotoResponse }),
   });
@@ -201,6 +206,7 @@ function useAskedExplain(key: readonly unknown[], path: string) {
     meta: FRESH_ONLY,
     staleTime: Infinity,
     gcTime: 60 * 60 * 1000,
+    retry: offlineOnly,
     queryFn: () => getApi().request(path, { schema: ExplanationResponse }),
   });
   const ask = useCallback(() => setAsked(true), []);
@@ -210,32 +216,42 @@ function useAskedExplain(key: readonly unknown[], path: string) {
 export const useExplainPlace = (placeId: string) => useAskedExplain(keys.explainPlace(placeId), `/api/v2/places/${encodeURIComponent(placeId)}/explain`);
 export const useExplainSpot = (spotId: string) => useAskedExplain(keys.explainSpot(spotId), `/api/v2/me/spots/${encodeURIComponent(spotId)}/explain`);
 
-function useSpotsChanged() {
+type SpotList = { spots: SpotDto[] };
+
+/**
+ * A spot write updates the cached list with the server's answer. Refetching the whole list would
+ * cost one Google call per saved Google spot, so it is never done for a write. The place screens
+ * (which show "saved or not") are refreshed.
+ */
+function useSpotsWrite() {
   const client = useQueryClient();
-  return () => Promise.all([client.invalidateQueries({ queryKey: keys.spots }), client.invalidateQueries({ queryKey: ['explore', 'place'] })]);
+  return (change: (spots: SpotDto[]) => SpotDto[]) => {
+    client.setQueryData<SpotList>(keys.spots, (old) => (old ? { spots: change(old.spots) } : old));
+    return client.invalidateQueries({ queryKey: ['explore', 'place'] });
+  };
 }
 
 export function useAddSpot() {
-  const changed = useSpotsChanged();
+  const write = useSpotsWrite();
   return useMutation({
     mutationFn: (input: SpotInput) => getApi().request('/api/v2/me/spots', { schema: SpotResponse, method: 'POST', body: input }),
-    onSuccess: changed,
+    onSuccess: ({ spot }) => write((spots) => [...spots.filter((s) => s.id !== spot.id), spot]),
   });
 }
 
 export function useUpdateSpot() {
-  const changed = useSpotsChanged();
+  const write = useSpotsWrite();
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: SpotPatch }) =>
       getApi().request(`/api/v2/me/spots/${encodeURIComponent(id)}`, { schema: SpotResponse, method: 'PATCH', body: patch }),
-    onSuccess: changed,
+    onSuccess: ({ spot }) => write((spots) => spots.map((s) => (s.id === spot.id ? spot : s))),
   });
 }
 
 export function useDeleteSpot() {
-  const changed = useSpotsChanged();
+  const write = useSpotsWrite();
   return useMutation({
     mutationFn: (id: string) => getApi().request(`/api/v2/me/spots/${encodeURIComponent(id)}`, { schema: OkResponse, method: 'DELETE' }),
-    onSuccess: changed,
+    onSuccess: (_answer, id) => write((spots) => spots.filter((s) => s.id !== id)),
   });
 }

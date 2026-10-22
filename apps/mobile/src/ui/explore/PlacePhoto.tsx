@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { usePlacePhoto } from '../../data/hooks';
+import { TextLink } from '../form';
 import { errorText, Loading } from '../states';
 
 export function PlacePhoto({ placeId, photo, placeName }: { placeId: string; photo: PhotoRef | null; placeName: string }) {
@@ -14,13 +15,20 @@ export function PlacePhoto({ placeId, photo, placeName }: { placeId: string; pho
   return (
     <View className="gap-1">
       {link.isLoading ? <Loading label="Loading the photo…" /> : null}
-      {link.isError ? <Text className="text-text-muted">{`Photo unavailable: ${errorText(link.error)}`}</Text> : null}
+      {link.isError ? (
+        <>
+          <Text className="text-text-muted">{`Photo unavailable: ${errorText(link.error)}`}</Text>
+          <TextLink title="Try the photo again" onPress={() => void link.refetch()} />
+        </>
+      ) : null}
       {link.data ? (
         <Image
           accessibilityLabel={`Photo of ${placeName}`}
           source={{ uri: link.data.photoUri }}
           style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 12 }}
           contentFit="cover"
+          // Google photos are fetched fresh and never written to the phone's disk.
+          cachePolicy="memory"
         />
       ) : null}
       {photo.attributions.map((a) =>

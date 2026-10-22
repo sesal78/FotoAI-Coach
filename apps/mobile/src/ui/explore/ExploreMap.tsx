@@ -33,10 +33,10 @@ export function ExploreMap({
         toolbarEnabled={false}
         onLongPress={(e) => onLongPress?.({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude })}
       >
-        {items.map((item) => (
+        {items.filter((item) => item.location !== null).map((item) => (
           <Marker
             key={`${item.kind}:${item.id}`}
-            coordinate={{ latitude: item.location.lat, longitude: item.location.lng }}
+            coordinate={{ latitude: item.location!.lat, longitude: item.location!.lng }}
             title={item.name}
             description={item.kind === 'spot' ? 'My spot' : undefined}
             pinColor={item.kind === 'spot' ? tokens.colors.accent : tokens.colors.primary}

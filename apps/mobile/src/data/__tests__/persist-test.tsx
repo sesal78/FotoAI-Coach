@@ -72,3 +72,21 @@ test('saved reads from another account are cleared when a different account sign
   claimSavedReads('user-b', store, clear);
   expect(clear).toHaveBeenCalledTimes(2);
 });
+
+test("a saved Google spot keeps no Google name or coordinates on the phone (a pin keeps its own)", async () => {
+  const storage = memoryStorage();
+  const saved = createSavedReads(storage, '0.1.0');
+  const client = new QueryClient();
+  client.setQueryData(keys.spots, {
+    spots: [
+      { id: 'g', source: 'google', placeId: 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ', name: 'Federation Square', location: { lat: -37.818, lng: 144.969 }, notes: 'mine', favourite: true, createdAt: 'x', unavailable: false },
+      { id: 'p', source: 'user', placeId: null, name: 'My pier', location: { lat: -37.86, lng: 144.9 }, notes: null, favourite: false, createdAt: 'x', unavailable: false },
+    ],
+  });
+  await persistQueryClientSave({ queryClient: client, persister: saved.persister, buster: '0.1.0', dehydrateOptions: saved.options.dehydrateOptions });
+  const text = storage.data.get(SAVED_KEY)!;
+  expect(text).not.toContain('Federation Square');
+  expect(text).not.toContain('-37.818');
+  expect(text).toContain('My pier');
+  expect(text).toContain('ChIJ0T2NLmJC1moRbU6M9oX9mWQ'); // the place id may be kept (Google allows it)
+});

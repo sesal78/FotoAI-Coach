@@ -39,7 +39,7 @@ function routes(over: Record<string, unknown> = {}) {
     'GET /api/v2/me/preferences': PREFS_HOME,
     'GET /api/v2/explore/nearby': { places: [FED, PARK] },
     'GET /api/v2/explore/search': { places: [FED] },
-    'GET /api/v2/me/spots': { spots: [MY, spot({ id: '33333333-2222-4333-8444-555555555555', name: 'Gone', unavailable: true })] },
+    'GET /api/v2/me/spots': { spots: [MY, spot({ id: '33333333-2222-4333-8444-555555555555', source: 'google', placeId: 'ChIJgonegonegone12', name: 'Gone', location: null, unavailable: true })] },
     ...over,
   };
 }
@@ -57,7 +57,10 @@ test('every marker and row comes from the API or My spots (nothing else is drawn
   expect(titles.sort()).toEqual(['Federation Square', 'Fitzroy Gardens', 'Pier at Williamstown']);
   expect(screen.getByText('Pier at Williamstown')).toBeTruthy();
   expect(screen.getAllByText('My spot').length).toBe(1);
-  expect(screen.queryByText('Gone')).toBeNull();
+  // A Google spot that cannot load right now stays in the list (no marker), so it can be opened.
+  expect(screen.getByText('Gone')).toBeTruthy();
+  expect(screen.getByText("Can't load from Google right now")).toBeTruthy();
+  expect(screen.getByLabelText('Search places').props.maxLength).toBe(120);
   await act(async () => await fireEvent.press(screen.getByLabelText('Fitzroy Gardens, 1.8 km')));
   expect(router.push).toHaveBeenCalledWith('/place/ChIJparkparkparkpark');
   await act(async () => await fireEvent.press(screen.getByLabelText(/^Pier at Williamstown, My spot/)));
@@ -71,6 +74,7 @@ test('no maps key shows the list and Map unavailable', async () => {
   expect(await screen.findByText('Federation Square')).toBeTruthy();
   expect(screen.queryByTestId('map')).toBeNull();
   expect(screen.getByText(/Map unavailable/)).toBeTruthy();
+  expect(screen.getByText('Place data from Google Maps')).toBeTruthy();
 });
 
 test('a config error shows Places unavailable, and My spots still shows', async () => {
@@ -87,8 +91,12 @@ test('a chip asks for that type; tapping it again clears it', async () => {
   await screen.findByText('Fitzroy Gardens');
   await act(async () => await fireEvent.press(screen.getByRole('button', { name: 'Beaches' })));
   await waitFor(() => expect(mockApi.current!.calls.some((c) => c.path.includes('/explore/nearby') && c.path.endsWith('&type=beach'))).toBe(true));
+  const before = mockApi.current.calls.length;
   await act(async () => await fireEvent.press(screen.getByRole('button', { name: 'Beaches' })));
   expect(screen.getByRole('button', { name: 'Beaches' }).props.accessibilityState).toMatchObject({ selected: false });
+  // Back to the unfiltered answer (cached or asked again), never a type the user cleared.
+  expect(mockApi.current.calls.slice(before).every((c) => !c.path.includes('type=beach'))).toBe(true);
+  expect(await screen.findByText('Fitzroy Gardens')).toBeTruthy();
 });
 
 test('search shows results for the typed text', async () => {
@@ -127,6 +135,7 @@ describe('drop a pin', () => {
     await screen.findByText('Fitzroy Gardens');
     await act(async () => await fireEvent(screen.getByTestId('map'), 'longPress', { nativeEvent: { coordinate: { latitude: -37.801234567, longitude: 144.951234567 } } }));
     expect(screen.getByText('New pin at -37.80123, 144.95123')).toBeTruthy();
+    expect(screen.getByLabelText('Pin name').props.autoFocus).toBe(true);
     await act(async () => await fireEvent.press(screen.getByText('Save pin')));
     expect(screen.getByText('A pin needs a name')).toBeTruthy();
     expect(mockApi.current.calls.some((c) => c.method === 'POST')).toBe(false);

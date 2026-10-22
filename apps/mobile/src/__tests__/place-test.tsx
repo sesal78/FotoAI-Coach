@@ -58,7 +58,9 @@ test('the place shows its facts, the photo with its attributions, and the light'
   await renderScreen(<PlaceScreen />);
   expect(await screen.findByText('Federation Square')).toBeTruthy();
   expect(screen.getByText('Swanston St, Melbourne VIC')).toBeTruthy();
-  expect(await screen.findByLabelText('Photo of Federation Square')).toBeTruthy();
+  const photo = await screen.findByLabelText('Photo of Federation Square');
+  expect(photo.props.cachePolicy).toBe('memory');
+  expect(screen.getByText('Place data from Google Maps')).toBeTruthy();
   expect(screen.getByText('Photo: Jo Smith')).toBeTruthy();
   expect(screen.getByText(/1\.2 km away/)).toBeTruthy();
   expect(screen.getByText('19:05–19:58')).toBeTruthy();
@@ -79,11 +81,25 @@ test('explain runs only after the tap and shows the answer', async () => {
   expect(screen.getByText(/Low from the steps/)).toBeTruthy();
 });
 
-test("a 429 on the explain shows the server's message", async () => {
-  mockApi.current = fakeApi(placeRoutes({ [`GET /api/v2/places/${PID}/explain`]: new ApiClientError('rate_limited', 429, 'Rate limit: at most 60 place explain requests per hour.') }));
+test("a 429 on the explain shows the server's message, and Try again asks once more", async () => {
+  let fail = true;
+  mockApi.current = fakeApi(placeRoutes({
+    [`GET /api/v2/places/${PID}/explain`]: () => (fail ? new ApiClientError('rate_limited', 429, 'Rate limit: at most 60 place explain requests per hour.') : { explanation: EXPLANATION }),
+  }));
   await renderScreen(<PlaceScreen />);
   await act(async () => await fireEvent.press(await screen.findByText('Best light and angles')));
   expect(await screen.findByText(/at most 60 place explain requests/)).toBeTruthy();
+  fail = false;
+  await act(async () => await fireEvent.press(screen.getByText('Try again')));
+  expect(await screen.findByText('Late golden hour from the west.')).toBeTruthy();
+  expect(mockApi.current.calls.filter((c) => c.path.endsWith('/explain'))).toHaveLength(2);
+});
+
+test("a 429 on the photo shows the server's message with Try again", async () => {
+  mockApi.current = fakeApi(placeRoutes({ [`GET /api/v2/places/${PID}/photo`]: new ApiClientError('rate_limited', 429, 'Rate limit: at most 30 place photos requests per hour.') }));
+  await renderScreen(<PlaceScreen />);
+  expect(await screen.findByText(/at most 30 place photos requests/)).toBeTruthy();
+  expect(screen.getByText('Try the photo again')).toBeTruthy();
 });
 
 test('save, favourite and remove change My spots', async () => {
@@ -136,14 +152,15 @@ test("a pin's name and notes can be edited, and it explains from the spot endpoi
   expect(mockApi.current.calls.some((c) => c.path === `/api/v2/me/spots/${SID}/explain`)).toBe(true);
 });
 
-test('a spot Google no longer has says so', async () => {
+test('a Google spot that cannot load says so and can still be removed', async () => {
   mockParams.current = { id: SID };
   mockApi.current = fakeApi({
     'GET /api/v2/me/preferences': PREFS_HOME,
     'GET /api/v2/me/spots': { spots: [spot({ id: SID, source: 'google', placeId: PID, name: null, location: null, unavailable: true })] },
   });
   await renderScreen(<SpotScreen />);
-  expect(await screen.findByText('No longer on Google Maps')).toBeTruthy();
+  expect(await screen.findByText(/Can't load this place from Google right now/)).toBeTruthy();
+  expect(screen.getByText('Remove this spot')).toBeTruthy();
 });
 
 test('loading, not found and offline states', async () => {

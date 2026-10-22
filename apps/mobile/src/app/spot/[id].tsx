@@ -50,7 +50,7 @@ export default function SpotScreen() {
   return (
     <Screen title={spot.name ?? 'My spot'}>
       {back}
-      {spot.unavailable ? <Notice text="No longer on Google Maps" /> : null}
+      {spot.unavailable ? <Notice text="Can't load this place from Google right now. It may be gone, or Google may be busy. Your notes are safe." /> : null}
       <Text className="text-text-muted">{[isPin ? 'My spot (pin)' : 'My spot (Google place)', away ? `${away} away` : null].filter(Boolean).join(' · ')}</Text>
       {!isPin && spot.placeId && !spot.unavailable ? <TextLink title="Open the place" onPress={() => router.push(`/place/${spot.placeId}`)} /> : null}
       <View className="gap-3 rounded-lg bg-surface p-4">

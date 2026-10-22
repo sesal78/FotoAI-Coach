@@ -6,16 +6,18 @@ export interface ExploreItem {
   kind: 'place' | 'spot';
   id: string;
   name: string;
-  location: { lat: number; lng: number };
+  location: { lat: number; lng: number } | null;
   type: string | null;
   distance: string | null;
+  /** Shown instead of "My spot" (a Google spot that cannot load right now). */
+  note?: string;
 }
 
 const typeName = (t: string | null) => (t ? t.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : null);
 
 export function PlaceRow({ item, onPress }: { item: ExploreItem; onPress: () => void }) {
-  const kind = item.kind === 'spot' ? 'My spot' : typeName(item.type);
-  const label = [item.name, kind && item.kind === 'spot' ? kind : null, item.distance].filter(Boolean).join(', ');
+  const kind = item.kind === 'spot' ? (item.note ?? 'My spot') : typeName(item.type);
+  const label = [item.name, item.kind === 'spot' ? kind : null, item.distance].filter(Boolean).join(', ');
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} className="min-h-12 flex-row items-center justify-between rounded-md bg-surface p-3">
       <View className="flex-1 gap-1">

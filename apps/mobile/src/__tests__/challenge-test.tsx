@@ -70,9 +70,11 @@ test("a 400 shows the server's message", async () => {
 });
 
 test('loading, not found and offline states', async () => {
-  mockApi.current = fakeApi({ [`GET /api/v2/challenges/${ID}`]: new ApiClientError('not_found', 404, 'Challenge not found') });
+  let release: (v: unknown) => void = () => undefined;
+  mockApi.current = fakeApi({ [`GET /api/v2/challenges/${ID}`]: () => new Promise((r) => (release = r)) });
   const first = await renderScreen(<ChallengeScreen />);
-  expect(screen.getByText('Loading the challenge…')).toBeTruthy();
+  expect(await screen.findByText('Loading the challenge…')).toBeTruthy();
+  await act(async () => release(new ApiClientError('not_found', 404, 'Challenge not found')));
   expect(await screen.findByText('Challenge not found')).toBeTruthy();
   await first.unmount();
 

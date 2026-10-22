@@ -9,6 +9,7 @@ import { useAddSpot, useDeleteSpot, useExplainPlace, usePlace, usePreferences, u
 import { distanceM, distanceText } from '../../lib/distance';
 import { useWhere } from '../../lib/where';
 import { ExplainCard } from '../../ui/explore/ExplainCard';
+import { GoogleAttribution } from '../../ui/explore/GoogleAttribution';
 import { PlacePhoto } from '../../ui/explore/PlacePhoto';
 import { Field, Notice, PrimaryButton, Screen, TextLink } from '../../ui/form';
 import { ErrorState, errorText, Loading } from '../../ui/states';
@@ -63,6 +64,7 @@ export default function PlaceScreen() {
       <Text className="text-text-muted">{[typeName(place.primaryType), away ? `${away} away` : null].filter(Boolean).join(' · ')}</Text>
       {place.formattedAddress ? <Text className="text-text">{place.formattedAddress}</Text> : null}
       <PlacePhoto placeId={place.placeId} photo={place.photos[0] ?? place.photo} placeName={place.name} />
+      <GoogleAttribution />
       <LightCard light={light} now={new Date()} place={place.name} />
       <WeatherCard weather={weather} units={units} />
       <ExplainCard query={explain} />

@@ -11,6 +11,7 @@ import { distanceM, distanceText } from '../../lib/distance';
 import { mapsConfigured } from '../../lib/maps';
 import { useWhere } from '../../lib/where';
 import { ExploreMap } from '../../ui/explore/ExploreMap';
+import { GoogleAttribution } from '../../ui/explore/GoogleAttribution';
 import { PinSheet } from '../../ui/explore/PinSheet';
 import { PlaceRow, type ExploreItem } from '../../ui/explore/PlaceRow';
 import { TypeChips } from '../../ui/explore/TypeChips';
@@ -35,9 +36,16 @@ export default function Explore() {
     const away = (loc: { lat: number; lng: number }) => (at ? distanceM(at, loc) : null);
     const list: Array<Omit<ExploreItem, 'distance'> & { m: number | null }> = [
       ...(places.data?.places ?? []).map((p) => ({ kind: 'place' as const, id: p.placeId, name: p.name, location: p.location, type: p.primaryType, m: away(p.location) })),
-      ...(spots.data?.spots ?? [])
-        .filter((s) => s.location && s.name && !s.unavailable)
-        .map((s) => ({ kind: 'spot' as const, id: s.id, name: s.name!, location: s.location!, type: null, m: away(s.location!) })),
+      // Every spot is listed; one that cannot load from Google right now has no marker but can be opened.
+      ...(spots.data?.spots ?? []).map((s) => ({
+        kind: 'spot' as const,
+        id: s.id,
+        name: s.name ?? 'Saved place',
+        location: s.unavailable ? null : s.location,
+        type: null,
+        note: s.unavailable ? "Can't load from Google right now" : undefined,
+        m: s.location && !s.unavailable ? away(s.location) : null,
+      })),
     ];
     return list
       .sort((a, b) => (a.m ?? Infinity) - (b.m ?? Infinity))
@@ -59,12 +67,15 @@ export default function Explore() {
       ) : null}
       {at ? (
         <>
-          <Field label="Search places" value={text} onChangeText={setText} placeholder="Beach, lookout, a place name…" />
+          <Field label="Search places" value={text} onChangeText={setText} placeholder="Beach, lookout, a place name…" maxLength={120} />
           {!searching ? <TypeChips selected={type} onChange={setType} /> : null}
           {showMap ? (
             <ExploreMap center={at} showUser={where.state === 'ready' && where.source === 'phone'} items={items} onOpen={open} onLongPress={setPinAt} />
           ) : (
-            <Notice text="Map unavailable. The list below still works." />
+            <>
+              <Notice text="Map unavailable. The list below still works." />
+              <GoogleAttribution />
+            </>
           )}
           {pinAt ? (
             <PinSheet at={pinAt} onDone={() => setPinAt(null)} />

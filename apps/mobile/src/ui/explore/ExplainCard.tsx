@@ -13,6 +13,7 @@ interface Asked {
   isError: boolean;
   error: unknown;
   data?: { explanation: PlaceExplanationDto };
+  refetch: () => unknown;
 }
 
 export function ExplainCard({ query }: { query: Asked }) {
@@ -21,7 +22,12 @@ export function ExplainCard({ query }: { query: Asked }) {
     <View className="gap-3 rounded-lg bg-surface p-4">
       {!query.asked ? <PrimaryButton title="Best light and angles" onPress={query.ask} /> : null}
       {query.isFetching ? <Loading label="Asking the coach…" /> : null}
-      {query.isError && !e ? <Notice tone="error" text={errorText(query.error)} /> : null}
+      {query.isError && !e ? (
+        <>
+          <Notice tone="error" text={errorText(query.error)} />
+          {!query.isFetching ? <PrimaryButton title="Try again" onPress={() => void query.refetch()} /> : null}
+        </>
+      ) : null}
       {e ? (
         <>
           <Text className="text-sm font-semibold uppercase text-text-muted">Best light</Text>
