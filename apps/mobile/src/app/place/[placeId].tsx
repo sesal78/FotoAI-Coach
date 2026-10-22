@@ -66,6 +66,7 @@ export default function PlaceScreen() {
       <LightCard light={light} now={new Date()} place={place.name} />
       <WeatherCard weather={weather} units={units} />
       <ExplainCard query={explain} />
+      <PrimaryButton title="Plan a shoot here" onPress={() => router.navigate(`/shoot?placeId=${encodeURIComponent(place.placeId)}`)} />
       {place.googleMapsUri ? <TextLink title="Open in Google Maps" onPress={() => void Linking.openURL(place.googleMapsUri!)} /> : null}
 
       <View className="gap-3 rounded-lg bg-surface p-4">

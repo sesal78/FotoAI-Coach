@@ -62,6 +62,7 @@ export default function SpotScreen() {
         {update.isError ? <Notice tone="error" text={errorText(update.error)} /> : null}
       </View>
       {!spot.unavailable ? <ExplainCard query={explain} /> : null}
+      {!spot.unavailable ? <PrimaryButton title="Plan a shoot here" onPress={() => router.navigate(`/shoot?spotId=${encodeURIComponent(spot.id)}`)} /> : null}
       <TextLink title="Remove this spot" onPress={confirmRemove} />
       {remove.isError ? <Notice tone="error" text={errorText(remove.error)} /> : null}
       <LastUpdated at={spots.dataUpdatedAt} />
