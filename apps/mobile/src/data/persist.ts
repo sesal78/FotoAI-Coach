@@ -1,6 +1,8 @@
 // Reads are kept on the phone (expo-sqlite kv-store) so a screen opened with no signal shows its
 // last good answer. Only successful reads are saved, never writes; they last 7 days and are
 // dropped when the app version changes. Sign-out clears them. No token is ever in a read.
+// Google Places answers (names, addresses, photos) carry `meta.save: false` and are never saved:
+// the Google Maps Platform terms allow them fresh only.
 
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
@@ -23,7 +25,7 @@ export function createSavedReads(storage: StringStorage, buster: string) {
     persister,
     maxAge: SAVED_MAX_AGE,
     buster,
-    dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success', shouldDehydrateMutation: () => false },
+    dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && q.meta?.save !== false, shouldDehydrateMutation: () => false },
   };
   return { persister, options, clear: () => Promise.resolve(persister.removeClient()).catch(() => undefined) };
 }
