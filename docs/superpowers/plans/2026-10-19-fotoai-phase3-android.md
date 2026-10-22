@@ -409,15 +409,112 @@
 - [ ] Add `apps/mobile/CHECKLIST.md` section 3C: Today at home and away, New challenge, a challenge from accept to complete, Me numbers after the completion, add, remove and custom gear, the loadout misfit, theme after a restart, units, home area, onboarding on a new account, offline with "Last updated".
 - [ ] **Stop for Seun's yes.** Then merge, and build the preview APK on EAS (Seun's Expo account). Seun installs it and runs the 3C checklist. There is no server change.
 
-## Sub-phase 3D: Explore (task level)
+## Sub-phase 3D: Explore (step level, expanded 22 Oct 2026)
 
-**Ships:** APK only. Needs both Google keys (prerequisites).
-- **D1 Map:** react-native-maps with the Google provider, the Android key from an EAS environment variable through `app.config.ts`. With no key or a failed load, a list-only Explore with a clear "Map unavailable" note.
-- **D2 Nearby and search:** markers and a list from `GET /api/v2/explore/nearby` and `/search` around the user (location permission) or the home area. "Places unavailable" when the server has no key (the server's `config` error).
-- **D3 Place sheet and detail:** photo (`/places/:id/photo`), facts, best light and angles (`/explain`), walk distance as a straight line.
-- **D4 My spots:** drop a pin, name it, add notes, favourite, delete; shown as "My spot".
-- **D5 Plan a shoot here:** opens Shoot with the place or spot filled in.
-- **Tests:** no place is drawn that did not come from the API; the map-unavailable path. **Checklist:** 3D section.
+**Ships:** APK only. No migration, no code deploy: every endpoint 3D calls is live. **Production:** Seun adds two keys (below), one Dokploy redeploy to load the server key (on Seun's yes), then one EAS preview build on Seun's yes and Seun's phone checklist.
+
+**Facts this expansion is built on (read 22 Oct 2026, against `master` `1738c28`):**
+- Live and used by 3D:
+  - `GET /api/v2/explore/nearby?lat&lng&radiusM&type` and `GET /api/v2/explore/search?q&lat&lng&radiusM` → `{ places: PlaceSummary[] }`;
+  - `GET /api/v2/places/:placeId` → `{ place: PlaceDetail, light, weather, spot }`;
+  - `GET /api/v2/places/:placeId/photo?name&maxPx` → `{ photoUri }` (30 an hour per user);
+  - `GET /api/v2/places/:placeId/explain` and `GET /api/v2/me/spots/:id/explain` → `{ explanation }` (AI, 60 an hour);
+  - `GET`/`POST /api/v2/me/spots` (a Google `placeId` or a `pin { name, lat, lng }`, with notes), `PATCH`/`DELETE /api/v2/me/spots/:id` (notes, favourite, name).
+- **`GOOGLE_MAPS_SERVER_API_KEY` is not set in Dokploy**, so nearby, search, place detail and photos answer the server's `config` error today. My spots (pins) work without it.
+- **No Android Maps key exists yet.** react-native-maps with the Google provider needs it in the APK (it is public data, restricted to package `com.topues.fotoai` and the EAS SHA-1 `5F:9D:B6:E7:9B:FB:AE:1D:69:6B:F3:C5:CC:4D:DA:2B:76:DB:6A:15`).
+- Google Maps Platform terms: Places content (names, addresses, photos) is fetched fresh and not stored; photos must show their author attributions. So Places answers are **not** kept in the phone's saved reads (only My spots are).
+- `useWhere` (3C) already gives the home area or the phone's location, asking for permission only from a tap.
+
+**Prerequisites from Seun (agents never type keys):**
+
+| Before | What | Where |
+|---|---|---|
+| D6 release | Google **server** key with Places API (New), IP-restricted to `202.80.150.0` | Dokploy env `GOOGLE_MAPS_SERVER_API_KEY`, then a redeploy (on Seun's yes) |
+| D6 APK build | Google **Android Maps SDK** key, restricted to `com.topues.fotoai` + the SHA-1 above | expo.dev → fotoai-coach → Environment variables → `preview`: `GOOGLE_MAPS_ANDROID_API_KEY` |
+
+Without the server key the APK still ships: Explore shows "Places unavailable" and My spots works. Without the Android key: list-only Explore with "Map unavailable".
+
+**Rules for every 3D screen:** the four states (loading, empty, error with Retry, offline); only places from the Places endpoints or the user's own spots are drawn; photo attributions always show; the AI explain runs only from a tap.
+
+### Task D0: Maps module and the Android key
+
+**Files:** modify `apps/mobile/package.json` (`npx expo install react-native-maps`), `apps/mobile/app.config.ts` (`android.config.googleMaps.apiKey` from `process.env.GOOGLE_MAPS_ANDROID_API_KEY`, only when set), `apps/mobile/test/jest-setup.ts` (a react-native-maps mock), `apps/mobile/CHECKLIST.md` (the 3C build link); test `apps/mobile/src/__tests__/app-config-test.ts`.
+
+- [ ] **Step 1: Write the failing tests:** `with GOOGLE_MAPS_ANDROID_API_KEY set the Android Maps key is in the config`; `without it there is no maps key and the build still works`; the existing "no secret" test still passes (an Android Maps key is allowed only at that one path).
+- [ ] **Step 2: RED, install, configure, GREEN** (expo-doctor, the Android bundle, the React isolation scan).
+- [ ] **Step 3: Commit.** `chore(mobile): Google Maps module and the Android key`
+
+### Task D1: Explore data hooks
+
+**Files:** modify `apps/mobile/src/data/{keys,schemas,hooks,persist}.ts`; tests in `apps/mobile/src/data/__tests__/`.
+
+**Interfaces:** `useNearby(at, type?)`, `useSearch(q, near)` (runs only for 2+ characters, after 400 ms of no typing), `usePlace(placeId)`, `usePlacePhoto(placeId, photoName)` (on demand, kept 30 minutes in memory only), `useExplainPlace(placeId)` and `useExplainSpot(spotId)` (only from a tap: `enabled: false` until asked), `useAddSpot`, `useUpdateSpot`, `useDeleteSpot` (each refreshes My spots). Places reads carry `meta: { save: false }` and the saved-reads filter skips them.
+
+- [ ] **Step 1: Write the failing tests:** `Places answers are never saved on the phone; My spots are`; `search waits for 2 characters and a pause`; `explain does not run until asked`; `adding, renaming, favouriting and deleting a spot refresh My spots`; `the server's config error is told apart (Places unavailable)`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): Explore data hooks (Places not kept on the phone)`
+
+### Task D2: Explore: map and list
+
+**Files:** rewrite `apps/mobile/src/app/(tabs)/explore.tsx`; create `apps/mobile/src/ui/explore/` (`ExploreMap.tsx`, `PlaceRow.tsx`, `TypeChips.tsx`); create `apps/mobile/src/lib/distance.ts` (straight-line metres); tests `apps/mobile/src/__tests__/explore-test.tsx`, `apps/mobile/src/lib/__tests__/distance-test.ts`.
+
+**Interface:**
+- Centre: the home area or the phone's location (`useWhere`). With neither, a card asks for one (as on Today).
+- A search box, then type chips (Parks, Beaches, Lookouts, Landmarks, Gardens, Marinas): each chip is one of the server's photo types.
+- With a maps key: a Google map with the user, nearby places (one marker style) and My spots (another), and a list below, nearest first with the distance.
+- With no maps key, or when the map does not load: the list only, with "Map unavailable".
+- Server `config` error: "Places unavailable right now", and My spots still shows.
+
+- [ ] **Step 1: Write the failing tests:**
+  - distance: `known pairs match to within 1%`.
+  - screen: `every marker and row comes from the API or My spots (nothing else is drawn)`; `no maps key shows the list and Map unavailable`; `a config error shows Places unavailable and My spots still shows`; `a chip asks for that type`; `search shows results for the typed text`; plus loading, empty, error and offline.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): Explore with a map, nearby places and search`
+
+### Task D3: The place and spot screens
+
+**Files:** create `apps/mobile/src/app/place/[placeId].tsx` and `apps/mobile/src/app/spot/[id].tsx`; create `apps/mobile/src/ui/explore/PlacePhoto.tsx`; register both routes in the signed-in stack; test `apps/mobile/src/__tests__/place-test.tsx`.
+
+**Interfaces:**
+- Place:
+  - name, type, address, the straight-line distance from the user;
+  - one photo (loaded when the screen opens) with its author attributions, each a link when Google gives one;
+  - today's light times and weather (from the same answer, reusing the Today cards);
+  - "Best light and angles" runs the explain (AI) and shows best light, up to 3 angles and any caution;
+  - "Open in Google Maps" opens `googleMapsUri`;
+  - "Save to My spots" with optional notes, or, once saved, notes, favourite and Remove.
+- Spot (a pin): name and notes (edit), favourite, "Best light and angles" (the spot explain), Remove (asks first). A saved Google spot that Google no longer has shows "No longer on Google Maps".
+
+- [ ] **Step 1: Write the failing tests:** `the photo shows with its attributions`; `explain runs only after the tap and shows the answer`; `save, favourite and remove change My spots`; `a pin's notes can be edited`; `an unavailable spot says so`; `a 429 on the photo or explain shows the server's message`; plus the four states.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): place and spot screens with photo, light and explain`
+
+### Task D4: Drop a pin
+
+**Files:** modify `apps/mobile/src/ui/explore/ExploreMap.tsx` and `explore.tsx`; create `apps/mobile/src/ui/explore/PinSheet.tsx`; test in `explore-test.tsx`.
+
+**Interface:** a long press on the map, or "Add a pin here" (the current centre) without a map, opens a sheet: name (required), notes. Save posts `pin { name, lat, lng }` (coordinates to 5 decimals: a spot is a real place Seun stands at). The new pin shows at once as "My spot".
+
+- [ ] **Step 1: Write the failing tests:** `a long press opens the sheet with those coordinates`; `a pin needs a name`; `saving shows the new spot on the map and in the list`; `without a map, Add a pin here uses the centre`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): drop a pin as My spot`
+
+### Task D5: Plan a shoot here (hand-off to Shoot)
+
+**Files:** modify `apps/mobile/src/app/(tabs)/shoot.tsx`; the place and spot screens; test `apps/mobile/src/__tests__/shoot-handoff-test.tsx`.
+
+**Interface:** "Plan a shoot here" opens Shoot with `placeId` or `spotId`. Until 3E builds plans, Shoot shows the chosen place's name and "Shoot plans arrive in the next update". 3E reads the same two parameters.
+
+- [ ] **Step 1: Write the failing tests:** `the place screen opens Shoot with its placeId`; `the spot screen opens Shoot with its spotId`; `Shoot shows the chosen place's name`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): plan a shoot here hands the place to Shoot`
+
+### Task D6: 3D release
+
+- [ ] One fresh reviewer checks the whole branch; one fix pass; PR; CI green in all four jobs.
+- [ ] Add `apps/mobile/CHECKLIST.md` section 3D: Explore at home and away, chips, search, a place's photo with attributions, light and explain, save and favourite, drop a pin, edit and remove it, Plan a shoot here, offline, and (if a key is missing) the "unavailable" notes.
+- [ ] **Seun's steps:** add the two keys (table above).
+- [ ] **Stop for Seun's yes.** Then: redeploy Dokploy so the server key loads (smoke 48/48 still green; on the phone, Explore lists nearby places), merge, build the preview APK on EAS, and Seun runs the 3D checklist.
 
 ## Sub-phase 3E: Shoot and the offline field mode (task level)
 
