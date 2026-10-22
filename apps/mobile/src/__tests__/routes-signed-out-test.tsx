@@ -11,7 +11,8 @@ jest.mock('../auth/supabase', () => ({ getSupabase: () => jest.requireActual('..
 jest.mock('../data/client', () => {
   const { QueryClient } = jest.requireActual('@tanstack/react-query');
   const { mockState: state } = jest.requireActual('../../test/router-mocks');
-  return { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }), getApi: () => ({ request: (...a: unknown[]) => state.request(...a) }) };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return { queryClient, clearAccountData: () => queryClient.clear(), getApi: () => ({ request: (...a: unknown[]) => state.request(...a) }) };
 });
 
 test('signed out: a tab link shows sign-in; a wrong password gets a plain message and is never logged; signing in opens the tabs', async () => {

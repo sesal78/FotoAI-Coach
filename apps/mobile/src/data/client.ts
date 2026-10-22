@@ -1,10 +1,15 @@
-// The app's API client and query cache, tied to the Supabase session.
+// The app's API client and query cache, tied to the Supabase session. The phone's network state
+// drives TanStack's online state, so reads pause offline and refetch on reconnect.
 
-import { QueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
+import { onlineManager, QueryClient } from '@tanstack/react-query';
 
 import { getSupabase } from '../auth/supabase';
 import { ApiClientError, createApi, type Api } from '../lib/api';
 import { appEnv } from '../lib/env';
+import { savedReads } from './persist';
+
+onlineManager.setEventListener((setOnline) => NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)));
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,6 +20,12 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+/** Forgets everything read for the signed-in account: the cache and the copy kept on the phone. */
+export function clearAccountData(): void {
+  queryClient.clear();
+  void savedReads.clear();
+}
 
 let api: Api | null = null;
 
@@ -34,7 +45,7 @@ export function getApi(): Api {
     },
     onSignedOut: () => {
       void supabase.auth.signOut({ scope: 'local' });
-      queryClient.clear();
+      clearAccountData();
     },
   });
   return api;

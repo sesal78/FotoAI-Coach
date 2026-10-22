@@ -1,12 +1,13 @@
 import '../global.css';
 
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import { Text } from 'react-native';
 
 import { SessionProvider, useSession } from '../auth/session';
 import { getSupabase } from '../auth/supabase';
-import { queryClient } from '../data/client';
+import { clearAccountData, queryClient } from '../data/client';
+import { savedReads } from '../data/persist';
 import { appEnv } from '../lib/env';
 import { Screen } from '../ui/form';
 import { Loading } from '../ui/states';
@@ -15,17 +16,17 @@ import { ThemeProvider } from '../ui/ThemeProvider';
 export default function RootLayout() {
   const supabase = getSupabase();
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={savedReads.options}>
       <ThemeProvider>
         {appEnv.ok && supabase ? (
-          <SessionProvider auth={supabase.auth} onSignedOut={() => queryClient.clear()}>
+          <SessionProvider auth={supabase.auth} onSignedOut={clearAccountData}>
             <Navigator />
           </SessionProvider>
         ) : (
           <NotConfigured problems={appEnv.ok ? [] : appEnv.problems} />
         )}
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 

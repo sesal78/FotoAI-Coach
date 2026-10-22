@@ -2,6 +2,7 @@
 // libraries and standard-navigation (an ESM-only dependency of Expo Router 58).
 module.exports = {
   preset: 'jest-expo',
+  setupFiles: ['<rootDir>/test/jest-setup.ts'],
   moduleNameMapper: {
     // NativeWind compiles the CSS in Metro; tests get an empty module.
     '\\.css$': '<rootDir>/test/style-stub.js',
