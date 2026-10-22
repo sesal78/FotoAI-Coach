@@ -41,6 +41,10 @@ function Navigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="challenge/[id]" />
         <Stack.Screen name="me/skills" />
+        <Stack.Screen name="me/gear/index" />
+        <Stack.Screen name="me/gear/add" />
+        <Stack.Screen name="me/gear/custom" />
+        <Stack.Screen name="me/loadout" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />
