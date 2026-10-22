@@ -40,6 +40,7 @@ function Navigator() {
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="challenge/[id]" />
+        <Stack.Screen name="me/skills" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />
