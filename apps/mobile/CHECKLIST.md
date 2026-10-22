@@ -45,3 +45,20 @@ Build: 3C preview APK, 22 Oct 2026: https://expo.dev/accounts/topues/projects/fo
 12. Settings > Home area > Use my location, name it, save. Today now says "Light at <name>".
 13. Turn on airplane mode and reopen Today and Me. The saved answers show with "Last updated <time>".
 14. Sign out on Settings. Sign in with a new account with no gear. Onboarding shows: add one camera, skip the home area. Today opens. Sign out and in again: onboarding does not come back.
+
+## 3D: Explore
+
+Build: the 3D preview APK (link added when it is built). Before it: the Google server key is in Dokploy (and redeployed), and the Android Maps key is in expo.dev.
+
+1. Open Explore at home. The map shows, with nearby places and your spots in two colours. The list below is nearest first, with distances.
+2. Tap Beaches, then Beaches again. The list changes, then goes back.
+3. Search "pier". Results show for the text.
+4. Tap a place. Its photo shows with "Photo: <name>" under it. Tapping that opens the photographer's page.
+5. The place shows today's light times and weather. Tap "Best light and angles": the coach answers with best light and angles.
+6. Tap "Open in Google Maps": Google Maps opens on that place.
+7. Add notes and tap "Save to My spots". Tap "Add to favourites". Back on Today, it shows as the suggested spot.
+8. On the map, press and hold an empty spot. Name the pin, add notes, save. It shows as "My spot".
+9. Open the pin. Change its name and notes, save. Tap "Best light and angles". Then "Remove this spot" (the app asks first).
+10. On a place, tap "Plan a shoot here". Shoot opens and says "Planning: <name>".
+11. Turn on airplane mode and open Explore. Your spots still show; places show the offline note.
+12. Away from home (or with no home area): tap "Use my location" when asked. Explore centres on you.
