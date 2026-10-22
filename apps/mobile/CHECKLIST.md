@@ -29,7 +29,7 @@ Build: the 3A preview APK, reinstalled after the 3B deploy (Android checks App L
 
 ## 3C: Today and Me
 
-Build: the 3C preview APK (link added when it is built).
+Build: 3C preview APK, 22 Oct 2026: https://expo.dev/accounts/topues/projects/fotoai-coach/builds/3adbcd9a-6dcc-4543-854f-3e524dadfa09 (all 14 steps passed, 22 Oct 2026)
 
 1. Install the APK over the old one. Sign in with an account that has gear. Today opens (no onboarding).
 2. Today without a home area: allow location when asked. The light card says "Light at Where you are", with a countdown and the light times.

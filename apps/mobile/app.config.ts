@@ -1,6 +1,10 @@
 // Expo app config for FotoAI on Android. Only public values belong here: the APK is readable.
 import type { ExpoConfig } from 'expo/config';
 
+// The Android Maps SDK key: public in the APK, restricted in Google Cloud to this package and the
+// EAS signing certificate. It comes from the EAS environment; with none, Explore is list-only.
+const mapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY?.trim();
+
 const config: ExpoConfig = {
   name: 'FotoAI',
   slug: 'fotoai-coach',
@@ -22,6 +26,7 @@ const config: ExpoConfig = {
     blockedPermissions: ['android.permission.ACCESS_FINE_LOCATION'],
     // Saved reads (email, home area, gear) stay on this phone: not copied to Google backups.
     allowBackup: false,
+    ...(mapsKey ? { config: { googleMaps: { apiKey: mapsKey } } } : {}),
     // The password-reset email link opens the app (Android App Link), verified through
     // https://myfoto.topues.com/.well-known/assetlinks.json (live since 3B).
     intentFilters: [
