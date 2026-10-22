@@ -81,7 +81,7 @@ export function TextLink({ title, onPress }: { title: string; onPress: () => voi
 export function Notice({ text, tone = 'info' }: { text: string; tone?: 'info' | 'error' | 'success' }) {
   const color = tone === 'error' ? 'text-danger' : tone === 'success' ? 'text-success' : 'text-text';
   return (
-    <View accessibilityRole={tone === 'error' ? 'alert' : 'text'} className="rounded-md bg-surface p-3">
+    <View accessibilityRole={tone === 'error' ? 'alert' : 'text'} accessibilityLiveRegion={tone === 'error' ? 'polite' : 'none'} className="rounded-md bg-surface p-3">
       <Text className={color}>{text}</Text>
     </View>
   );

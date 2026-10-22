@@ -33,7 +33,7 @@ export function errorText(error: unknown): string {
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   if (isOffline(error)) return <OfflineBanner onRetry={onRetry} />;
   return (
-    <View accessibilityRole="alert" className="m-4 gap-3 rounded-md bg-surface p-4">
+    <View accessibilityRole="alert" accessibilityLiveRegion="polite" className="m-4 gap-3 rounded-md bg-surface p-4">
       <Text className="text-danger">{errorText(error)}</Text>
       {onRetry ? (
         <Pressable accessibilityRole="button" onPress={onRetry} className="self-start rounded-pill bg-primary px-4 py-2">
@@ -46,7 +46,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 export function OfflineBanner({ onRetry }: { onRetry?: () => void }) {
   return (
-    <View accessibilityRole="alert" testID="offline-banner" className="m-4 flex-row items-center justify-between gap-3 rounded-md bg-surface-alt p-3">
+    <View accessibilityRole="alert" accessibilityLiveRegion="polite" testID="offline-banner" className="m-4 flex-row items-center justify-between gap-3 rounded-md bg-surface-alt p-3">
       <Text className="flex-1 text-text">You are offline. Saved items still work.</Text>
       {onRetry ? (
         <Pressable accessibilityRole="button" onPress={onRetry}>

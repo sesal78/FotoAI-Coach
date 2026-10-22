@@ -3,7 +3,8 @@ import { Camera, Compass, Images, Sun, UserRound } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { CoachButton } from '../../ui/CoachButton';
-import { useTheme } from '../../ui/ThemeProvider';
+import { OnboardingGate } from '../../ui/OnboardingGate';
+import { ThemeSync, useTheme } from '../../ui/ThemeProvider';
 
 export default function TabsLayout() {
   const { tokens } = useTheme();
@@ -25,6 +26,8 @@ export default function TabsLayout() {
         <Tabs.Screen name="me" options={{ title: 'Me', tabBarIcon: ({ color, size }) => <UserRound color={color} size={size} /> }} />
       </Tabs>
       <CoachButton />
+      <ThemeSync />
+      <OnboardingGate />
     </View>
   );
 }

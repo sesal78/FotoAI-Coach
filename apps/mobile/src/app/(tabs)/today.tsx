@@ -1,28 +1,69 @@
-import { ActiveChallengeResponse } from '@fotoai/contracts';
-import { useQuery } from '@tanstack/react-query';
-import { Text, View } from 'react-native';
+// Today: the next good light where the user is, the weather, the active challenge, a suggested
+// spot and a way into Shoot. Every section has its own loading, error and offline state.
 
-import { getApi } from '../../data/client';
-import { Screen } from '../../ui/form';
-import { Empty, ErrorState, Loading } from '../../ui/states';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+
+import { useConditions, usePreferences, useSpots } from '../../data/hooks';
+import { useWhere, type Where } from '../../lib/where';
+import { PrimaryButton, Screen } from '../../ui/form';
+import { LastUpdated, localDay } from '../../ui/LastUpdated';
+import { ErrorState, Loading } from '../../ui/states';
+import { ChallengeCard } from '../../ui/today/ChallengeCard';
+import { LightCard } from '../../ui/today/LightCard';
+import { SpotCard } from '../../ui/today/SpotCard';
+import { WeatherCard } from '../../ui/today/WeatherCard';
+
+/** The current time, updated every `everyMs`. */
+function useNow(everyMs: number): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), everyMs);
+    return () => clearInterval(timer);
+  }, [everyMs]);
+  return now;
+}
+
+function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) {
+  const now = useNow(60_000);
+  const conditions = useConditions(where.at, localDay(now.getTime()));
+  const units = usePreferences().data?.units ?? 'metric';
+  if (conditions.isPending) return <Loading label="Loading the light…" />;
+  if (conditions.isError && !conditions.data) return <ErrorState error={conditions.error} onRetry={() => void conditions.refetch()} />;
+  return (
+    <View className="gap-4">
+      <LightCard light={conditions.data.light} now={now} place={where.label} />
+      <WeatherCard weather={conditions.data.weather} units={units} />
+      <LastUpdated at={conditions.dataUpdatedAt} />
+    </View>
+  );
+}
+
+function SetHomeCard({ onAsk }: { onAsk: () => void }) {
+  return (
+    <View className="gap-3 rounded-lg bg-surface p-4">
+      <Text className="text-text-muted">Today shows the light and weather for your home area, or where you are when you allow location.</Text>
+      <PrimaryButton title="Use my location" onPress={onAsk} />
+      <Pressable accessibilityRole="button" onPress={() => router.push('/me/settings')} className="min-h-11 justify-center">
+        <Text className="text-lg font-semibold text-primary">Set your home area</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function Today() {
-  const active = useQuery({
-    queryKey: ['challenges', 'active'],
-    queryFn: () => getApi().request('/api/v2/challenges/active', { schema: ActiveChallengeResponse }),
-  });
+  const { where, ask } = useWhere();
+  const spots = useSpots();
 
   return (
     <Screen title="Today">
-      {active.isPending ? <Loading /> : null}
-      {active.isError ? <ErrorState error={active.error} onRetry={() => void active.refetch()} /> : null}
-      {active.data && !active.data.challenge ? <Empty title="No active challenge" hint="New challenges and light times arrive in the next update." /> : null}
-      {active.data?.challenge ? (
-        <View className="gap-2 rounded-lg bg-surface p-4">
-          <Text className="text-sm font-semibold uppercase text-text-muted">Active challenge</Text>
-          <Text className="text-lg text-text">{active.data.challenge.challengeText}</Text>
-        </View>
-      ) : null}
+      {where.state === 'loading' ? <Loading label="Finding where you are…" /> : null}
+      {where.state === 'none' ? <SetHomeCard onAsk={ask} /> : null}
+      {where.state === 'ready' ? <LightSection where={where} /> : null}
+      <ChallengeCard />
+      <SpotCard spots={spots.data?.spots} />
+      <PrimaryButton title="Plan my shoot" onPress={() => router.navigate('/shoot')} />
     </Screen>
   );
 }

@@ -267,16 +267,147 @@
 
 ---
 
-## Sub-phase 3C: Today and Me (task level)
+## Sub-phase 3C: Today and Me (step level, expanded 20 Oct 2026)
 
-**Ships:** APK only.
-- **C1 Data layer:** one TanStack Query hook per endpoint, with keys in one file; the last good answer of each read is kept on the phone (expo-sqlite) and shown with "Last updated <time>" when offline.
-- **C2 Today:** the next good light as a countdown (`GET /api/v2/conditions` at the home location or the phone's location), light times in the place's timezone, weather or "Weather unavailable", the active challenge with Continue, "New challenge" (B3), a suggested spot (a favourite spot, else none), "Plan my shoot" (to Shoot).
-- **C3 Me:** XP bar, level, streak flame and skills from B2.
-- **C4 My gear and loadout:** the catalog, add and remove gear, custom gear with the required capability fields, the loadout picker with the server's misfit errors shown at the field.
-- **C5 Appearance and settings:** theme (Golden light, Golden dark, Camera body, Auto) saved with `PATCH /api/v2/me/preferences`; units; home area; sign out.
-- **C6 Onboarding** on the first sign-in with no gear: add gear (Seun's kit is a one-tap catalog list) and set the home area (location permission or a typed place).
-- **Tests:** every screen renders its loading, empty, error and offline states; the theme choice survives a restart. **Checklist:** 3C section.
+**Ships:** APK only. No migration, no deploy: every endpoint 3C calls is live (3B released 20 Oct 2026). **Production:** one EAS preview build on Seun's yes, then Seun's phone checklist.
+
+**Facts this expansion is built on (read 20 Oct 2026, against `master` `876699d`):**
+- Live and used by 3C: `GET /api/v2/me`, `GET /api/v2/me/progress`, `GET`/`PATCH /api/v2/me/preferences` (theme, units, home `{ lat, lng, label }`), `GET /api/v2/gear/catalog`, `GET`/`POST /api/v2/me/gear`, `DELETE /api/v2/me/gear/:id`, `GET`/`PUT /api/v2/me/loadout`, `GET /api/v2/me/spots` (each spot has `favourite`), `GET /api/v2/conditions?lat&lng` (`{ light, weather }`, weather may be null), `GET /api/v2/challenges/active`, `POST /api/v2/challenges`, `PATCH /api/v2/challenges/:id`.
+- A loadout misfit is a 400 with one plain message (`{ error, code: 'validation' }`), not a field map. The app shows it under the loadout picker.
+- `GOOGLE_MAPS_SERVER_API_KEY` is **not set** in Dokploy, so place search answers a config error. 3C sets the home area from the phone's location (with a label Seun can type). A typed place search comes with 3D, once the key is in.
+- Light times are ISO strings in the place's own clock with its offset (`2026-10-20T19:41:10+11:00`), so the app shows the clock part as is. No timezone library is needed.
+- Seun's kit is in the catalog: `fujifilm-x-t5`, `fujifilm-xf-23mm-f2-8`, `fujifilm-xf-70-300mm-f4-5-6`, `sigma-18-50mm-f2-8-dc-dn-x`, `ricoh-gr-iiix`, `nikon-fe2`, `pentax-me-super`, `yashica-electro-35-gl`, and their lenses.
+- The 3A theme is saved on the phone only (expo-sqlite kv-store) and read after the first render (the cold-start flicker follow-up).
+- New native modules need a new APK: `expo-location` and `@react-native-community/netinfo`. New JS packages: `@tanstack/react-query-persist-client` and `@tanstack/query-async-storage-persister`, both in the approved TanStack family.
+
+**Rules for every 3C screen:**
+- It shows a loading, an empty, an error (with the server's message and Retry) and an offline state. Tests cover all four.
+- It reads through one hook per endpoint (C1). It never calls `fetch` itself.
+- Colours come only from theme tokens. Touch targets are at least 44 dp, and every control has an accessibility role and label.
+
+### Task C0: Dependencies, permissions and the 3B checklist line
+
+**Files:** modify `apps/mobile/package.json` (via `npx expo install expo-location @react-native-community/netinfo`, then `pnpm add` of the two TanStack persist packages), `apps/mobile/app.config.ts` (the `expo-location` plugin with a when-in-use message only), `apps/mobile/CHECKLIST.md` (a 3B section: "Reinstall the APK and tap a reset email link: it opens New password"; passed 20 Oct 2026), `apps/mobile/src/__tests__/app-config-test.ts`.
+
+- [ ] **Step 1: Write the failing test:** `the app asks for foreground location only: no background location permission, and the message says why`.
+- [ ] **Step 2: RED, install, configure, GREEN.** The live checks stay green: the `image` and `verify` jobs, and the React isolation scan returns `(none)`.
+- [ ] **Step 3: Commit.** `chore(mobile): location and network modules for Today`
+
+### Task C1: Data layer: one hook per endpoint, kept on the phone
+
+**Files:** create `apps/mobile/src/data/keys.ts` (every query key), `apps/mobile/src/data/hooks.ts`, `apps/mobile/src/data/persist.ts`, `apps/mobile/src/ui/LastUpdated.tsx`; modify `apps/mobile/src/data/client.ts` and `apps/mobile/src/app/_layout.tsx`; tests `apps/mobile/src/data/__tests__/hooks-test.tsx` and `persist-test.ts`.
+
+**Interfaces:**
+- Hooks: `useMe`, `useProgress`, `usePreferences`, `usePatchPreferences`, `useGearCatalog`, `useMyGear`, `useAddGear`, `useDeleteGear`, `useLoadout`, `usePutLoadout`, `useSpots`, `useConditions(at)`, `useActiveChallenge`, `useNewChallenge`, `usePatchChallenge`. Each one parses with its contract schema; each write invalidates the reads it changes (for example a completed challenge invalidates the active challenge and progress).
+- Kept on the phone: reads are saved through the TanStack persister to expo-sqlite kv-store, for up to 7 days, keyed by the app version. Writes are never saved. Sign-out clears the saved copy along with the cache.
+- Online state: NetInfo drives TanStack's `onlineManager`, so reads pause offline and refetch on reconnect.
+- `<LastUpdated>` shows "Last updated 14:05" under a section when the phone is offline and the section shows saved data.
+
+- [ ] **Step 1: Write the failing tests:** `a response that does not match the contract is an error state, never data`; `a saved read comes back after a restart (a new client on the same storage)`; `sign-out clears the saved reads`; `a write invalidates the reads it changes`; `offline with saved data shows Last updated <time>`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): data hooks, saved reads and Last updated`
+
+### Task C2: Today
+
+**Files:** create `apps/mobile/src/lib/light.ts` (pure), `apps/mobile/src/lib/where.ts` (home area, else the phone's location), `apps/mobile/src/ui/today/` (`LightCard.tsx`, `WeatherCard.tsx`, `ChallengeCard.tsx`, `SpotCard.tsx`); rewrite `apps/mobile/src/app/(tabs)/today.tsx`; tests `apps/mobile/src/lib/__tests__/light-test.ts` and `apps/mobile/src/__tests__/today-test.tsx`.
+
+**Interfaces:**
+- `nextGoodLight(light, now)` returns the golden or blue window that is on now or comes next today, with `{ kind, phase: 'now' | 'next', start, end }`, or null (polar day or night, or nothing left today, then "Light returns tomorrow at <time>").
+- `clockOf(iso)` returns `HH:MM` from the string's own clock.
+- Where: the home area from preferences. Else the phone's location, after a one-time permission ask. Else a "Set your home area" card that opens Settings. Today never invents a place.
+- Sections, top to bottom:
+  - the countdown to the next good light, updated each minute;
+  - sunrise, golden, blue and sunset times;
+  - weather now (in the user's units) with its attribution, or "Weather unavailable";
+  - the active challenge with Continue, or "No active challenge" with New challenge;
+  - a suggested spot (the first favourite spot; hidden when there is none);
+  - "Plan my shoot", which opens Shoot.
+- New challenge calls `POST /api/v2/challenges`. A 201 or a 200 both show the challenge. A 429 or a config error shows the server's message.
+
+- [ ] **Step 1: Write the failing tests:**
+  - light: `the window on now is phase now`; `after golden evening the next is blue evening`; `after the last window the answer is null`; `a polar day has no windows`; `clockOf keeps the place's clock, not the phone's`.
+  - screen: `Today uses the home area, then the phone's location, then asks for a home area`; `weather null shows Weather unavailable`; `New challenge shows the returned challenge on 201 and on 200`; `a 429 shows the server's message`; `the suggested spot is the first favourite and is hidden when there is none`; plus the loading, error and offline states.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): Today with light, weather, the challenge and a spot`
+
+### Task C3: The challenge screen (Continue)
+
+**Files:** create `apps/mobile/src/app/challenge/[id].tsx`; test `apps/mobile/src/__tests__/challenge-test.tsx`.
+
+**Interface:**
+- The screen shows the challenge text, tips, gear, and the extra fields when present: shot list, narrative, editing direction, mastery area and level, success criteria, what to look for.
+- It shows only the buttons `CHALLENGE_MOVES` allows from the current status (Accept, Skip, Complete). Each one sends `PATCH /api/v2/challenges/:id`.
+- A `changed: false` answer is shown as done, not as an error. Complete refreshes progress.
+
+- [ ] **Step 1: Write the failing tests:** `a pending challenge offers Accept and Skip`; `an accepted one offers Complete and Skip`; `a completed one offers nothing`; `Complete refreshes progress`; `a 400 shows the server's message`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): challenge detail with accept, skip and complete`
+
+### Task C4: Me: progress and skills
+
+**Files:** rewrite `apps/mobile/src/app/(tabs)/me.tsx`; create `apps/mobile/src/app/me/skills.tsx` and `apps/mobile/src/ui/me/ProgressCard.tsx`; test `apps/mobile/src/__tests__/me-test.tsx`.
+
+**Interface:**
+- The progress card shows the level and an XP bar from `levelStart` to `nextLevelAt`, with its label read aloud. It also shows the streak flame (current and longest) and the challenges done out of issued.
+- Rows open My gear, Loadout, Skills and Settings.
+- Skills lists the tree by category, with the status (locked, available, learned, practiced, mastered) and the XP to the next status.
+
+- [ ] **Step 1: Write the failing tests:** `a fresh user shows level 1, an empty bar and no streak`; `the bar's label reads the XP numbers`; `skills are grouped by category with their status`; plus the four states.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): Me with XP, level, streak and skills`
+
+### Task C5: My gear and the loadout
+
+**Files:** create `apps/mobile/src/app/me/gear/index.tsx`, `apps/mobile/src/app/me/gear/add.tsx`, `apps/mobile/src/app/me/gear/custom.tsx` and `apps/mobile/src/app/me/loadout.tsx`; test `apps/mobile/src/__tests__/gear-test.tsx`.
+
+**Interfaces:**
+- My gear lists Seun's items. Remove asks first, then calls DELETE.
+- Add shows the catalog with a search box (make or model). One tap adds an item; owned items are marked.
+- Custom gear is one form for a body or a lens (react-hook-form with the contract's `CustomBodyInput` or `CustomLensInput`). Field errors show at the field; a server 400 shows at the top.
+- Loadout:
+  - The body list shows only bodies with capability data.
+  - The lens list shows only lenses with capability data, and is hidden when the body has a fixed lens.
+  - Film fields (stock, box ISO, rated ISO) show for a film body.
+  - Save sends `PUT`. A misfit message shows under the picker, and nothing is saved.
+
+- [ ] **Step 1: Write the failing tests:** `one tap adds a catalog item and marks it owned`; `remove asks first`; `a custom lens with an impossible aperture range shows the field error and sends nothing`; `a body with a fixed lens hides the lens picker`; `a film body shows the film fields`; `a misfit shows the server's message under the picker`; plus the four states.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): my gear, custom gear and the loadout`
+
+### Task C6: Settings: appearance, units, home area, sign out
+
+**Files:** create `apps/mobile/src/app/me/settings.tsx`; modify `apps/mobile/src/ui/ThemeProvider.tsx`; test `apps/mobile/src/__tests__/settings-test.tsx` and extend `apps/mobile/src/ui/__tests__/ui-test.tsx`.
+
+**Interfaces:**
+- Theme (Golden light, Golden dark, Camera body, Auto) changes at once on the phone and is then saved with `PATCH`. If the save fails, the phone keeps the choice and shows "Not saved to your account" with Retry.
+- On sign-in the account's theme wins over the phone's copy. The phone's copy is read synchronously before the first frame (`getItemSync`), so there is no flicker.
+- Units (metric or imperial) are saved with `PATCH` and used on Today.
+- Home area: "Use my location" reads the phone's location (foreground, coarse) and saves it with an editable label. "Clear" removes it. A refused permission shows how to allow it in Android settings.
+- Sign out clears the cache and the saved reads.
+
+- [ ] **Step 1: Write the failing tests:** `the theme choice survives a restart and shows on the first frame`; `the account's theme wins on sign-in`; `a failed theme save keeps the choice and offers Retry`; `Use my location saves lat, lng and the label`; `a refused permission shows the settings hint`; `sign out clears saved reads`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): settings with theme sync, units and home area`
+
+### Task C7: Onboarding on the first sign-in
+
+**Files:** create `apps/mobile/src/app/onboarding.tsx`; modify `apps/mobile/src/app/_layout.tsx` (the guard); test `apps/mobile/src/__tests__/onboarding-test.tsx`.
+
+**Interface:**
+- After sign-in, a user with no gear who has not finished or skipped onboarding goes to Onboarding. The phone keeps a flag, so it shows once.
+- Step 1 adds gear from the catalog (one tap per item, as in C5), with a link to custom gear.
+- Step 2 sets the home area (Use my location) or skips it.
+- Done or Skip opens Today.
+
+- [ ] **Step 1: Write the failing tests:** `a user with no gear sees onboarding once`; `a user with gear goes straight to Today`; `skip goes to Today and does not come back`; `one tap adds gear`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): first-run onboarding for gear and home area`
+
+### Task C8: 3C release
+
+- [ ] One fresh reviewer checks the whole branch; one fix pass; PR; CI green in all four jobs.
+- [ ] Add `apps/mobile/CHECKLIST.md` section 3C: Today at home and away, New challenge, a challenge from accept to complete, Me numbers after the completion, add, remove and custom gear, the loadout misfit, theme after a restart, units, home area, onboarding on a new account, offline with "Last updated".
+- [ ] **Stop for Seun's yes.** Then merge, and build the preview APK on EAS (Seun's Expo account). Seun installs it and runs the 3C checklist. There is no server change.
 
 ## Sub-phase 3D: Explore (task level)
 
