@@ -41,6 +41,9 @@ importers:
       '@fotoai/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@fotoai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@fotoai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
