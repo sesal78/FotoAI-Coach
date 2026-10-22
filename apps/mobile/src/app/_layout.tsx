@@ -45,6 +45,7 @@ function Navigator() {
         <Stack.Screen name="me/gear/add" />
         <Stack.Screen name="me/gear/custom" />
         <Stack.Screen name="me/loadout" />
+        <Stack.Screen name="me/settings" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />

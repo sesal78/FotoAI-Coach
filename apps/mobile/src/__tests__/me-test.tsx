@@ -11,7 +11,6 @@ import { ApiClientError } from '../lib/api';
 const mockApi: { current: ReturnType<typeof fakeApi> | null } = { current: null };
 jest.mock('../data/client', () => ({ getApi: () => mockApi.current, clearAccountData: () => undefined }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
-jest.mock('../auth/session', () => ({ useSession: () => ({ signOut: async () => undefined }) }));
 
 const skill = (over: Partial<SkillDto>): SkillDto => ({
   id: 'exposure_triangle',
