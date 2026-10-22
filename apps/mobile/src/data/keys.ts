@@ -12,6 +12,6 @@ export const keys = {
   catalog: ['gear', 'catalog'] as const,
   activeChallenge: ['challenges', 'active'] as const,
   challenge: (id: string) => ['challenges', id] as const,
-  // About 1 km cells: the light and the weather do not change within one.
-  conditions: (at: { lat: number; lng: number }) => ['conditions', round(at.lat), round(at.lng)] as const,
+  // About 1 km cells, per day: the light and the weather do not change within one.
+  conditions: (at: { lat: number; lng: number }, day: string) => ['conditions', round(at.lat), round(at.lng), day] as const,
 };

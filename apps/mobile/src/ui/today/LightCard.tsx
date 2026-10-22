@@ -36,6 +36,7 @@ export function LightCard({ light, now, place }: { light: LightTimesDto; now: Da
       <Text className="text-sm font-semibold uppercase text-text-muted">{`Light at ${place}`}</Text>
       <Countdown light={light} now={now} />
       <View className="gap-1">
+        <Row label="Blue morning" value={span(light.blueMorning)} />
         <Row label="Sunrise" value={light.sunrise ? clockOf(light.sunrise) : '–'} />
         <Row label="Golden morning" value={span(light.goldenMorning)} />
         <Row label="Golden evening" value={span(light.goldenEvening)} />

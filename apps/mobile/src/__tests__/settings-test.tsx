@@ -67,7 +67,7 @@ test('Use my location saves lat, lng and the label', async () => {
   await act(async () => await fireEvent.changeText(await screen.findByLabelText('Home area name'), 'Brunswick'));
   await act(async () => await fireEvent.press(screen.getByText('Save home area')));
   await waitFor(() =>
-    expect(mockApi.current!.calls.find((c) => c.method === 'PATCH')?.body).toEqual({ home: { lat: -37.8001, lng: 144.9701, label: 'Brunswick' } }),
+    expect(mockApi.current!.calls.find((c) => c.method === 'PATCH')?.body).toEqual({ home: { lat: -37.8, lng: 144.97, label: 'Brunswick' } }),
   );
 });
 

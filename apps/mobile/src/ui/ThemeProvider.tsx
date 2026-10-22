@@ -9,11 +9,38 @@ import { vars } from 'nativewind';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useColorScheme, View } from 'react-native';
 
-import { usePreferences } from '../data/hooks';
+import { usePatchPreferences, usePreferences } from '../data/hooks';
 
 export type ThemeSetting = ThemeId | 'auto';
 const SETTINGS: readonly ThemeSetting[] = ['auto', 'golden', 'golden_dark', 'camera'];
 const KEY = 'fotoai.theme.v1';
+// A choice made on the phone that the account has not confirmed yet (offline, or a failed save).
+const UNSAVED_KEY = 'fotoai.theme.unsaved.v1';
+
+export function markThemeUnsaved(s: ThemeSetting): void {
+  try {
+    Storage.setItemSync(UNSAVED_KEY, s);
+  } catch {
+    // Not recorded: the account's theme may win at the next sign-in.
+  }
+}
+
+export function clearThemeUnsaved(): void {
+  try {
+    Storage.removeItemSync(UNSAVED_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+function unsavedTheme(): ThemeSetting | null {
+  try {
+    const s = Storage.getItemSync(UNSAVED_KEY);
+    return s && SETTINGS.includes(s as ThemeSetting) ? (s as ThemeSetting) : null;
+  } catch {
+    return null;
+  }
+}
 
 interface ThemeValue {
   setting: ThemeSetting;
@@ -57,13 +84,21 @@ export function ThemeProvider({ initial, children }: { initial?: ThemeSetting; c
   );
 }
 
-/** After sign-in, the account's theme wins over the phone's copy. Renders nothing. */
+/**
+ * After sign-in, the account's theme wins over the phone's copy, unless the phone holds a choice
+ * the account has not confirmed yet: then that choice is sent instead. Renders nothing.
+ */
 export function ThemeSync() {
   const account = usePreferences().data?.theme;
   const { setSetting } = useTheme();
+  const { mutate: save } = usePatchPreferences();
   useEffect(() => {
-    if (account) setSetting(account);
-  }, [account, setSetting]);
+    if (!account) return;
+    const pending = unsavedTheme();
+    if (!pending) return setSetting(account);
+    if (pending === account) return clearThemeUnsaved();
+    save({ theme: pending }, { onSuccess: clearThemeUnsaved });
+  }, [account, setSetting, save]);
   return null;
 }
 

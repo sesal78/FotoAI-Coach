@@ -10,6 +10,8 @@ jest.mock('expo-sqlite/kv-store', () => ({
   __esModule: true,
   default: {
     getItemSync: (k: string) => mockStore.get(k) ?? null,
+    setItemSync: (k: string, v: string) => void mockStore.set(k, v),
+    removeItemSync: (k: string) => mockStore.delete(k),
     getItem: async (k: string) => mockStore.get(k) ?? null,
     setItem: async (k: string, v: string) => void mockStore.set(k, v),
   },
@@ -54,4 +56,25 @@ test("the account's theme wins on sign-in", async () => {
   );
   await waitFor(() => expect(screen.getByTestId('probe').props.children).toBe('camera'));
   expect(mockStore.get('fotoai.theme.v1')).toBe('camera');
+});
+
+test('a theme chosen offline is not overwritten by the account, and is sent when the account answers', async () => {
+  mockStore.set('fotoai.theme.v1', 'camera');
+  mockStore.set('fotoai.theme.unsaved.v1', 'camera');
+  mockApi.current = fakeApi({
+    'GET /api/v2/me/preferences': { theme: 'golden', units: 'metric', home: null },
+    'PATCH /api/v2/me/preferences': (b: unknown) => ({ theme: 'camera', units: 'metric', home: null, ...(b as object) }),
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  await render(
+    <QueryClientProvider client={client}>
+      <ThemeProvider>
+        <ThemeSync />
+        <Probe />
+      </ThemeProvider>
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(mockApi.current!.calls.find((c) => c.method === 'PATCH')?.body).toEqual({ theme: 'camera' }));
+  expect(screen.getByTestId('probe').props.children).toBe('camera');
+  await waitFor(() => expect(mockStore.has('fotoai.theme.unsaved.v1')).toBe(false));
 });

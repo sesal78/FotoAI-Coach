@@ -10,11 +10,16 @@ const mockApi: { current: ReturnType<typeof fakeApi> | null } = { current: null 
 jest.mock('../data/client', () => ({ getApi: () => mockApi.current }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
 
-const mockLocation = { granted: true, canAskAgain: true, coords: { latitude: -33.87, longitude: 151.21 } as { latitude: number; longitude: number } | null };
+const mockAsk = jest.fn();
+const mockLocation = { granted: true, canAskAgain: true, grantOnAsk: true, coords: { latitude: -33.87, longitude: 151.21 } as { latitude: number; longitude: number } | null };
 jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
   getForegroundPermissionsAsync: async () => ({ granted: mockLocation.granted, canAskAgain: mockLocation.canAskAgain }),
-  requestForegroundPermissionsAsync: async () => ({ granted: mockLocation.granted, canAskAgain: false }),
+  requestForegroundPermissionsAsync: async () => {
+    mockAsk();
+    mockLocation.granted = mockLocation.grantOnAsk;
+    return { granted: mockLocation.granted, canAskAgain: false };
+  },
   getLastKnownPositionAsync: async () => (mockLocation.coords ? { coords: mockLocation.coords } : null),
   getCurrentPositionAsync: async () => ({ coords: mockLocation.coords }),
 }));
@@ -31,7 +36,8 @@ function routes(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.useFakeTimers({ now: new Date('2026-10-20T12:00:00+11:00'), doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
-  Object.assign(mockLocation, { granted: true, canAskAgain: true, coords: { latitude: -33.87, longitude: 151.21 } });
+  Object.assign(mockLocation, { granted: true, canAskAgain: true, grantOnAsk: true, coords: { latitude: -33.87, longitude: 151.21 } });
+  mockAsk.mockClear();
 });
 afterEach(() => jest.useRealTimers());
 
@@ -43,6 +49,7 @@ test('Today uses the home area first', async () => {
   expect(conditions.path).toBe('/api/v2/conditions?lat=-37.8100&lng=144.9600');
   expect(await screen.findByText(/Golden hour in/)).toBeTruthy();
   expect(screen.getByText('19:05–19:58')).toBeTruthy();
+  expect(screen.getByText('05:50–06:10')).toBeTruthy(); // blue morning
 });
 
 test("with no home area Today uses the phone's location", async () => {
@@ -133,4 +140,15 @@ test('a conditions error shows the message with Retry; offline shows the offline
   mockApi.current = fakeApi(routes({ 'GET /api/v2/conditions': new ApiClientError('offline', 0, 'No connection') }));
   await renderScreen(<Today />);
   expect(await screen.findByTestId('offline-banner')).toBeTruthy();
+});
+
+test('Today never pops the location prompt by itself; Use my location asks', async () => {
+  Object.assign(mockLocation, { granted: false, canAskAgain: true, grantOnAsk: true });
+  mockApi.current = fakeApi(routes({ 'GET /api/v2/me/preferences': PREFS_NONE }));
+  await renderScreen(<Today />);
+  expect(await screen.findByText('Use my location')).toBeTruthy();
+  expect(mockAsk).not.toHaveBeenCalled();
+  await act(async () => await fireEvent.press(screen.getByText('Use my location')));
+  expect(mockAsk).toHaveBeenCalledTimes(1);
+  expect(await screen.findByText(/Where you are/)).toBeTruthy();
 });

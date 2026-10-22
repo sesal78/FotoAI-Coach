@@ -8,7 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useConditions, usePreferences, useSpots } from '../../data/hooks';
 import { useWhere, type Where } from '../../lib/where';
 import { PrimaryButton, Screen } from '../../ui/form';
-import { LastUpdated } from '../../ui/LastUpdated';
+import { LastUpdated, localDay } from '../../ui/LastUpdated';
 import { ErrorState, Loading } from '../../ui/states';
 import { ChallengeCard } from '../../ui/today/ChallengeCard';
 import { LightCard } from '../../ui/today/LightCard';
@@ -26,9 +26,9 @@ function useNow(everyMs: number): Date {
 }
 
 function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) {
-  const conditions = useConditions(where.at);
-  const units = usePreferences().data?.units ?? 'metric';
   const now = useNow(60_000);
+  const conditions = useConditions(where.at, localDay(now.getTime()));
+  const units = usePreferences().data?.units ?? 'metric';
   if (conditions.isPending) return <Loading label="Loading the light…" />;
   if (conditions.isError && !conditions.data) return <ErrorState error={conditions.error} onRetry={() => void conditions.refetch()} />;
   return (
@@ -40,23 +40,26 @@ function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) 
   );
 }
 
-function SetHomeCard() {
+function SetHomeCard({ onAsk }: { onAsk: () => void }) {
   return (
-    <Pressable accessibilityRole="button" onPress={() => router.push('/me/settings')} className="gap-1 rounded-lg bg-surface p-4">
-      <Text className="text-lg font-semibold text-primary">Set your home area</Text>
+    <View className="gap-3 rounded-lg bg-surface p-4">
       <Text className="text-text-muted">Today shows the light and weather for your home area, or where you are when you allow location.</Text>
-    </Pressable>
+      <PrimaryButton title="Use my location" onPress={onAsk} />
+      <Pressable accessibilityRole="button" onPress={() => router.push('/me/settings')} className="min-h-11 justify-center">
+        <Text className="text-lg font-semibold text-primary">Set your home area</Text>
+      </Pressable>
+    </View>
   );
 }
 
 export default function Today() {
-  const where = useWhere();
+  const { where, ask } = useWhere();
   const spots = useSpots();
 
   return (
     <Screen title="Today">
       {where.state === 'loading' ? <Loading label="Finding where you are…" /> : null}
-      {where.state === 'none' ? <SetHomeCard /> : null}
+      {where.state === 'none' ? <SetHomeCard onAsk={ask} /> : null}
       {where.state === 'ready' ? <LightSection where={where} /> : null}
       <ChallengeCard />
       <SpotCard spots={spots.data?.spots} />

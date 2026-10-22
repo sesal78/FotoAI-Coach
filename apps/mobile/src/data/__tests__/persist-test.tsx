@@ -4,7 +4,7 @@ import { act, render, screen } from '@testing-library/react-native';
 
 import { LastUpdated } from '../../ui/LastUpdated';
 import { keys } from '../keys';
-import { createSavedReads, SAVED_KEY, SAVED_MAX_AGE } from '../persist';
+import { claimSavedReads, createSavedReads, SAVED_KEY, SAVED_MAX_AGE } from '../persist';
 
 function memoryStorage() {
   const data = new Map<string, string>();
@@ -59,4 +59,16 @@ test('offline with saved data shows Last updated <time>; online shows nothing', 
   expect(screen.getByText('Last updated 14:05')).toBeTruthy();
   await act(async () => onlineManager.setOnline(true));
   expect(screen.queryByText(/Last updated/)).toBeNull();
+});
+
+test('saved reads from another account are cleared when a different account signs in', () => {
+  const data = new Map<string, string>();
+  const store = { getItemSync: (k: string) => data.get(k) ?? null, setItemSync: (k: string, v: string) => void data.set(k, v) };
+  const clear = jest.fn();
+  claimSavedReads('user-a', store, clear);
+  expect(clear).toHaveBeenCalledTimes(1); // no owner recorded yet: start clean
+  claimSavedReads('user-a', store, clear);
+  expect(clear).toHaveBeenCalledTimes(1); // same account: keep its saved reads
+  claimSavedReads('user-b', store, clear);
+  expect(clear).toHaveBeenCalledTimes(2);
 });

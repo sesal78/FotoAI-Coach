@@ -18,6 +18,10 @@ const config: ExpoConfig = {
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // Coarse location is enough for light, weather and a home area; precise is never asked for.
+    blockedPermissions: ['android.permission.ACCESS_FINE_LOCATION'],
+    // Saved reads (email, home area, gear) stay on this phone: not copied to Google backups.
+    allowBackup: false,
     // The password-reset email link opens the app (Android App Link), verified through
     // https://myfoto.topues.com/.well-known/assetlinks.json (live since 3B).
     intentFilters: [

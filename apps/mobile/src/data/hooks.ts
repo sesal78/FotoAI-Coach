@@ -41,7 +41,13 @@ export function usePatchPreferences() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (patch: PreferencesPatch) => getApi().request('/api/v2/me/preferences', { schema: Preferences, method: 'PATCH', body: patch }),
-    onSuccess: (prefs) => client.setQueryData(keys.preferences, prefs),
+    // Only the fields this request sent: an older answer to another save cannot undo them.
+    onSuccess: (prefs, patch) =>
+      client.setQueryData<Preferences>(keys.preferences, (old) => {
+        if (!old) return prefs;
+        const sent = Object.keys(patch) as Array<keyof Preferences>;
+        return { ...old, ...Object.fromEntries(sent.map((k) => [k, prefs[k]])) };
+      }),
   });
 }
 
@@ -78,9 +84,10 @@ export function usePutLoadout() {
 
 export const useSpots = () => useQuery({ queryKey: keys.spots, queryFn: () => getApi().request('/api/v2/me/spots', { schema: SpotsResponse }) });
 
-export function useConditions(at: { lat: number; lng: number } | null) {
+/** `day` is the phone's date (YYYY-MM-DD): a new day is a new answer. */
+export function useConditions(at: { lat: number; lng: number } | null, day: string) {
   return useQuery({
-    queryKey: at ? keys.conditions(at) : ['conditions', 'none'],
+    queryKey: at ? keys.conditions(at, day) : ['conditions', 'none'],
     enabled: at !== null,
     staleTime: 10 * 60 * 1000,
     queryFn: () => getApi().request(`/api/v2/conditions?lat=${at!.lat.toFixed(4)}&lng=${at!.lng.toFixed(4)}`, { schema: ConditionsResponse }),

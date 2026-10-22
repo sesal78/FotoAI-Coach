@@ -51,7 +51,7 @@ export default function CustomGear() {
         <Controller key={name} control={control} name={name} render={({ field }) => (
           <View className="gap-1">
             <Field label={LABELS[name]} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} keyboardType={['make', 'model', 'mount'].includes(name) ? 'default' : 'decimal-pad'} autoCapitalize={name === 'mount' ? 'none' : 'words'} />
-            {errors[name]?.message ? <Text className="text-danger">{errors[name]!.message}</Text> : null}
+            {errors[name]?.message ? <Text accessibilityLiveRegion="polite" className="text-danger">{errors[name]!.message}</Text> : null}
           </View>
         )} />
       ))}
@@ -74,7 +74,7 @@ export default function CustomGear() {
               );
             })}
           </View>
-          {errors.modes?.message ? <Text className="text-danger">{errors.modes.message}</Text> : null}
+          {errors.modes?.message ? <Text accessibilityLiveRegion="polite" className="text-danger">{errors.modes.message}</Text> : null}
         </View>
       ) : null}
       <PrimaryButton title="Save gear" busy={add.isPending || formState.isSubmitting} onPress={() => void save()} />

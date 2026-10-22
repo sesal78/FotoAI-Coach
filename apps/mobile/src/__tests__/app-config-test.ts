@@ -21,3 +21,8 @@ test('the app asks for foreground location only: no background location, and the
   expect(opts.locationAlwaysAndWhenInUsePermission).toBeUndefined();
   expect(JSON.stringify(config.android?.permissions ?? [])).not.toMatch(/BACKGROUND_LOCATION/);
 });
+
+test('the app never asks for precise location and keeps its data out of Android backups', () => {
+  expect(config.android?.blockedPermissions).toEqual(expect.arrayContaining(['android.permission.ACCESS_FINE_LOCATION']));
+  expect(config.android?.allowBackup).toBe(false);
+});

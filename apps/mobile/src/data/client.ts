@@ -1,30 +1,35 @@
 // The app's API client and query cache, tied to the Supabase session. The phone's network state
-// drives TanStack's online state, so reads pause offline and refetch on reconnect.
+// drives TanStack's online state (refetch on reconnect), and coming back to the app refetches
+// stale reads (focus).
 
 import NetInfo from '@react-native-community/netinfo';
-import { onlineManager, QueryClient } from '@tanstack/react-query';
+import { focusManager, onlineManager, QueryClient } from '@tanstack/react-query';
+import Storage from 'expo-sqlite/kv-store';
+import { AppState } from 'react-native';
 
 import { getSupabase } from '../auth/supabase';
 import { ApiClientError, createApi, type Api } from '../lib/api';
 import { appEnv } from '../lib/env';
-import { savedReads } from './persist';
+import { claimSavedReads, savedReads } from './persist';
+import { QUERY_DEFAULTS } from './query-defaults';
 
 onlineManager.setEventListener((setOnline) => NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)));
-
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Retry only what can get better (offline, upstream, rate limit); never a 4xx.
-      retry: (count, error) => error instanceof ApiClientError && error.retryable && count < 2,
-      staleTime: 30_000,
-    },
-  },
+focusManager.setEventListener((handleFocus) => {
+  const sub = AppState.addEventListener('change', (state) => handleFocus(state === 'active'));
+  return () => sub.remove();
 });
+
+export const queryClient = new QueryClient({ defaultOptions: QUERY_DEFAULTS });
 
 /** Forgets everything read for the signed-in account: the cache and the copy kept on the phone. */
 export function clearAccountData(): void {
   queryClient.clear();
   void savedReads.clear();
+}
+
+/** At sign-in: saved reads that belong to another account are dropped before anything shows. */
+export function claimAccount(userId: string): void {
+  claimSavedReads(userId, Storage, clearAccountData);
 }
 
 let api: Api | null = null;

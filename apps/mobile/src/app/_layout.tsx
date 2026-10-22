@@ -6,7 +6,7 @@ import { Text } from 'react-native';
 
 import { SessionProvider, useSession } from '../auth/session';
 import { getSupabase } from '../auth/supabase';
-import { clearAccountData, queryClient } from '../data/client';
+import { claimAccount, clearAccountData, queryClient } from '../data/client';
 import { savedReads } from '../data/persist';
 import { appEnv } from '../lib/env';
 import { Screen } from '../ui/form';
@@ -19,7 +19,7 @@ export default function RootLayout() {
     <PersistQueryClientProvider client={queryClient} persistOptions={savedReads.options}>
       <ThemeProvider>
         {appEnv.ok && supabase ? (
-          <SessionProvider auth={supabase.auth} onSignedOut={clearAccountData}>
+          <SessionProvider auth={supabase.auth} onSignedOut={clearAccountData} onSignedIn={claimAccount}>
             <Navigator />
           </SessionProvider>
         ) : (

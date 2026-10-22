@@ -1,9 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { ApiClientError, createApi, type Api } from '../../lib/api';
-import { useMe, usePatchChallenge } from '../hooks';
+import { useMe, usePatchChallenge, usePatchPreferences } from '../hooks';
+import { QUERY_DEFAULTS } from '../query-defaults';
 import { keys } from '../keys';
 
 const mockApi: { current: Api | null } = { current: null };
@@ -64,4 +65,41 @@ test('a write invalidates the reads it changes: completing a challenge refreshes
   expect(call[1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ status: 'completed' }) });
   const invalidated = spy.mock.calls.map((c) => c[0]?.queryKey);
   expect(invalidated).toEqual(expect.arrayContaining([keys.activeChallenge, keys.progress]));
+});
+
+test('offline, a read and a write fail with the offline error instead of waiting forever', async () => {
+  mockApi.current = createApi({ baseUrl: 'https://api.example', getToken: async () => 't', refresh: async () => 'refused', onSignedOut: () => undefined, fetch: (async () => { throw new TypeError('Network request failed'); }) as unknown as typeof globalThis.fetch });
+  const client = new QueryClient({ defaultOptions: { queries: { ...QUERY_DEFAULTS.queries, retryDelay: 0 }, mutations: QUERY_DEFAULTS.mutations } });
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  onlineManager.setOnline(false);
+  try {
+    const read = await renderHook(() => useMe(), { wrapper });
+    await waitFor(() => expect(read.result.current.isError).toBe(true));
+    expect((read.result.current.error as ApiClientError).code).toBe('offline');
+    const write = await renderHook(() => usePatchPreferences(), { wrapper });
+    await expect(write.result.current.mutateAsync({ theme: 'camera' })).rejects.toMatchObject({ code: 'offline' });
+  } finally {
+    onlineManager.setOnline(true);
+  }
+});
+
+test('a preference answer only changes the fields that request sent (an older answer cannot undo a newer theme)', async () => {
+  const pending: Array<(v: unknown) => void> = [];
+  mockApi.current = { request: jest.fn(() => new Promise((resolve) => pending.push(resolve))) } as unknown as Api;
+  const { client, wrapper } = setup();
+  client.setQueryData(keys.preferences, { theme: 'golden', units: 'metric', home: null });
+  const { result } = await renderHook(() => usePatchPreferences(), { wrapper });
+  const theme = result.current.mutateAsync({ theme: 'camera' });
+  const units = result.current.mutateAsync({ units: 'imperial' });
+  await waitFor(() => expect(pending).toHaveLength(2));
+  pending[0]!({ theme: 'camera', units: 'metric', home: null });
+  await theme;
+  pending[1]!({ theme: 'golden', units: 'imperial', home: null }); // the server ran the units save first
+  await units;
+  expect(client.getQueryData(keys.preferences)).toEqual({ theme: 'camera', units: 'imperial', home: null });
+});
+
+test('the light and weather are cached per place and per day', () => {
+  const at = { lat: -37.81, lng: 144.96 };
+  expect(keys.conditions(at, '2026-10-20')).not.toEqual(keys.conditions(at, '2026-10-21'));
 });

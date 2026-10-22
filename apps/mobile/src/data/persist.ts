@@ -9,6 +9,7 @@ import Storage from 'expo-sqlite/kv-store';
 
 export const SAVED_KEY = 'fotoai.saved-reads.v1';
 export const SAVED_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const OWNER_KEY = 'fotoai.saved-reads.owner.v1';
 
 interface StringStorage {
   getItem: (key: string) => Promise<string | null>;
@@ -28,3 +29,25 @@ export function createSavedReads(storage: StringStorage, buster: string) {
 }
 
 export const savedReads = createSavedReads(Storage, Constants.expoConfig?.version ?? '0');
+
+interface SyncStore {
+  getItemSync: (key: string) => string | null;
+  setItemSync: (key: string, value: string) => void;
+}
+
+/** Keeps the saved reads only when they belong to `userId`; otherwise clears them and takes them over. */
+export function claimSavedReads(userId: string, store: SyncStore, clear: () => void): void {
+  let owner: string | null = null;
+  try {
+    owner = store.getItemSync(OWNER_KEY);
+  } catch {
+    owner = null;
+  }
+  if (owner === userId) return;
+  clear();
+  try {
+    store.setItemSync(OWNER_KEY, userId);
+  } catch {
+    // Not recorded: the next sign-in clears again, which is safe.
+  }
+}

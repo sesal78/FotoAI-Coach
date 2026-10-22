@@ -12,7 +12,7 @@ import { phoneLocation, type LatLng } from '../../lib/where';
 import { Choice } from '../../ui/Choice';
 import { Field, Notice, PrimaryButton, Screen, TextLink } from '../../ui/form';
 import { ErrorState, errorText, Loading } from '../../ui/states';
-import { THEME_LABELS, useTheme, type ThemeSetting } from '../../ui/ThemeProvider';
+import { clearThemeUnsaved, markThemeUnsaved, THEME_LABELS, useTheme, type ThemeSetting } from '../../ui/ThemeProvider';
 
 const THEMES: ThemeSetting[] = ['golden', 'golden_dark', 'camera', 'auto'];
 const UNITS: Array<{ value: Units; label: string }> = [
@@ -44,7 +44,8 @@ export default function Settings() {
 
   const pushTheme = (t: ThemeSetting) => {
     setUnsavedTheme(null);
-    saveTheme.mutate({ theme: t }, { onError: () => setUnsavedTheme(t) });
+    markThemeUnsaved(t);
+    saveTheme.mutate({ theme: t }, { onSuccess: clearThemeUnsaved, onError: () => setUnsavedTheme(t) });
   };
 
   const locate = async () => {
@@ -74,7 +75,7 @@ export default function Settings() {
           }}
         />
         {unsavedTheme ? (
-          <View accessibilityRole="alert" className="flex-row items-center justify-between rounded-md bg-surface-alt p-3">
+          <View accessibilityRole="alert" accessibilityLiveRegion="polite" className="flex-row items-center justify-between rounded-md bg-surface-alt p-3">
             <Text className="flex-1 text-text">Not saved to your account</Text>
             <Pressable accessibilityRole="button" onPress={() => pushTheme(unsavedTheme)} className="min-h-11 justify-center px-3">
               <Text className="font-semibold text-primary">Retry</Text>

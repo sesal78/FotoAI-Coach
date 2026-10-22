@@ -62,6 +62,27 @@ test('a sign-out that fails still signs this phone out and clears the cache', as
   expect(screen.getByText('signed_out')).toBeTruthy();
 });
 
+test('a session that ends without Sign out (expired or revoked) still clears account data', async () => {
+  const { auth, emit } = fakeAuth({ access_token: 't', user: { id: 'u-1' } });
+  const onSignedOut = jest.fn();
+  const onSignedIn = jest.fn();
+  await render(<SessionProvider auth={auth} onSignedOut={onSignedOut} onSignedIn={onSignedIn}><Probe /></SessionProvider>);
+  await screen.findByText('signed_in');
+  expect(onSignedIn).toHaveBeenCalledWith('u-1');
+  expect(onSignedOut).not.toHaveBeenCalled();
+  await act(async () => emit('SIGNED_OUT', null));
+  expect(screen.getByText('signed_out')).toBeTruthy();
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
+test('no session at start clears whatever an earlier account left on the phone', async () => {
+  const { auth } = fakeAuth(null);
+  const onSignedOut = jest.fn();
+  await render(<SessionProvider auth={auth} onSignedOut={onSignedOut}><Probe /></SessionProvider>);
+  await screen.findByText('signed_out');
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
 test('the AES text helpers round-trip non-ASCII text', () => {
   const text = JSON.stringify({ email: 'séun@example.com', note: 'café 📷' });
   expect(b64ToUtf8(utf8ToB64(text))).toBe(text);

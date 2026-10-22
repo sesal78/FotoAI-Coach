@@ -23,3 +23,9 @@ export function LastUpdated({ at }: { at: number }) {
   if (online || !at) return null;
   return <Text className="text-sm text-text-muted">Last updated {clockAt(at)}</Text>;
 }
+
+/** The phone's calendar date of a moment, YYYY-MM-DD. */
+export function localDay(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
