@@ -119,3 +119,46 @@ test('loading, empty, error and offline states', async () => {
   await renderScreen(<Explore />);
   expect(await screen.findByTestId('offline-banner')).toBeTruthy();
 });
+
+describe('drop a pin', () => {
+  test('a long press opens the sheet with those coordinates; a pin needs a name', async () => {
+    mockApi.current = fakeApi(routes());
+    await renderScreen(<Explore />);
+    await screen.findByText('Fitzroy Gardens');
+    await act(async () => await fireEvent(screen.getByTestId('map'), 'longPress', { nativeEvent: { coordinate: { latitude: -37.801234567, longitude: 144.951234567 } } }));
+    expect(screen.getByText('New pin at -37.80123, 144.95123')).toBeTruthy();
+    await act(async () => await fireEvent.press(screen.getByText('Save pin')));
+    expect(screen.getByText('A pin needs a name')).toBeTruthy();
+    expect(mockApi.current.calls.some((c) => c.method === 'POST')).toBe(false);
+  });
+
+  test('saving shows the new spot in the list at once', async () => {
+    let mine = [MY];
+    mockApi.current = fakeApi(routes({
+      'GET /api/v2/me/spots': () => ({ spots: mine }),
+      'POST /api/v2/me/spots': (b: unknown) => {
+        const body = b as { pin: { name: string; lat: number; lng: number }; notes?: string };
+        const made = spot({ id: '44444444-2222-4333-8444-555555555555', name: body.pin.name, location: { lat: body.pin.lat, lng: body.pin.lng }, favourite: false });
+        mine = [...mine, made];
+        return { spot: made };
+      },
+    }));
+    await renderScreen(<Explore />);
+    await screen.findByText('Fitzroy Gardens');
+    await act(async () => await fireEvent(screen.getByTestId('map'), 'longPress', { nativeEvent: { coordinate: { latitude: -37.8012, longitude: 144.9512 } } }));
+    await act(async () => await fireEvent.changeText(screen.getByLabelText('Pin name'), 'Laneway mural'));
+    await act(async () => await fireEvent.changeText(screen.getByLabelText('Pin notes'), 'Best before 9am'));
+    await act(async () => await fireEvent.press(screen.getByText('Save pin')));
+    expect(mockApi.current.calls.find((c) => c.method === 'POST')?.body).toEqual({ pin: { name: 'Laneway mural', lat: -37.8012, lng: 144.9512 }, notes: 'Best before 9am' });
+    expect(await screen.findByText('Laneway mural')).toBeTruthy();
+    expect(screen.queryByText('Save pin')).toBeNull();
+  });
+
+  test('without a map, Add a pin here uses the centre', async () => {
+    mockMaps.configured = false;
+    mockApi.current = fakeApi(routes());
+    await renderScreen(<Explore />);
+    await act(async () => await fireEvent.press(await screen.findByText('Add a pin here')));
+    expect(screen.getByText('New pin at -37.81000, 144.96000')).toBeTruthy();
+  });
+});

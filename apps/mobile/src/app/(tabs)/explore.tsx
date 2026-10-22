@@ -11,9 +11,10 @@ import { distanceM, distanceText } from '../../lib/distance';
 import { mapsConfigured } from '../../lib/maps';
 import { useWhere } from '../../lib/where';
 import { ExploreMap } from '../../ui/explore/ExploreMap';
+import { PinSheet } from '../../ui/explore/PinSheet';
 import { PlaceRow, type ExploreItem } from '../../ui/explore/PlaceRow';
 import { TypeChips } from '../../ui/explore/TypeChips';
-import { Field, Notice, PrimaryButton, Screen } from '../../ui/form';
+import { Field, Notice, PrimaryButton, Screen, TextLink } from '../../ui/form';
 import { Empty, ErrorState, Loading } from '../../ui/states';
 
 const open = (item: ExploreItem) => router.push(item.kind === 'place' ? `/place/${item.id}` : `/spot/${item.id}`);
@@ -23,6 +24,7 @@ export default function Explore() {
   const at = where.state === 'ready' ? where.at : null;
   const [type, setType] = useState<string | null>(null);
   const [text, setText] = useState('');
+  const [pinAt, setPinAt] = useState<{ lat: number; lng: number } | null>(null);
   const searching = text.trim().length >= 2;
   const nearby = useNearby(at, type);
   const search = useSearch(text, at);
@@ -60,9 +62,14 @@ export default function Explore() {
           <Field label="Search places" value={text} onChangeText={setText} placeholder="Beach, lookout, a place name…" />
           {!searching ? <TypeChips selected={type} onChange={setType} /> : null}
           {showMap ? (
-            <ExploreMap center={at} showUser={where.state === 'ready' && where.source === 'phone'} items={items} onOpen={open} />
+            <ExploreMap center={at} showUser={where.state === 'ready' && where.source === 'phone'} items={items} onOpen={open} onLongPress={setPinAt} />
           ) : (
             <Notice text="Map unavailable. The list below still works." />
+          )}
+          {pinAt ? (
+            <PinSheet at={pinAt} onDone={() => setPinAt(null)} />
+          ) : (
+            <TextLink title={showMap ? 'Add a pin here (or press and hold the map)' : 'Add a pin here'} onPress={() => setPinAt(at)} />
           )}
         </>
       ) : null}
