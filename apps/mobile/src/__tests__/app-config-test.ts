@@ -26,3 +26,33 @@ test('the app never asks for precise location and keeps its data out of Android 
   expect(config.android?.blockedPermissions).toEqual(expect.arrayContaining(['android.permission.ACCESS_FINE_LOCATION']));
   expect(config.android?.allowBackup).toBe(false);
 });
+
+test('with GOOGLE_MAPS_ANDROID_API_KEY set, the Android Maps key is in the config, and only there', () => {
+  const before = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+  process.env.GOOGLE_MAPS_ANDROID_API_KEY = 'AIzaTestOnlyKey';
+  try {
+    jest.isolateModules(() => {
+      const withKey = jest.requireActual('../../app.config').default;
+      expect(withKey.android.config.googleMaps.apiKey).toBe('AIzaTestOnlyKey');
+      const rest = { ...withKey.android };
+      delete rest.config;
+      expect(JSON.stringify({ ...withKey, android: rest })).not.toMatch(/AIza/);
+    });
+  } finally {
+    if (before === undefined) delete process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+    else process.env.GOOGLE_MAPS_ANDROID_API_KEY = before;
+  }
+});
+
+test('without the maps key there is no maps config, and the build still works', () => {
+  const before = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+  delete process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+  try {
+    jest.isolateModules(() => {
+      const noKey = jest.requireActual('../../app.config').default;
+      expect(noKey.android.config?.googleMaps).toBeUndefined();
+    });
+  } finally {
+    if (before !== undefined) process.env.GOOGLE_MAPS_ANDROID_API_KEY = before;
+  }
+});
