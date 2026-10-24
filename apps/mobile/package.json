@@ -65,9 +65,13 @@
       "exclude": [
         "expo",
         "expo-constants",
+        "expo-font",
+        "expo-image",
         "expo-linking",
+        "expo-location",
         "expo-router",
         "expo-splash-screen",
+        "expo-sqlite",
         "expo-status-bar",
         "jest-expo"
       ]
