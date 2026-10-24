@@ -3,6 +3,7 @@
 
 import { EXPOSURE_MODES, type SettingsDto } from '@fotoai/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useLoadout } from '../../data/hooks';
@@ -33,6 +34,7 @@ export default function RollScreen() {
   const logFrame = useLogFrame(params.id);
   const finish = useFinishRoll(params.id);
   const loadout = useLoadout().data?.loadout;
+  const [problem, setProblem] = useState<string | null>(null);
 
   if (!roll) {
     return (
@@ -66,7 +68,14 @@ export default function RollScreen() {
               <TextLink title="Open the loadout" onPress={() => router.push('/me/loadout')} />
             </>
           )}
-          <TextLink title="Finish roll" onPress={() => void finish()} />
+          <TextLink
+            title="Finish roll"
+            onPress={() => {
+              setProblem(null);
+              finish().catch((err: unknown) => setProblem(err instanceof Error ? err.message : 'This change could not be saved.'));
+            }}
+          />
+          {problem ? <Notice tone="error" text={problem} /> : null}
         </>
       ) : (
         <Text className="text-text-muted">{roll.status === 'finished' ? 'This roll is finished.' : `This roll is ${roll.status}.`}</Text>

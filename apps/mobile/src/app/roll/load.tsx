@@ -62,8 +62,12 @@ export default function LoadRoll() {
     if (!ratedIso) return setProblem('Rated ISO is a whole number.');
     setProblem(null);
     const stock = choice.kind === 'catalog' ? { stockId: choice.stockId } : { stockName: choice.name.trim(), boxIso };
-    const id = await load({ ...stock, ratedIso, exposures: count, bodyGearId: current!.body.id });
-    router.replace(`/roll/${id}`);
+    try {
+      const id = await load({ ...stock, ratedIso, exposures: count, bodyGearId: current!.body.id });
+      router.replace(`/roll/${id}`);
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : 'The roll could not be saved.');
+    }
   };
 
   return (

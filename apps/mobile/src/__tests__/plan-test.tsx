@@ -119,3 +119,11 @@ test('a plan opened from the phone (no Google place name) says it is saved here'
   await renderScreen(<PlanScreen />);
   expect(await screen.findByText('Saved on this phone')).toBeTruthy();
 });
+
+test('a change that cannot be saved on the phone says so', async () => {
+  mockApi.current = fakeApi(routes());
+  await renderScreen(<PlanScreen />);
+  setFieldOwner(null);
+  await act(async () => await fireEvent.press((await screen.findAllByText('Done'))[0]!));
+  expect(await screen.findByText('Sign in to save this change.')).toBeTruthy();
+});

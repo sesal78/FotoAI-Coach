@@ -4,10 +4,11 @@
 
 import type { PlanStepDto } from '@fotoai/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { usePlan, usePlanStatus, useRolls, useStepChange } from '../../data/shoot';
-import { Screen, TextLink } from '../../ui/form';
+import { Notice, Screen, TextLink } from '../../ui/form';
 import { StepCard } from '../../ui/shoot/StepCard';
 import { ErrorState, Loading } from '../../ui/states';
 
@@ -29,6 +30,12 @@ export default function PlanScreen() {
   const setStatus = usePlanStatus(id);
   const loaded = useRolls().rolls.find((r) => r.status === 'loaded');
   const plan = query.plan;
+  const [problem, setProblem] = useState<string | null>(null);
+  // A change that cannot even be put in the outbox (signed out, storage full) says why.
+  const save = (write: Promise<unknown>) => {
+    setProblem(null);
+    write.catch((err: unknown) => setProblem(err instanceof Error ? err.message : 'This change could not be saved.'));
+  };
 
   if (!plan) {
     return (
@@ -58,14 +65,15 @@ export default function PlanScreen() {
         <StepCard
           key={step.id}
           step={step}
-          onChange={(status) => void changeStep(step.id, status)}
+          onChange={(status) => save(changeStep(step.id, status))}
           {...(loaded ? { onLogFrame: () => router.push(frameLink(loaded.id, step)) } : {})}
         />
       ))}
+      {problem ? <Notice tone="error" text={problem} /> : null}
       {plan.status === 'active' ? (
         <View className="flex-row gap-6">
-          <TextLink title="Mark plan done" onPress={() => void setStatus('done')} />
-          <TextLink title="Archive" onPress={() => void setStatus('archived')} />
+          <TextLink title="Mark plan done" onPress={() => save(setStatus('done'))} />
+          <TextLink title="Archive" onPress={() => save(setStatus('archived'))} />
         </View>
       ) : (
         <Text className="text-text-muted">{plan.status === 'done' ? 'This plan is done.' : 'This plan is archived.'}</Text>
