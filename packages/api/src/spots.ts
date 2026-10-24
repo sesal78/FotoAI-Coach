@@ -110,10 +110,12 @@ export const addMySpot: V2Body = async (request, deps) => {
   const input = parsed.data;
   const db = createUserClient(deps.env, principal.accessToken);
 
+  // A new spot is not a favourite until the user marks it. Set here: the table's default (from the
+  // web app, where every saved place was a favourite) is true.
   if ('pin' in input) {
     const { data, error } = await db
       .from(T_PLACES)
-      .insert({ user_id: principal.userId, source: 'user', name: input.pin.name, lat: input.pin.lat, lng: input.pin.lng, notes: input.notes ?? null } as never)
+      .insert({ user_id: principal.userId, source: 'user', name: input.pin.name, lat: input.pin.lat, lng: input.pin.lng, notes: input.notes ?? null, favourite: false } as never)
       .select(SPOT_COLUMNS)
       .single();
     if (error || !data) throw upstream('save the spot');
@@ -148,7 +150,7 @@ export const addMySpot: V2Body = async (request, deps) => {
 
   const { data, error } = await db
     .from(T_PLACES)
-    .insert({ user_id: principal.userId, source: 'google', place_id: input.placeId, notes: input.notes ?? null } as never)
+    .insert({ user_id: principal.userId, source: 'google', place_id: input.placeId, notes: input.notes ?? null, favourite: false } as never)
     .select(SPOT_COLUMNS)
     .single();
   if (error?.code === '23505') {
