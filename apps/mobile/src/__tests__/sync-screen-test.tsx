@@ -95,3 +95,21 @@ test('sign-out with changes waiting asks first, and keeps them when the user sig
   expect(await outbox.list(OWNER)).toHaveLength(1);
   alert.mockRestore();
 });
+
+test('a change that keeps failing shows why, and can be removed (asks first); Send now makes it due again', async () => {
+  mockApi.current = fakeApi({});
+  const stuck = await outbox.enqueue(OWNER, frame(14));
+  for (let i = 0; i < 3; i += 1) {
+    await outbox.next(OWNER);
+    await outbox.markRetry(stuck.id, 600_000, 'FotoAI did not answer');
+  }
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  await renderScreen(<SyncScreen />);
+  expect(await screen.findByText('Still trying: FotoAI did not answer')).toBeTruthy();
+  await act(async () => await fireEvent.press(screen.getByText('Send now')));
+  await waitFor(async () => expect(await outbox.next(OWNER)).not.toBeNull());
+  await act(async () => await fireEvent.press(screen.getByText('Remove')));
+  await act(async () => alert.mock.calls[0]![2]!.find((b) => b.style === 'destructive')!.onPress!());
+  await waitFor(async () => expect(await outbox.list(OWNER)).toEqual([]));
+  alert.mockRestore();
+});

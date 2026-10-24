@@ -40,7 +40,7 @@ export function createSync(deps: SyncDeps) {
           return;
         }
         if (!(err instanceof ApiClientError) || err.retryable) {
-          await deps.outbox.markRetry(item.id, delayFor(item.attempts));
+          await deps.outbox.markRetry(item.id, delayFor(item.attempts), err instanceof Error ? err.message : null);
           return;
         }
         await deps.outbox.markAttention(item.id, err.message);

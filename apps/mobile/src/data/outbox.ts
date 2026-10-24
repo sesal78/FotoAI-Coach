@@ -43,16 +43,30 @@ export function createOutbox(storage: StringStorage, now: () => number = Date.no
   let chain: Promise<unknown> = Promise.resolve();
   const listeners = new Set<() => void>();
 
-  async function load(): Promise<OutboxItem[]> {
-    if (items) return items;
-    try {
-      const raw = await storage.getItem(OUTBOX_KEY);
-      const parsed: unknown = raw ? JSON.parse(raw) : [];
-      items = Array.isArray(parsed) ? (parsed as OutboxItem[]) : [];
-    } catch {
-      items = [];
-    }
-    return items;
+  let loading: Promise<OutboxItem[]> | null = null;
+
+  /** Reads the list once; reads made while it loads share that one read. */
+  function load(): Promise<OutboxItem[]> {
+    if (items) return Promise.resolve(items);
+    loading ??= (async () => {
+      try {
+        const raw = await storage.getItem(OUTBOX_KEY);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        items = Array.isArray(parsed) ? (parsed as OutboxItem[]) : [];
+      } catch {
+        items = [];
+      }
+      return items;
+    })();
+    return loading;
+  }
+
+  /** An item that a newer waiting change to the same record replaces: it is dropped. */
+  function superseded(list: OutboxItem[], item: OutboxItem): boolean {
+    const at = list.indexOf(item);
+    const newer = list.some((i, n) => n > at && i.owner === item.owner && i.key === item.key && i.state === 'waiting');
+    if (newer) list.splice(at, 1);
+    return newer;
   }
 
   /** Runs changes one at a time and saves the list after each, so a restart sees every change. */
@@ -107,11 +121,12 @@ export function createOutbox(storage: StringStorage, now: () => number = Date.no
       });
     },
 
-    markRetry(id: string, delayMs: number): Promise<void> {
+    /** Not sent this time: it waits `delayMs`, keeping the last message so the user can see why. */
+    markRetry(id: string, delayMs: number, message: string | null = null): Promise<void> {
       return change((list) => {
         if (sending === id) sending = null;
         const item = list.find((i) => i.id === id);
-        if (item) Object.assign(item, { attempts: item.attempts + 1, nextTryAt: now() + delayMs });
+        if (item && !superseded(list, item)) Object.assign(item, { attempts: item.attempts + 1, nextTryAt: now() + delayMs, error: message });
       });
     },
 
@@ -119,7 +134,14 @@ export function createOutbox(storage: StringStorage, now: () => number = Date.no
       return change((list) => {
         if (sending === id) sending = null;
         const item = list.find((i) => i.id === id);
-        if (item) Object.assign(item, { state: 'attention', error: message, attempts: item.attempts + 1 });
+        if (item && !superseded(list, item)) Object.assign(item, { state: 'attention', error: message, attempts: item.attempts + 1 });
+      });
+    },
+
+    /** "Send now": every waiting item of this account is due at once. */
+    sendNow(owner: string): Promise<void> {
+      return change((list) => {
+        for (const item of list) if (item.owner === owner && item.state === 'waiting') item.nextTryAt = 0;
       });
     },
 

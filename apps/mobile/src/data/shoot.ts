@@ -42,11 +42,14 @@ const waiting = (items: OutboxItem[], kind: OutboxItem['kind']) => items.filter(
 /** A plan with the step changes and status still waiting to be sent. */
 export function withPending(plan: ShootPlanDto, items: OutboxItem[]): ShootPlanDto {
   const steps = plan.steps.map((step) => {
-    const change = waiting(items, 'step').find((i) => i.key === `step:${step.id}`);
-    const body = change?.body as { status: StepStatus; updatedAt: string } | undefined;
-    return body && body.updatedAt > step.updatedAt ? { ...step, status: body.status, updatedAt: body.updatedAt } : step;
+    // The newest waiting change wins when it is newer than the step (times compared as instants).
+    const body = waiting(items, 'step')
+      .filter((i) => i.key === `step:${step.id}`)
+      .map((i) => i.body as { status: StepStatus; updatedAt: string })
+      .reduce<{ status: StepStatus; updatedAt: string } | undefined>((best, b) => (!best || Date.parse(b.updatedAt) > Date.parse(best.updatedAt) ? b : best), undefined);
+    return body && Date.parse(body.updatedAt) > Date.parse(step.updatedAt) ? { ...step, status: body.status, updatedAt: body.updatedAt } : step;
   });
-  const status = (waiting(items, 'plan').find((i) => i.key === `plan:${plan.id}`)?.body as { status?: PlanStatus } | undefined)?.status;
+  const status = (waiting(items, 'plan').filter((i) => i.key === `plan:${plan.id}`).at(-1)?.body as { status?: PlanStatus } | undefined)?.status;
   return { ...plan, steps, ...(status ? { status } : {}) };
 }
 
@@ -132,7 +135,7 @@ function rollWithPending(roll: RollDto, frames: FrameDto[], items: OutboxItem[])
       const f = i.body as FrameInput;
       return { id: f.id, frameNo: f.frameNo, settings: f.settings, lensGearId: f.lensGearId ?? null, stepId: f.stepId ?? null, lat: f.lat ?? null, lng: f.lng ?? null, note: f.note ?? null, shotAt: f.shotAt, createdAt: f.shotAt };
     });
-  const status = (waiting(items, 'rollStatus').find((i) => i.key === `rollStatus:${roll.id}`)?.body as { status?: RollDto['status'] } | undefined)?.status;
+  const status = (waiting(items, 'rollStatus').filter((i) => i.key === `rollStatus:${roll.id}`).at(-1)?.body as { status?: RollDto['status'] } | undefined)?.status;
   const framesLogged = roll.framesLogged + extra.length;
   return {
     roll: { ...roll, framesLogged, framesLeft: Math.max(0, roll.exposures - framesLogged), ...(status ? { status } : {}) },

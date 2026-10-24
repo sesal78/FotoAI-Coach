@@ -89,3 +89,27 @@ test('a retry waits until its time comes, and keeps the order behind it', async 
   expect((await outbox.next(A))!.key).toBe('step:s1');
   expect((await outbox.list(A))[0]!.attempts).toBe(1);
 });
+
+test('a newer change made during a send that then fails replaces the older one (one item per record)', async () => {
+  const outbox = createOutbox(memoryStorage());
+  await outbox.enqueue(A, step('s1', 'done'));
+  const sending = (await outbox.next(A))!;
+  await outbox.enqueue(A, step('s1', 'skipped'));
+  await outbox.markRetry(sending.id, 5_000, 'Server error');
+  const items = await outbox.list(A);
+  expect(items).toHaveLength(1);
+  expect(items[0]!.body).toMatchObject({ status: 'skipped' });
+});
+
+test('Send now makes every waiting item due at once, and a retry keeps its last message', async () => {
+  let now = 1_000;
+  const outbox = createOutbox(memoryStorage(), () => now);
+  await outbox.enqueue(A, step('s1', 'done'));
+  const first = (await outbox.next(A))!;
+  await outbox.markRetry(first.id, 600_000, 'FotoAI did not answer');
+  expect(await outbox.next(A)).toBeNull();
+  expect((await outbox.list(A))[0]).toMatchObject({ error: 'FotoAI did not answer', attempts: 1 });
+  await outbox.sendNow(A);
+  expect((await outbox.next(A))!.key).toBe('step:s1');
+  now += 1;
+});
