@@ -46,8 +46,9 @@ export function createSync(deps: SyncDeps) {
         await deps.outbox.markAttention(item.id, err.message);
         continue;
       }
-      await deps.outbox.markSent(item.id);
+      // The answer goes on screen first: the item then leaves the outbox with nothing to blink out.
       deps.onSent(item, answer);
+      await deps.outbox.markSent(item.id);
     }
   }
 

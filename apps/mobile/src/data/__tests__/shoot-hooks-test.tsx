@@ -9,7 +9,7 @@ import { outbox, setFieldOwner } from '../field';
 import { keys } from '../keys';
 import { withoutGoogleContent } from '../persist';
 import { applySent } from '../sent';
-import { useLogFrame, useMakePlan, usePlan, useRoll, useStepChange } from '../shoot';
+import { useLoadRoll, useLogFrame, useMakePlan, usePlan, useRoll, useRolls, useStepChange } from '../shoot';
 
 const OWNER = 'aaaaaaaa-0000-4000-8000-000000000001';
 const mockApi: { current: ReturnType<typeof fakeApi> | null } = { current: null };
@@ -92,4 +92,37 @@ test("Make the plan shows the server's message (Set your loadout first)", async 
   const make = await renderHook(() => useMakePlan(), { wrapper });
   await act(async () => void (await make.result.current.mutateAsync({ placeId: 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ' }).catch(() => undefined)));
   await waitFor(() => expect(make.result.current.error?.message).toBe('Set your loadout first'));
+});
+
+test('a sent frame stays on the roll: the answer goes into the read before the item leaves the outbox', async () => {
+  mockApi.current = fakeApi({ [`GET /api/v2/rolls/${ROLL_ID}`]: { roll: { ...roll(), frames: [] } } });
+  const { client, wrapper } = setup();
+  const view = await renderHook(() => ({ roll: useRoll(ROLL_ID), log: useLogFrame(ROLL_ID) }), { wrapper });
+  await waitFor(() => expect(view.result.current.roll.roll?.framesLogged).toBe(13));
+  await act(async () => void (await view.result.current.log({ frameNo: 14, settings: { mode: 'M', iso: 400 } })));
+  const [item] = await outbox.list(OWNER);
+  const body = item!.body as { id: string; frameNo: number; settings: object; shotAt: string };
+  const answer = { frame: { id: body.id, frameNo: 14, settings: body.settings, lensGearId: null, stepId: null, lat: null, lng: null, note: null, shotAt: body.shotAt, createdAt: body.shotAt } };
+  await act(async () => applySent(client, item!, answer));
+  expect(view.result.current.roll.roll?.framesLogged).toBe(14); // not counted twice
+  await act(async () => await outbox.markSent(item!.id));
+  await waitFor(() => expect(view.result.current.roll.frames.map((f) => f.frameNo)).toEqual([14]));
+  expect(view.result.current.roll.roll).toMatchObject({ framesLogged: 14, framesLeft: 22 });
+});
+
+test('a roll loaded offline stays on screen once it is sent', async () => {
+  mockApi.current = fakeApi({ 'GET /api/v2/rolls': { rolls: [] } });
+  const { client, wrapper } = setup();
+  const view = await renderHook(() => ({ rolls: useRolls(), load: useLoadRoll() }), { wrapper });
+  await waitFor(() => expect(view.result.current.rolls.isSuccess).toBe(true));
+  let id = '';
+  await act(async () => void (id = await view.result.current.load({ stockId: 'kodak-portra-400', ratedIso: 400, exposures: 36, bodyGearId: roll().bodyGearId! })));
+  await waitFor(() => expect(view.result.current.rolls.rolls.map((r) => r.id)).toEqual([id]));
+  const [item] = await outbox.list(OWNER);
+  await act(async () => applySent(client, item!, { roll: roll({ id, framesLogged: 0, framesLeft: 36 }) }));
+  await act(async () => await outbox.markSent(item!.id));
+  await waitFor(async () => expect(await outbox.list(OWNER)).toEqual([]));
+  expect(view.result.current.rolls.rolls.map((r) => r.id)).toEqual([id]);
+  const detail = await renderHook(() => useRoll(id), { wrapper });
+  expect(detail.result.current.roll?.id).toBe(id);
 });
