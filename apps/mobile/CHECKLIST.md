@@ -62,3 +62,18 @@ Build: 3D preview APK with the phone fixes (PR #22), 24 Oct 2026: https://expo.d
 10. On a place, tap "Plan a shoot here". Shoot opens and says "Planning: <name>".
 11. Turn on airplane mode and open Explore. Your spots still show; places show the offline note.
 12. Away from home (or with no home area): tap "Use my location" when asked. Explore centres on you.
+
+## 3E: Shoot and the offline field mode
+
+Build: the 3E preview APK (link added when it is built). No server change. Before it: a film camera in Me > My gear, set as the loadout with a film loaded.
+
+1. In Explore, open a place and tap "Plan a shoot here". Shoot shows New plan with the place, Today, and your loadout. Tap "Make the plan". The plan opens with its steps and their times.
+2. Go back to Shoot. "My plans" lists the new plan.
+3. On Shoot, tap "Load a film roll". Your loadout's film is chosen. Set Rated ISO to twice the box ISO: it says "+1 stop push". Pick 36 and tap "Load the roll". The roll screen says "Next frame 1 of 36 · 36 left".
+4. Turn on airplane mode. Open the plan from "My plans": it opens and says "Saved on this phone".
+5. Tap "Done" on step 1 and "Skip" on step 2. They change at once. Shoot shows "2 changes waiting to send".
+6. On step 1, tap "Log a frame". The roll opens with the step's settings filled in. Save frame. Tap "Full sun": aperture and shutter fill in. Save 2 more frames. The counter says "Next frame 4 of 36".
+7. Close the app fully (swipe it away from recent apps), then open it again, still in airplane mode. The plan, the roll and its 3 frames are all still there, and the changes still wait.
+8. Turn airplane mode off. Within a minute the badge clears (the changes are sent once). To check the server has them: Me > Settings > Sign out, sign in again, and open the plan and the roll. Step 1 is done, step 2 skipped, and the roll shows 3 frames.
+9. With airplane mode on, log one frame, then tap Me > Settings > "Sign out": the app asks first ("1 change is not sent yet"). Tap Cancel.
+10. Turn airplane mode off. On the roll, tap "Finish roll": it says "This roll is finished".
