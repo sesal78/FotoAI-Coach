@@ -48,7 +48,7 @@ Build: 3C preview APK, 22 Oct 2026: https://expo.dev/accounts/topues/projects/fo
 
 ## 3D: Explore
 
-Build: the 3D preview APK (link added when it is built). Before it: the Google server key is in Dokploy (and redeployed), and the Android Maps key is in expo.dev.
+Build: 3D preview APK with the phone fixes (PR #22), 24 Oct 2026: https://expo.dev/accounts/topues/projects/fotoai-coach/builds/0484c394-16db-4b97-ad71-bdc6b43e40ad (all 12 steps passed, 24 Oct 2026). Needs the Google server key in Dokploy and the Android Maps key in expo.dev.
 
 1. Open Explore at home. The map shows, with nearby places and your spots in two colours. The list below is nearest first, with distances.
 2. Tap Beaches, then Beaches again. The list changes, then goes back.
