@@ -42,3 +42,18 @@ test('changing the theme setting re-colours the screen', async () => {
   await act(async () => await fireEvent.press(screen.getByTestId('probe')));
   expect(screen.getByTestId('probe').props.children).toBe('camera #0f1012 true');
 });
+
+test('a Screen moves up out of the way of the keyboard (Android draws edge to edge, so it does not resize)', async () => {
+  const { Field, Screen } = jest.requireActual('../form') as typeof import('../form');
+  const RN = jest.requireActual('react-native') as typeof import('react-native');
+  const Real = RN.KeyboardAvoidingView;
+  const behaviors: unknown[] = [];
+  const spy = jest.spyOn(RN, 'KeyboardAvoidingView', 'get').mockReturnValue(((props: React.ComponentProps<typeof Real>) => {
+    behaviors.push(props.behavior);
+    return <Real {...props} />;
+  }) as unknown as typeof Real);
+  await render(wrap(<Screen title="Pin"><Field label="Pin notes" /></Screen>));
+  expect(behaviors).toEqual(['padding']);
+  expect(screen.getByLabelText('Pin notes')).toBeTruthy();
+  spy.mockRestore();
+});
