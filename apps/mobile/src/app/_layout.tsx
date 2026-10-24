@@ -2,11 +2,12 @@ import '../global.css';
 
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import { SessionProvider, useSession } from '../auth/session';
 import { getSupabase } from '../auth/supabase';
-import { claimAccount, clearAccountData, queryClient } from '../data/client';
+import { claimAccount, clearAccountData, queryClient, startFieldSync } from '../data/client';
 import { savedReads } from '../data/persist';
 import { appEnv } from '../lib/env';
 import { Screen } from '../ui/form';
@@ -15,6 +16,7 @@ import { ThemeProvider } from '../ui/ThemeProvider';
 
 export default function RootLayout() {
   const supabase = getSupabase();
+  useEffect(() => startFieldSync(), []);
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={savedReads.options}>
       <ThemeProvider>
