@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff, Camera, Check } from 'lucide-react';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 
 const PERKS = [
   'Personalised daily photo challenges',
@@ -17,7 +17,7 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/dashboard';
-  const { register, status } = useAppwriteAuth();
+  const { register, status } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

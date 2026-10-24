@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare, MapPin, TrendingUp, Settings, ChevronDown, Sun, Moon, Eye, Lightbulb, SlidersHorizontal, Award, Images } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
+import { useAuth } from '@/contexts/auth-context'
 import { useSkillTree } from '@/hooks/fotoai/skills'
 import {
   DropdownMenu,
@@ -36,7 +36,7 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, status, signOut } = useAppwriteAuth()
+  const { user, status, signOut } = useAuth()
   const { data: skillTree } = useSkillTree(status === 'authenticated')
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)

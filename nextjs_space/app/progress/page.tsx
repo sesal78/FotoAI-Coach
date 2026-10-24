@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import { useUserProgress, useRecentChallenges } from '@/hooks/use-dashboard-data';
 import { useWeeklyInsights } from '@/hooks/fotoai/insights';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +43,7 @@ const TOOLTIP_STYLE = {
 } as const;
 
 export default function ProgressPage() {
-  const { status } = useAppwriteAuth();
+  const { status } = useAuth();
   const hasFotoaiSession = status === 'authenticated';
   const { data: progress, isLoading: progressLoading } = useUserProgress(hasFotoaiSession);
   const { data: recentData } = useRecentChallenges(50, hasFotoaiSession);

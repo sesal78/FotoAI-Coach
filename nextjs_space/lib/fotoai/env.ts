@@ -1,8 +1,8 @@
 // FotoAI Supabase configuration. Read once through this module; never touch
 // process.env for FotoAI values anywhere else.
 //
-// All names are new and prefixed FOTOAI_ so they can live next to the Appwrite
-// variables during the rollback window. See .env.example.
+// All names are new and prefixed FOTOAI_ so they never clash with the old
+// pre-Supabase variables. See .env.example.
 
 import { FotoaiConfigError } from './errors.ts';
 

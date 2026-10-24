@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import { useReverseAnalyses } from '@/hooks/fotoai/reverse';
 import { createFotoaiReverseAnalysis, type FotoaiReverseAnalysis } from '@/lib/fotoai/client-ai';
 import { Button } from '@/components/ui/button';
@@ -207,7 +207,7 @@ function AnalysisCard({ analysis, defaultExpanded }: { analysis: FotoaiReverseAn
 }
 
 export default function RecreatePage() {
-  const { status } = useAppwriteAuth();
+  const { status } = useAuth();
   const { data: analyses = [], isLoading: analysesLoading, refetch } = useReverseAnalyses(status === 'authenticated');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);

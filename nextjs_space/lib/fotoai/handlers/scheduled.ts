@@ -1,4 +1,4 @@
-// Scheduled (cron) jobs, ported from app/api/scheduled/*/route.ts (Appwrite).
+// Scheduled (cron) jobs, ported from the legacy app/api/scheduled/* routes.
 //
 //   GET|POST /api/fotoai/scheduled/daily-challenge
 //   GET|POST /api/fotoai/scheduled/streak-manager

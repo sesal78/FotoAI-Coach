@@ -13,14 +13,12 @@ import { clearFotoaiQueryCache } from '@/lib/fotoai/query-cache';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type AppwriteUser = FotoaiUser;
-
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 // ── Context shape ──────────────────────────────────────────────────────────
 
 interface AuthContextValue {
-  user: AppwriteUser | null;
+  user: FotoaiUser | null;
   status: AuthStatus;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -33,7 +31,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<AppwriteUser | null>(null);
+  const [user, setUser] = useState<FotoaiUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
 
   // The FotoAI API reads and verifies the HttpOnly session cookie server-side.

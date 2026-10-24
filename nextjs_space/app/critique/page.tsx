@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import { usePhotoCritiques } from '@/hooks/fotoai/critiques';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,7 +176,7 @@ function CritiqueCard({ critique }: { critique: FotoaiCritique }) {
 }
 
 export default function CritiquePage() {
-  const { status } = useAppwriteAuth();
+  const { status } = useAuth();
   const { data: critiques = [], isLoading: critiquesLoading, refetch } = usePhotoCritiques(status === 'authenticated');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
