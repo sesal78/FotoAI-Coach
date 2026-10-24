@@ -18,7 +18,6 @@ function frameLink(rollId: string, step: PlanStepDto): string {
     ['mode', s.mode],
     ['aperture', s.aperture],
     ['shutterSeconds', s.shutterSeconds],
-    ['iso', s.iso],
   ].filter(([, v]) => v !== undefined);
   return `/roll/${rollId}?${params.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&')}`;
 }

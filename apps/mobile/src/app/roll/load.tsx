@@ -40,7 +40,7 @@ export default function LoadRoll() {
 
   const blocked = !current
     ? 'Set your loadout first.'
-    : current.body.capability && 'type' in current.body.capability && current.body.capability.type !== 'film'
+    : !(current.body.capability && 'type' in current.body.capability && current.body.capability.type === 'film')
       ? 'Film rolls need a film camera in your loadout.'
       : loaded
         ? 'Finish the roll in the camera first.'

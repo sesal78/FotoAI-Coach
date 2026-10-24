@@ -5,14 +5,15 @@ import { EXPOSURE_MODES, type SettingsDto } from '@fotoai/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 
+import { useLoadout } from '../../data/hooks';
 import { useFinishRoll, useLogFrame, useRoll } from '../../data/shoot';
 import { Notice, Screen, TextLink } from '../../ui/form';
-import { FrameLogger, type FrameDefaults } from '../../ui/shoot/FrameLogger';
+import { FrameLogger, nextFrameNo, type FrameDefaults, type FrameGear } from '../../ui/shoot/FrameLogger';
 import { settingsText } from '../../ui/shoot/StepCard';
 import { pushPullText } from '../../ui/shoot/StockPicker';
 import { ErrorState, Loading } from '../../ui/states';
 
-type Params = { id: string; stepId?: string; mode?: string; aperture?: string; shutterSeconds?: string; iso?: string };
+type Params = { id: string; stepId?: string; mode?: string; aperture?: string; shutterSeconds?: string };
 
 const num = (text: string | undefined) => (text && Number(text) > 0 ? Number(text) : undefined);
 
@@ -23,7 +24,6 @@ function defaultsFrom(p: Params): FrameDefaults {
     ...(mode ? { mode } : {}),
     ...(num(p.aperture) ? { aperture: num(p.aperture) } : {}),
     ...(num(p.shutterSeconds) ? { shutterSeconds: num(p.shutterSeconds) } : {}),
-    ...(num(p.iso) ? { iso: num(p.iso) } : {}),
   };
 }
 
@@ -32,6 +32,7 @@ export default function RollScreen() {
   const { roll, frames, isPending, error, refetch } = useRoll(params.id);
   const logFrame = useLogFrame(params.id);
   const finish = useFinishRoll(params.id);
+  const loadout = useLoadout().data?.loadout;
 
   if (!roll) {
     return (
@@ -44,16 +45,27 @@ export default function RollScreen() {
 
   const left = roll.framesLeft;
   const loaded = roll.status === 'loaded';
+  // Frames are checked against the roll's camera: logging needs it to be the loadout's camera.
+  const capability = loadout?.body.capability;
+  const gear: FrameGear | null =
+    loadout && loadout.body.id === roll.bodyGearId && capability && 'modes' in capability ? { body: capability, lens: loadout.lens, lensGearId: loadout.lensGearId } : null;
   return (
     <Screen title={roll.stockName}>
       <TextLink title="Back" onPress={() => router.back()} />
       <Text className="text-text-muted">{`Rated ISO ${roll.ratedIso} · ${pushPullText(roll.boxIso, roll.ratedIso)}`}</Text>
-      {loaded && left > 0 ? <Text className="text-lg font-semibold text-text">{`Next frame ${roll.framesLogged + 1} of ${roll.exposures} · ${left} left`}</Text> : null}
+      {loaded && left > 0 ? <Text className="text-lg font-semibold text-text">{`Next frame ${nextFrameNo(roll, frames)} of ${roll.exposures} · ${left} left`}</Text> : null}
       {loaded && left > 0 && left <= 2 ? <Notice text={`${left} frame${left === 1 ? '' : 's'} left on this roll.`} /> : null}
       {loaded && left === 0 ? <Notice text="Roll full: finish it." /> : null}
       {loaded ? (
         <>
-          <FrameLogger roll={roll} defaults={defaultsFrom(params)} onSave={logFrame} />
+          {gear ? (
+            <FrameLogger roll={roll} frames={frames} gear={gear} defaults={defaultsFrom(params)} onSave={logFrame} />
+          ) : (
+            <>
+              <Notice text="Set your loadout to this roll's camera to log frames." />
+              <TextLink title="Open the loadout" onPress={() => router.push('/me/loadout')} />
+            </>
+          )}
           <TextLink title="Finish roll" onPress={() => void finish()} />
         </>
       ) : (

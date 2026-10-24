@@ -1,7 +1,10 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import { BODY_ID, filmLoadout, roll, ROLL_ID, STEP_1 } from '../../test/fixtures';
+import { validateSettings, type Body, type Lens, type Settings } from '@fotoai/core';
+import type { LoadoutDto, RollDto } from '@fotoai/contracts';
+
+import { BODY_ID, electroLoadout, filmLoadout, LENS_ID, roll, ROLL_ID, STEP_1 } from '../../test/fixtures';
 import { fakeApi, renderScreen } from '../../test/harness';
 import LoadRoll from '../app/roll/load';
 import RollScreen from '../app/roll/[id]';
@@ -27,8 +30,8 @@ jest.mock('expo-location', () => ({
   getCurrentPositionAsync: async () => null,
 }));
 
-const rollRoutes = (r = roll(), over: Record<string, unknown> = {}) => ({
-  'GET /api/v2/me/loadout': { loadout: filmLoadout() },
+const rollRoutes = (r = roll(), over: Record<string, unknown> = {}, loadout: LoadoutDto = filmLoadout()) => ({
+  'GET /api/v2/me/loadout': { loadout },
   'GET /api/v2/rolls': { rolls: [r] },
   [`GET /api/v2/rolls/${r.id}`]: { roll: { ...r, frames: [] } },
   ...over,
@@ -104,7 +107,7 @@ test('Log a frame from a step fills in its settings and links the step', async (
   expect(await screen.findByDisplayValue('8')).toBeTruthy();
   await act(async () => await fireEvent.press(screen.getByText('Save frame')));
   await waitFor(async () => expect(await outbox.list(OWNER)).toHaveLength(1));
-  expect((await outbox.list(OWNER))[0]!.body).toMatchObject({ stepId: STEP_1, settings: { mode: 'A', aperture: 8, iso: 400 } });
+  expect((await outbox.list(OWNER))[0]!.body).toMatchObject({ stepId: STEP_1, lensGearId: LENS_ID, settings: { mode: 'M', aperture: 8, iso: 400 } });
 });
 
 test('Sunny 16 gives f/16 at 1/125 for ISO 125 in full sun; blue hour says to meter', async () => {
@@ -139,5 +142,70 @@ test('a frame past the end of the roll (+2 spare) is refused on the phone', asyn
   await renderScreen(<RollScreen />);
   await act(async () => await fireEvent.press(await screen.findByText('Save frame')));
   expect(await screen.findByText('Frame 39 is past the end of this 36-exposure roll.')).toBeTruthy();
+  expect(await outbox.list(OWNER)).toEqual([]);
+});
+
+/** What the server checks a frame against (packages/api/src/rolls.ts checkFrameSettings). */
+function serverAccepts(loadout: LoadoutDto, r: RollDto, settings: Settings) {
+  const film = { stock: r.stockName, boxIso: r.boxIso, ratedIso: r.ratedIso };
+  return validateSettings({ body: loadout.body.capability as Body, lens: loadout.lens as Lens, film }, settings);
+}
+
+test('a frame from the FM2 sends its lens and passes the server check, even when the step says another ISO', async () => {
+  mockParams.current = { id: ROLL_ID, stepId: STEP_1, mode: 'A', aperture: '8', shutterSeconds: String(1 / 125), iso: '800' };
+  mockApi.current = fakeApi(rollRoutes());
+  await renderScreen(<RollScreen />);
+  expect(await screen.findByText('ISO 400 (this roll)')).toBeTruthy();
+  await act(async () => await fireEvent.press(screen.getByText('Save frame')));
+  await waitFor(async () => expect(await outbox.list(OWNER)).toHaveLength(1));
+  const body = (await outbox.list(OWNER))[0]!.body as { lensGearId?: string; settings: Settings };
+  expect(body.lensGearId).toBe(LENS_ID);
+  expect(body.settings.iso).toBe(400);
+  expect(serverAccepts(filmLoadout(), roll(), body.settings)).toMatchObject({ ok: true });
+});
+
+test('on the Electro 35 GL (built-in lens, A only) Sunny 16 sets the aperture only, and the frame passes the server check', async () => {
+  mockParams.current = { id: ROLL_ID };
+  mockApi.current = fakeApi(rollRoutes(roll(), {}, electroLoadout()));
+  await renderScreen(<RollScreen />);
+  await act(async () => await fireEvent.press(await screen.findByText('Full sun')));
+  expect(screen.getByLabelText('Aperture (f/)').props.value).toBe('16');
+  expect(screen.queryByLabelText('Shutter')).toBeNull();
+  await act(async () => await fireEvent.press(screen.getByText('Save frame')));
+  await waitFor(async () => expect(await outbox.list(OWNER)).toHaveLength(1));
+  const body = (await outbox.list(OWNER))[0]!.body as { lensGearId?: string; settings: Settings };
+  expect(body.lensGearId).toBeUndefined();
+  expect(body.settings).toEqual({ mode: 'A', aperture: 16, iso: 400 });
+  expect(serverAccepts(electroLoadout(), roll(), body.settings)).toMatchObject({ ok: true });
+});
+
+test('settings the camera cannot do are shown at the form and nothing is queued', async () => {
+  mockParams.current = { id: ROLL_ID };
+  mockApi.current = fakeApi(rollRoutes());
+  await renderScreen(<RollScreen />);
+  await act(async () => await fireEvent.changeText(await screen.findByLabelText('Shutter'), '1/8000'));
+  await act(async () => await fireEvent.press(screen.getByText('Save frame')));
+  expect(await screen.findByText(/FM2 shutter runs/)).toBeTruthy();
+  expect(await outbox.list(OWNER)).toEqual([]);
+});
+
+test("a roll whose camera is not the loadout's asks to set the loadout before logging", async () => {
+  mockParams.current = { id: ROLL_ID };
+  mockApi.current = fakeApi(rollRoutes(roll({ bodyGearId: '33333333-aaaa-4bbb-8ccc-0000000000ff' })));
+  await renderScreen(<RollScreen />);
+  expect(await screen.findByText("Set your loadout to this roll's camera to log frames.")).toBeTruthy();
+  expect(screen.queryByText('Save frame')).toBeNull();
+});
+
+test('the next frame follows the highest one logged, and a number already logged is refused', async () => {
+  mockParams.current = { id: ROLL_ID };
+  const frames = [3, 5].map((n) => ({ id: `11111111-0000-4000-8000-00000000000${n}`, frameNo: n, settings: { mode: 'M' as const, iso: 400 }, lensGearId: LENS_ID, stepId: null, lat: null, lng: null, note: null, shotAt: 'x', createdAt: 'x' }));
+  const r = roll({ framesLogged: 2, framesLeft: 34 });
+  mockApi.current = fakeApi({ ...rollRoutes(r), [`GET /api/v2/rolls/${ROLL_ID}`]: { roll: { ...r, frames } } });
+  await renderScreen(<RollScreen />);
+  expect(await screen.findByText('Next frame 6 of 36 · 34 left')).toBeTruthy();
+  await act(async () => await fireEvent.changeText(screen.getByLabelText('Frame number'), '5'));
+  await act(async () => await fireEvent.press(screen.getByText('Save frame')));
+  expect(await screen.findByText('Frame 5 is already logged.')).toBeTruthy();
   expect(await outbox.list(OWNER)).toEqual([]);
 });

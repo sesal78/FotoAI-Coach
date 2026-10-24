@@ -1,5 +1,6 @@
 // Contract-shaped answers for screen tests.
 
+import { findBody, findLens } from '@fotoai/core';
 import type { ChallengeDto, LightTimesDto, LoadoutDto, Preferences, ProgressResponse, RollDto, ShootPlanDto, SpotDto, WeatherDto } from '@fotoai/contracts';
 
 export const PREFS_NONE: Preferences = { theme: 'golden', units: 'metric', home: null };
@@ -98,6 +99,7 @@ export const plan = (over: Partial<ShootPlanDto> = {}): ShootPlanDto => ({
 
 export const ROLL_ID = '22222222-aaaa-4bbb-8ccc-000000000001';
 export const BODY_ID = '33333333-aaaa-4bbb-8ccc-000000000001';
+export const LENS_ID = '33333333-aaaa-4bbb-8ccc-000000000002';
 
 export const roll = (over: Partial<RollDto> = {}): RollDto => ({
   id: ROLL_ID,
@@ -131,8 +133,19 @@ export const filmLoadout = (over: Partial<LoadoutDto> = {}): LoadoutDto => ({
       metering: 'center-weighted', fixedLensId: null, sources: [],
     },
   },
-  lensGearId: null,
+  lensGearId: LENS_ID,
   lens: { id: 'nikon-50mm-f1-8', make: 'Nikon', model: 'AI-S 50mm f/1.8', mount: 'nikon-f', focalMm: { min: 50, max: 50 }, maxAperture: { wide: 1.8, tele: 1.8 }, minAperture: 22, sources: [] },
   film: { stock: 'Kodak Portra 400', boxIso: 400 },
   ...over,
 });
+
+/** A film loadout with a built-in lens and aperture priority only: the Yashica Electro 35 GL. */
+export const electroLoadout = (): LoadoutDto => {
+  const body = findBody('yashica-electro-35-gl')!;
+  return {
+    body: { id: BODY_ID, kind: 'body', catalogId: body.id, name: 'Yashica Electro 35 GL', capability: body },
+    lensGearId: null,
+    lens: findLens(body.fixedLensId!)!,
+    film: { stock: 'Kodak Portra 400', boxIso: 400 },
+  };
+};

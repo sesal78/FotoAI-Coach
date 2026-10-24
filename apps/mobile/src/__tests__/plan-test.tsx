@@ -77,7 +77,7 @@ test("Log a frame on a step opens the loaded roll with that step's settings", as
   mockApi.current = fakeApi(routes({ 'GET /api/v2/rolls': { rolls: [roll()] } }));
   await renderScreen(<PlanScreen />);
   await act(async () => await fireEvent.press((await screen.findAllByText('Log a frame'))[0]!));
-  expect(router.push).toHaveBeenLastCalledWith(`/roll/${ROLL_ID}?stepId=${STEP_1}&mode=A&aperture=8&iso=400`);
+  expect(router.push).toHaveBeenLastCalledWith(`/roll/${ROLL_ID}?stepId=${STEP_1}&mode=A&aperture=8`);
 });
 
 test('without a loaded roll there is no Log a frame', async () => {
