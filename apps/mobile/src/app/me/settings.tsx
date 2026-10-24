@@ -1,16 +1,19 @@
 // Settings: appearance (saved to the phone at once, then to the account), units, the home area
-// from the phone's location, and sign out.
+// from the phone's location, changes waiting to send, and sign out (which asks first when changes
+// still wait: they stay on the phone and are sent the next time this account signs in).
 
 import type { Units } from '@fotoai/contracts';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
 import { useSession } from '../../auth/session';
 import { usePatchPreferences, usePreferences } from '../../data/hooks';
+import { useOutbox } from '../../data/shoot';
 import { phoneLocation, type LatLng } from '../../lib/where';
 import { Choice } from '../../ui/Choice';
 import { Field, Notice, PrimaryButton, Screen, TextLink } from '../../ui/form';
+import { WaitingBadge } from '../../ui/shoot/WaitingBadge';
 import { ErrorState, errorText, Loading } from '../../ui/states';
 import { clearThemeUnsaved, markThemeUnsaved, THEME_LABELS, useTheme, type ThemeSetting } from '../../ui/ThemeProvider';
 
@@ -32,6 +35,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function Settings() {
   const { signOut } = useSession();
+  const unsent = useOutbox().length;
   const { setting, setSetting } = useTheme();
   const prefs = usePreferences();
   const saveTheme = usePatchPreferences();
@@ -116,7 +120,17 @@ export default function Settings() {
         </>
       ) : null}
 
-      <PrimaryButton title="Sign out" onPress={() => void signOut()} />
+      <WaitingBadge />
+      <PrimaryButton
+        title="Sign out"
+        onPress={() => {
+          if (unsent === 0) return void signOut();
+          Alert.alert(`${unsent} change${unsent === 1 ? ' is' : 's are'} not sent yet`, 'They stay on this phone and are sent the next time you sign in with this account.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign out anyway', style: 'destructive', onPress: () => void signOut() },
+          ]);
+        }}
+      />
     </Screen>
   );
 }

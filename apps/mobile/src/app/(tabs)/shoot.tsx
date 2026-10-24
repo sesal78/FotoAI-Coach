@@ -9,6 +9,7 @@ import { Screen, TextLink } from '../../ui/form';
 import { NewPlan } from '../../ui/shoot/NewPlan';
 import { PlanRow } from '../../ui/shoot/PlanRow';
 import { RollCard } from '../../ui/shoot/RollCard';
+import { WaitingBadge } from '../../ui/shoot/WaitingBadge';
 import { Empty, ErrorState, Loading } from '../../ui/states';
 
 const ORDER = { active: 0, done: 1, archived: 2 } as const;
@@ -21,6 +22,7 @@ export default function Shoot() {
 
   return (
     <Screen title="Shoot">
+      <WaitingBadge />
       {loaded ? <RollCard roll={loaded} onPress={() => router.push(`/roll/${loaded.id}`)} /> : <TextLink title="Load a film roll" onPress={() => router.push('/roll/load')} />}
       {placeId || spotId ? (
         <NewPlan placeId={placeId} spotId={spotId} />

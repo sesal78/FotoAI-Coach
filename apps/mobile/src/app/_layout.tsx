@@ -48,6 +48,7 @@ function Navigator() {
         <Stack.Screen name="me/gear/custom" />
         <Stack.Screen name="me/loadout" />
         <Stack.Screen name="me/settings" />
+        <Stack.Screen name="me/sync" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="place/[placeId]" />
         <Stack.Screen name="plan/[id]" />
