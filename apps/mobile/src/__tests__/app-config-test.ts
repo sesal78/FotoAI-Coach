@@ -34,6 +34,9 @@ test('with GOOGLE_MAPS_ANDROID_API_KEY set, the Android Maps key is in the confi
     jest.isolateModules(() => {
       const withKey = jest.requireActual('../../app.config').default;
       expect(withKey.android.config.googleMaps.apiKey).toBe('AIzaTestOnlyKey');
+      // Expo drops android.config from the config the app reads at run time, so the app learns
+      // about the map from this flag (the key itself stays out of it).
+      expect(withKey.extra.mapsEnabled).toBe(true);
       const rest = { ...withKey.android };
       delete rest.config;
       expect(JSON.stringify({ ...withKey, android: rest })).not.toMatch(/AIza/);
@@ -51,6 +54,7 @@ test('without the maps key there is no maps config, and the build still works', 
     jest.isolateModules(() => {
       const noKey = jest.requireActual('../../app.config').default;
       expect(noKey.android.config?.googleMaps).toBeUndefined();
+      expect(noKey.extra.mapsEnabled).toBe(false);
     });
   } finally {
     if (before !== undefined) process.env.GOOGLE_MAPS_ANDROID_API_KEY = before;

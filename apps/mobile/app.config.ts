@@ -52,7 +52,9 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true, reactCompiler: true },
   // The EAS project (Expo account topues) that builds the APK. Public ids, not secrets.
   owner: 'topues',
-  extra: { eas: { projectId: 'da8a3077-a742-4365-b8cf-7392759e6210' } },
+  // mapsEnabled tells the app it has a Maps key: Expo leaves android.config out of the config the
+  // app reads at run time. Only a true/false, never the key.
+  extra: { eas: { projectId: 'da8a3077-a742-4365-b8cf-7392759e6210' }, mapsEnabled: Boolean(mapsKey) },
 };
 
 export default config;
