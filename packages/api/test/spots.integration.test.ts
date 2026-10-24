@@ -58,7 +58,7 @@ describe.skipIf(!db)('v2 my spots against the local Supabase', () => {
   });
 
   test('a new pin or Google spot is not a favourite until the user marks it', async () => {
-    // The table's old default (from the web app) is favourite = true; v2 saves set it themselves.
+    // The column's default is favourite = true; v2 saves set it themselves.
     const pin = (await (await call(addMySpot, b, { method: 'POST', json: { pin: { name: 'Jetty', lat: -37.86, lng: 144.97 } } })).json()).spot;
     const google = (await (await call(addMySpot, b, { method: 'POST', json: { placeId: FED } })).json()).spot;
     expect([pin.favourite, google.favourite]).toEqual([false, false]);

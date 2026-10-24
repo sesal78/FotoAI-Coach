@@ -58,12 +58,13 @@ export function useWhere({ preferPhone = false }: { preferPhone?: boolean } = {}
   }, [needPhone, phone]);
 
   // Back from Android settings (or anywhere): check again, in case location was allowed there.
-  // Explore also moves with the phone, without showing a loading state again.
+  // With preferPhone the check is silent: Explore keeps what it shows (and any pin being typed)
+  // until the answer comes, then follows the phone, or the home area once location is off.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
-      setPhone((p) => (p === 'none' ? 'idle' : p));
-      if (preferPhone) void phoneLocation({ ask: false }).then((at) => at && setPhone(at));
+      if (preferPhone) void phoneLocation({ ask: false }).then((at) => setPhone(at ?? 'none'));
+      else setPhone((p) => (p === 'none' ? 'idle' : p));
     });
     return () => sub.remove();
   }, [preferPhone]);

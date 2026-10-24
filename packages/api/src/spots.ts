@@ -110,8 +110,7 @@ export const addMySpot: V2Body = async (request, deps) => {
   const input = parsed.data;
   const db = createUserClient(deps.env, principal.accessToken);
 
-  // A new spot is not a favourite until the user marks it. Set here: the table's default (from the
-  // web app, where every saved place was a favourite) is true.
+  // A new spot is not a favourite until the user marks it. Set here: the column's default is true.
   if ('pin' in input) {
     const { data, error } = await db
       .from(T_PLACES)

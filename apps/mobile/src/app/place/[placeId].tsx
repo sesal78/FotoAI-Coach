@@ -23,7 +23,8 @@ export default function PlaceScreen() {
   const query = usePlace(placeId);
   const explain = useExplainPlace(placeId);
   const units = usePreferences().data?.units ?? 'metric';
-  const { where } = useWhere();
+  // Distances match Explore: from the phone when location is allowed, else the home area.
+  const { where } = useWhere({ preferPhone: true });
   const add = useAddSpot();
   const update = useUpdateSpot();
   const remove = useDeleteSpot();
