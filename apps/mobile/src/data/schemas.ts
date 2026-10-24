@@ -1,6 +1,23 @@
-// The response wrappers of the v2 endpoints 3C reads, built from the shared contracts.
+// The response wrappers of the v2 endpoints the app reads, built from the shared contracts.
 
-import { BodyDto, ChallengeDto, GearItem, LensDto, LightTimesDto, LoadoutDto, PlaceDetail, PlaceExplanationDto, PlaceSummary, SpotDto, WeatherDto } from '@fotoai/contracts';
+import {
+  BodyDto,
+  ChallengeDto,
+  FrameDto,
+  GearItem,
+  LensDto,
+  LightTimesDto,
+  LoadoutDto,
+  PlaceDetail,
+  PlaceExplanationDto,
+  PlaceSummary,
+  PlanStepDto,
+  PlanSummaryDto,
+  RollDto,
+  ShootPlanDto,
+  SpotDto,
+  WeatherDto,
+} from '@fotoai/contracts';
 import { z } from 'zod';
 
 export const CatalogResponse = z.object({ bodies: z.array(BodyDto), lenses: z.array(LensDto) });
@@ -22,3 +39,17 @@ export const ExplanationResponse = z.object({ explanation: PlaceExplanationDto }
 export const SpotResponse = z.object({ spot: SpotDto });
 
 export type PlaceResponse = z.infer<typeof PlaceResponse>;
+
+export const PlansResponse = z.object({ plans: z.array(PlanSummaryDto) });
+export const PlanResponse = z.object({ plan: ShootPlanDto });
+export const PlanSummaryResponse = z.object({ plan: PlanSummaryDto });
+export const StepResponse = z.object({ step: PlanStepDto, applied: z.boolean() });
+export const RollsResponse = z.object({ rolls: z.array(RollDto) });
+export const RollResponse = z.object({ roll: RollDto });
+export const RollDetailResponse = z.object({ roll: RollDto.extend({ frames: z.array(FrameDto) }) });
+export const FrameResponse = z.object({ frame: FrameDto });
+
+export type PlansResponse = z.infer<typeof PlansResponse>;
+export type PlanResponse = z.infer<typeof PlanResponse>;
+export type RollsResponse = z.infer<typeof RollsResponse>;
+export type RollDetailResponse = z.infer<typeof RollDetailResponse>;

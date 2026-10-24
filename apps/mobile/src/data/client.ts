@@ -15,6 +15,7 @@ import { appEnv } from '../lib/env';
 import { fieldOwner, outbox, setFieldOwner, setKick } from './field';
 import { claimSavedReads, savedReads } from './persist';
 import { QUERY_DEFAULTS } from './query-defaults';
+import { applySent } from './sent';
 import { createSync } from './sync';
 
 onlineManager.setEventListener((setOnline) => NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)));
@@ -48,7 +49,7 @@ export const sync = createSync({
   request: (path, opts) => getApi().request(path, { ...opts, schema: z.unknown() }),
   getOwner: fieldOwner,
   isOnline: () => onlineManager.isOnline(),
-  onSent: () => undefined,
+  onSent: (item, answer) => applySent(queryClient, item, answer),
 });
 setKick(() => void sync.run());
 

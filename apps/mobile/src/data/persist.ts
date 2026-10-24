@@ -23,10 +23,14 @@ type SavedSpot = { source?: string; name?: unknown; location?: unknown };
 
 /**
  * My spots are saved, but a Google spot's name and coordinates are Google content: on the phone it
- * keeps only its place id and the user's own notes and favourite (Google Maps Platform terms).
+ * keeps only its place id and the user's own notes and favourite (Google Maps Platform terms). A
+ * shoot plan is saved without its Google place name for the same reason.
  */
 export function withoutGoogleContent(client: PersistedClient): PersistedClient {
   const queries = client.clientState.queries.map((q) => {
+    // A plan keeps its own text; its place name is Google's and is fetched fresh.
+    const plan = q.queryKey[0] === 'shoot' && q.queryKey[1] === 'plan' ? (q.state.data as { plan?: { placeName?: unknown } } | undefined) : undefined;
+    if (plan?.plan) return { ...q, state: { ...q.state, data: { ...plan, plan: { ...plan.plan, placeName: null } } } };
     const isSpots = q.queryKey.length === 2 && q.queryKey[0] === 'me' && q.queryKey[1] === 'spots';
     const data = q.state.data as { spots?: SavedSpot[] } | undefined;
     if (!isSpots || !data?.spots) return q;

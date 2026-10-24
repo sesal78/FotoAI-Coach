@@ -19,6 +19,11 @@ export const keys = {
   // Under their own prefix: invalidating spots or places must never re-run a paid AI explain.
   explainPlace: (placeId: string) => ['explain', 'place', placeId] as const,
   explainSpot: (spotId: string) => ['explain', 'spot', spotId] as const,
+  // Shoot (3E): plans and film rolls, kept on the phone; field changes wait in the outbox.
+  plans: ['shoot', 'plans'] as const,
+  plan: (id: string) => ['shoot', 'plan', id] as const,
+  rolls: ['shoot', 'rolls'] as const,
+  roll: (id: string) => ['shoot', 'roll', id] as const,
   // About 1 km cells, per day: the light and the weather do not change within one.
   conditions: (at: { lat: number; lng: number }, day: string) => ['conditions', round(at.lat), round(at.lng), day] as const,
 };

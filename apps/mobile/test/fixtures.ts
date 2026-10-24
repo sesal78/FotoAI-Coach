@@ -1,6 +1,6 @@
 // Contract-shaped answers for screen tests.
 
-import type { ChallengeDto, LightTimesDto, Preferences, ProgressResponse, SpotDto, WeatherDto } from '@fotoai/contracts';
+import type { ChallengeDto, LightTimesDto, Preferences, ProgressResponse, RollDto, ShootPlanDto, SpotDto, WeatherDto } from '@fotoai/contracts';
 
 export const PREFS_NONE: Preferences = { theme: 'golden', units: 'metric', home: null };
 export const PREFS_HOME: Preferences = { theme: 'golden', units: 'metric', home: { lat: -37.81, lng: 144.96, label: 'Fitzroy' } };
@@ -67,3 +67,53 @@ export const PROGRESS_FRESH: ProgressResponse = {
   challenges: { completed: 0, issued: 0 },
   skills: [],
 };
+
+export const PLAN_ID = '11111111-aaaa-4bbb-8ccc-000000000001';
+export const STEP_1 = '11111111-aaaa-4bbb-8ccc-000000000011';
+export const STEP_2 = '11111111-aaaa-4bbb-8ccc-000000000012';
+
+/** A plan at Federation Square (Melbourne, UTC+11 on 24 Oct 2026) with two steps. */
+export const plan = (over: Partial<ShootPlanDto> = {}): ShootPlanDto => ({
+  id: PLAN_ID,
+  placeSource: 'google',
+  placeId: 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ',
+  spotId: null,
+  date: '2026-10-24',
+  timezone: 'Australia/Melbourne',
+  title: 'Golden hour at Federation Square',
+  summary: 'Low sun on the sandstone, then the city lights.',
+  loadout: { body: 'Nikon FM2', lens: '50mm f/1.8', film: 'Kodak Portra 400' },
+  notes: ['Bring a cloth for the lens.'],
+  status: 'active',
+  createdAt: '2026-10-24T05:00:00.000Z',
+  updatedAt: '2026-10-24T05:00:00.000Z',
+  placeName: 'Federation Square',
+  placeUnavailable: false,
+  steps: [
+    { id: STEP_1, position: 1, title: 'Warm light on the facade', instruction: 'Shoot the facade from the river side.', tip: 'Meter for the highlights.', startsAt: '2026-10-24T18:40:00+11:00', settings: { mode: 'A', aperture: 8, iso: 400 }, status: 'todo', updatedAt: '2026-10-24T05:00:00.000Z' },
+    { id: STEP_2, position: 2, title: 'Blue hour skyline', instruction: 'Use a rail as a tripod.', tip: null, startsAt: '2026-10-24T19:50:00+11:00', settings: { mode: 'M', aperture: 2.8, shutterSeconds: 0.25, iso: 400 }, status: 'todo', updatedAt: '2026-10-24T05:00:00.000Z' },
+  ],
+  ...over,
+});
+
+export const ROLL_ID = '22222222-aaaa-4bbb-8ccc-000000000001';
+export const BODY_ID = '33333333-aaaa-4bbb-8ccc-000000000001';
+
+export const roll = (over: Partial<RollDto> = {}): RollDto => ({
+  id: ROLL_ID,
+  stockId: 'kodak-portra-400',
+  stockName: 'Kodak Portra 400',
+  boxIso: 400,
+  ratedIso: 400,
+  exposures: 36,
+  bodyGearId: BODY_ID,
+  status: 'loaded',
+  loadedAt: '2026-10-24T04:00:00.000Z',
+  finishedAt: null,
+  notes: null,
+  framesLogged: 13,
+  framesLeft: 23,
+  createdAt: '2026-10-24T04:00:00.000Z',
+  updatedAt: '2026-10-24T04:00:00.000Z',
+  ...over,
+});
