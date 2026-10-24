@@ -39,11 +39,16 @@ export async function phoneLocation({ ask = true }: { ask?: boolean } = {}): Pro
   }
 }
 
-/** Where Today looks, and `ask` to request the location permission from a tap. */
-export function useWhere(): { where: Where; ask: () => void } {
+/**
+ * Where Today looks, and `ask` to request the location permission from a tap. With `preferPhone`
+ * (Explore), the phone's location wins when it is already allowed, and the home area is the
+ * fallback; it is still never asked for by itself.
+ */
+export function useWhere({ preferPhone = false }: { preferPhone?: boolean } = {}): { where: Where; ask: () => void } {
   const prefs = usePreferences();
   const home = prefs.data?.home ?? null;
-  const needPhone = !home && (prefs.isSuccess || prefs.isError);
+  const prefsReady = prefs.isSuccess || prefs.isError;
+  const needPhone = preferPhone || (!home && prefsReady);
   const [phone, setPhone] = useState<'idle' | 'checking' | LatLng | 'none'>('idle');
 
   useEffect(() => {
@@ -53,20 +58,27 @@ export function useWhere(): { where: Where; ask: () => void } {
   }, [needPhone, phone]);
 
   // Back from Android settings (or anywhere): check again, in case location was allowed there.
+  // Explore also moves with the phone, without showing a loading state again.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') setPhone((p) => (p === 'none' ? 'idle' : p));
+      if (state !== 'active') return;
+      setPhone((p) => (p === 'none' ? 'idle' : p));
+      if (preferPhone) void phoneLocation({ ask: false }).then((at) => at && setPhone(at));
     });
     return () => sub.remove();
-  }, []);
+  }, [preferPhone]);
 
   const ask = useCallback(() => {
     setPhone('checking');
     void phoneLocation({ ask: true }).then((at) => setPhone(at ?? 'none'));
   }, []);
 
+  const loading = { where: { state: 'loading' } as Where, ask };
+  const fromPhone = typeof phone === 'object' ? { where: { state: 'ready', at: phone, label: 'Where you are', source: 'phone' } as Where, ask } : null;
+  if (preferPhone && fromPhone) return fromPhone;
+  if (preferPhone && (phone === 'idle' || phone === 'checking')) return loading;
   if (home) return { where: { state: 'ready', at: { lat: home.lat, lng: home.lng }, label: home.label || 'Home area', source: 'home' }, ask };
-  if (!needPhone || phone === 'idle' || phone === 'checking') return { where: { state: 'loading' }, ask };
+  if (!prefsReady || phone === 'idle' || phone === 'checking') return loading;
   if (phone === 'none') return { where: { state: 'none' }, ask };
-  return { where: { state: 'ready', at: phone, label: 'Where you are', source: 'phone' }, ask };
+  return fromPhone ?? loading;
 }
