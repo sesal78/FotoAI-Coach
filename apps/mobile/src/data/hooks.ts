@@ -225,9 +225,11 @@ type SpotList = { spots: SpotDto[] };
  */
 function useSpotsWrite() {
   const client = useQueryClient();
-  return (change: (spots: SpotDto[]) => SpotDto[], onPlace: (answer: PlaceResponse) => SpotDto | null) => {
+  return async (change: (spots: SpotDto[]) => SpotDto[], onPlace: (answer: PlaceResponse) => SpotDto | null) => {
     client.setQueryData<SpotList>(keys.spots, (old) => (old ? { spots: change(old.spots) } : old));
     // An open place screen shows its saved spot. Set it here: loading the place again costs a Places call.
+    // Stop a place load already on its way first: it may have read the spot before this write.
+    await client.cancelQueries({ queryKey: ['explore', 'place'] });
     client.setQueriesData<PlaceResponse>({ queryKey: ['explore', 'place'] }, (old) => (old ? { ...old, spot: onPlace(old) } : old));
   };
 }

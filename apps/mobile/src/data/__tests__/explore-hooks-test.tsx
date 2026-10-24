@@ -155,3 +155,27 @@ test("saving, favouriting and removing a Google spot update that place's own scr
   // Each place screen GET reserves one Places call: a write never asks for it again.
   expect(mockApi.current.calls.some((c) => c.method === 'GET')).toBe(false);
 });
+
+test('a place reload already on its way when the spot is saved cannot put the old unsaved answer back', async () => {
+  const GSPOT = { ...SPOT, source: 'google', placeId: PLACE.placeId, name: PLACE.name };
+  let answerReload: (value: unknown) => void = () => undefined;
+  mockApi.current = fakeApi({
+    [`GET /api/v2/places/${PLACE.placeId}`]: () => new Promise((resolve) => (answerReload = resolve)),
+    'POST /api/v2/me/spots': { spot: GSPOT },
+  });
+  const { client, wrapper } = setup();
+  client.setQueryData(keys.place(PLACE.placeId), { place: PLACE, light: null, weather: null, spot: null });
+  const reload = client.fetchQuery({
+    queryKey: keys.place(PLACE.placeId),
+    queryFn: () => mockApi.current!.request(`/api/v2/places/${PLACE.placeId}`),
+    staleTime: 0,
+  }).catch(() => undefined);
+  const add = await renderHook(() => useAddSpot(), { wrapper });
+  await act(async () => void (await add.result.current.mutateAsync({ placeId: PLACE.placeId })));
+  // The server read the spot before the save landed: its late answer still says "not saved".
+  await act(async () => {
+    answerReload({ place: PLACE, light: null, weather: null, spot: null });
+    await reload;
+  });
+  expect((client.getQueryData(keys.place(PLACE.placeId)) as { spot: unknown }).spot).toMatchObject({ id: SPOT.id });
+});

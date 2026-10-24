@@ -52,8 +52,11 @@ test('a Screen moves up out of the way of the keyboard (Android draws edge to ed
     behaviors.push(props.behavior);
     return <Real {...props} />;
   }) as unknown as typeof Real);
-  await render(wrap(<Screen title="Pin"><Field label="Pin notes" /></Screen>));
-  expect(behaviors).toEqual(['padding']);
-  expect(screen.getByLabelText('Pin notes')).toBeTruthy();
-  spy.mockRestore();
+  try {
+    await render(wrap(<Screen title="Pin"><Field label="Pin notes" /></Screen>));
+    expect(behaviors).toEqual(['padding']);
+    expect(screen.getByLabelText('Pin notes')).toBeTruthy();
+  } finally {
+    spy.mockRestore();
+  }
 });
