@@ -225,9 +225,12 @@ type SpotList = { spots: SpotDto[] };
  */
 function useSpotsWrite() {
   const client = useQueryClient();
-  return (change: (spots: SpotDto[]) => SpotDto[]) => {
+  return async (change: (spots: SpotDto[]) => SpotDto[], onPlace: (answer: PlaceResponse) => SpotDto | null) => {
     client.setQueryData<SpotList>(keys.spots, (old) => (old ? { spots: change(old.spots) } : old));
-    return client.invalidateQueries({ queryKey: ['explore', 'place'] });
+    // An open place screen shows its saved spot. Set it here: loading the place again costs a Places call.
+    // Stop a place load already on its way first: it may have read the spot before this write.
+    await client.cancelQueries({ queryKey: ['explore', 'place'] });
+    client.setQueriesData<PlaceResponse>({ queryKey: ['explore', 'place'] }, (old) => (old ? { ...old, spot: onPlace(old) } : old));
   };
 }
 
@@ -235,7 +238,11 @@ export function useAddSpot() {
   const write = useSpotsWrite();
   return useMutation({
     mutationFn: (input: SpotInput) => getApi().request('/api/v2/me/spots', { schema: SpotResponse, method: 'POST', body: input }),
-    onSuccess: ({ spot }) => write((spots) => [...spots.filter((s) => s.id !== spot.id), spot]),
+    onSuccess: ({ spot }) =>
+      write(
+        (spots) => [...spots.filter((s) => s.id !== spot.id), spot],
+        (answer) => (spot.placeId === answer.place.placeId ? spot : answer.spot),
+      ),
   });
 }
 
@@ -244,7 +251,11 @@ export function useUpdateSpot() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: SpotPatch }) =>
       getApi().request(`/api/v2/me/spots/${encodeURIComponent(id)}`, { schema: SpotResponse, method: 'PATCH', body: patch }),
-    onSuccess: ({ spot }) => write((spots) => spots.map((s) => (s.id === spot.id ? spot : s))),
+    onSuccess: ({ spot }) =>
+      write(
+        (spots) => spots.map((s) => (s.id === spot.id ? spot : s)),
+        (answer) => (answer.spot?.id === spot.id ? spot : answer.spot),
+      ),
   });
 }
 
@@ -252,6 +263,10 @@ export function useDeleteSpot() {
   const write = useSpotsWrite();
   return useMutation({
     mutationFn: (id: string) => getApi().request(`/api/v2/me/spots/${encodeURIComponent(id)}`, { schema: OkResponse, method: 'DELETE' }),
-    onSuccess: (_answer, id) => write((spots) => spots.filter((s) => s.id !== id)),
+    onSuccess: (_answer, id) =>
+      write(
+        (spots) => spots.filter((s) => s.id !== id),
+        (answer) => (answer.spot?.id === id ? null : answer.spot),
+      ),
   });
 }

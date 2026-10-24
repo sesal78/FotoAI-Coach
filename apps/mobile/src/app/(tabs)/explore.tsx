@@ -1,4 +1,4 @@
-// Explore: real places near the home area or the user, and the user's own spots, on a map (when
+// Explore: real places near the user (when location is allowed) or the home area, and the user's own spots, on a map (when
 // this build has a maps key) and in a list, nearest first. Only places from the Places endpoints
 // and the user's spots are ever drawn.
 
@@ -21,7 +21,7 @@ import { Empty, ErrorState, Loading } from '../../ui/states';
 const open = (item: ExploreItem) => router.push(item.kind === 'place' ? `/place/${item.id}` : `/spot/${item.id}`);
 
 export default function Explore() {
-  const { where, ask } = useWhere();
+  const { where, ask } = useWhere({ preferPhone: true });
   const at = where.state === 'ready' ? where.at : null;
   const [type, setType] = useState<string | null>(null);
   const [text, setText] = useState('');

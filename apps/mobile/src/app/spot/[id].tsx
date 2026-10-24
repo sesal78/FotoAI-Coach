@@ -19,7 +19,8 @@ export default function SpotScreen() {
   const update = useUpdateSpot();
   const remove = useDeleteSpot();
   const explain = useExplainSpot(id);
-  const { where } = useWhere();
+  // Distances match Explore: from the phone when location is allowed, else the home area.
+  const { where } = useWhere({ preferPhone: true });
   const spot = spots.data?.spots.find((s) => s.id === id) ?? null;
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');

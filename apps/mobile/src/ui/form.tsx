@@ -1,7 +1,7 @@
 // Shared form parts for the account screens and later forms.
 
 import { useCallback, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from './ThemeProvider';
@@ -32,10 +32,14 @@ export function useAction() {
 export function Screen({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerClassName="gap-4 p-5 pb-32" keyboardShouldPersistTaps="handled">
-        {title ? <Text accessibilityRole="header" className="text-3xl font-bold text-text">{title}</Text> : null}
-        {children}
-      </ScrollView>
+      {/* The app draws edge to edge, so Android no longer shrinks it for the keyboard: padding
+          keeps the field being typed in above the keyboard. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        <ScrollView contentContainerClassName="gap-4 p-5 pb-32" keyboardShouldPersistTaps="handled">
+          {title ? <Text accessibilityRole="header" className="text-3xl font-bold text-text">{title}</Text> : null}
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

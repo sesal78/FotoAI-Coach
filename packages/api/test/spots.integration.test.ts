@@ -57,6 +57,16 @@ describe.skipIf(!db)('v2 my spots against the local Supabase', () => {
     expect(list.spots.map((s: { id: string }) => s.id)).toContain(spot.id);
   });
 
+  test('a new pin or Google spot is not a favourite until the user marks it', async () => {
+    // The column's default is favourite = true; v2 saves set it themselves.
+    const pin = (await (await call(addMySpot, b, { method: 'POST', json: { pin: { name: 'Jetty', lat: -37.86, lng: 144.97 } } })).json()).spot;
+    const google = (await (await call(addMySpot, b, { method: 'POST', json: { placeId: FED } })).json()).spot;
+    expect([pin.favourite, google.favourite]).toEqual([false, false]);
+    expect([(await row(b, pin.id)).favourite, (await row(b, google.id)).favourite]).toEqual([false, false]);
+    await call(deleteMySpot, b, { method: 'DELETE', params: { id: pin.id } });
+    await call(deleteMySpot, b, { method: 'DELETE', params: { id: google.id } });
+  });
+
   test('a Google spot stores only the place id and lists with the fresh name', async () => {
     const res = await call(addMySpot, a, { method: 'POST', json: { placeId: FED, notes: 'steps at dusk' } });
     expect(res.status).toBe(201);

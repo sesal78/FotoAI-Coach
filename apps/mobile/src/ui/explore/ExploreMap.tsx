@@ -23,7 +23,9 @@ export function ExploreMap({
   const { tokens } = useTheme();
   return (
     <View className="h-72 overflow-hidden rounded-lg">
+      {/* initialRegion is read once: a new key re-centres the map when Explore's centre moves. */}
       <MapView
+        key={`${center.lat},${center.lng}`}
         testID="map"
         accessibilityLabel="Map of nearby places and your spots"
         style={{ flex: 1 }}

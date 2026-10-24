@@ -45,11 +45,16 @@ const config: ExpoConfig = {
     'expo-sqlite',
     // Foreground only: Today's light and weather, and setting the home area. Never in the background.
     ['expo-location', { locationWhenInUsePermission: 'FotoAI uses your location to show the light and weather where you are, and to set your home area.', isAndroidBackgroundLocationEnabled: false }],
+    // react-native-maps brings androidx.work 2.9.1 with Room 2.5. Room's own R8 rule keeps the
+    // database class but not its constructor, so the release APK crashed at launch without this.
+    ['expo-build-properties', { android: { extraProguardRules: '-keep class * extends androidx.room.RoomDatabase { <init>(); }' } }],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
   // The EAS project (Expo account topues) that builds the APK. Public ids, not secrets.
   owner: 'topues',
-  extra: { eas: { projectId: 'da8a3077-a742-4365-b8cf-7392759e6210' } },
+  // mapsEnabled tells the app it has a Maps key: Expo leaves android.config out of the config the
+  // app reads at run time. Only a true/false, never the key.
+  extra: { eas: { projectId: 'da8a3077-a742-4365-b8cf-7392759e6210' }, mapsEnabled: Boolean(mapsKey) },
 };
 
 export default config;
