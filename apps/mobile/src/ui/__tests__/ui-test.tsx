@@ -2,9 +2,12 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { ApiClientError } from '../../lib/api';
+import { Field, Screen } from '../form';
 import { ErrorState } from '../states';
 import { ThemeProvider, useTheme } from '../ThemeProvider';
 
+// The module object form.tsx reads KeyboardAvoidingView from, so the test can watch its props.
+const RN = jest.requireActual('react-native') as typeof import('react-native');
 const wrap = (ui: React.ReactElement) => <ThemeProvider initial="golden">{ui}</ThemeProvider>;
 
 test('ErrorState shows the message and Retry calls the query again', async () => {
@@ -44,8 +47,7 @@ test('changing the theme setting re-colours the screen', async () => {
 });
 
 test('a Screen moves up out of the way of the keyboard (Android draws edge to edge, so it does not resize)', async () => {
-  const { Field, Screen } = jest.requireActual('../form') as typeof import('../form');
-  const RN = jest.requireActual('react-native') as typeof import('react-native');
+  // Imported at the top: loading them inside the test made it time out under a full parallel run.
   const Real = RN.KeyboardAvoidingView;
   const behaviors: unknown[] = [];
   const spy = jest.spyOn(RN, 'KeyboardAvoidingView', 'get').mockReturnValue(((props: React.ComponentProps<typeof Real>) => {
