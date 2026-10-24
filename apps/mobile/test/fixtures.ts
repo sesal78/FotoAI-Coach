@@ -1,6 +1,6 @@
 // Contract-shaped answers for screen tests.
 
-import type { ChallengeDto, LightTimesDto, Preferences, ProgressResponse, RollDto, ShootPlanDto, SpotDto, WeatherDto } from '@fotoai/contracts';
+import type { ChallengeDto, LightTimesDto, LoadoutDto, Preferences, ProgressResponse, RollDto, ShootPlanDto, SpotDto, WeatherDto } from '@fotoai/contracts';
 
 export const PREFS_NONE: Preferences = { theme: 'golden', units: 'metric', home: null };
 export const PREFS_HOME: Preferences = { theme: 'golden', units: 'metric', home: { lat: -37.81, lng: 144.96, label: 'Fitzroy' } };
@@ -115,5 +115,24 @@ export const roll = (over: Partial<RollDto> = {}): RollDto => ({
   framesLeft: 23,
   createdAt: '2026-10-24T04:00:00.000Z',
   updatedAt: '2026-10-24T04:00:00.000Z',
+  ...over,
+});
+
+/** A film loadout: a Nikon FM2 with a 50 mm lens and Portra 400 in it. */
+export const filmLoadout = (over: Partial<LoadoutDto> = {}): LoadoutDto => ({
+  body: {
+    id: BODY_ID,
+    kind: 'body',
+    catalogId: 'nikon-fm2',
+    name: 'Nikon FM2',
+    capability: {
+      id: 'nikon-fm2', make: 'Nikon', model: 'FM2', type: 'film', mount: 'nikon-f', modes: ['M'],
+      shutter: { slowestSeconds: 1, fastestSeconds: 1 / 4000, bulb: true }, flashSyncSeconds: 1 / 250, iso: { min: 12, max: 6400 },
+      metering: 'center-weighted', fixedLensId: null, sources: [],
+    },
+  },
+  lensGearId: null,
+  lens: { id: 'nikon-50mm-f1-8', make: 'Nikon', model: 'AI-S 50mm f/1.8', mount: 'nikon-f', focalMm: { min: 50, max: 50 }, maxAperture: { wide: 1.8, tele: 1.8 }, minAperture: 22, sources: [] },
+  film: { stock: 'Kodak Portra 400', boxIso: 400 },
   ...over,
 });

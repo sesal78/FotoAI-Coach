@@ -1,37 +1,45 @@
-// Shoot. Until 3E builds plans, it shows the place handed over from Explore ("Plan a shoot here")
-// by `placeId` or `spotId`. 3E reads the same two parameters.
+// Shoot: the film roll in the camera, New plan for the place handed over from Explore ("Plan a
+// shoot here" sends `placeId` or `spotId`), and my plans, active first. Plans open with no signal.
 
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 
-import { usePlace, useSpots } from '../../data/hooks';
-import { Screen } from '../../ui/form';
-import { Empty } from '../../ui/states';
+import { usePlans, useRolls } from '../../data/shoot';
+import { Screen, TextLink } from '../../ui/form';
+import { NewPlan } from '../../ui/shoot/NewPlan';
+import { PlanRow } from '../../ui/shoot/PlanRow';
+import { RollCard } from '../../ui/shoot/RollCard';
+import { Empty, ErrorState, Loading } from '../../ui/states';
 
-function ChosenPlace({ placeId }: { placeId: string }) {
-  const place = usePlace(placeId);
-  return place.data ? <Text className="text-lg font-semibold text-text">{`Planning: ${place.data.place.name}`}</Text> : null;
-}
-
-function ChosenSpot({ spotId }: { spotId: string }) {
-  const name = useSpots().data?.spots.find((s) => s.id === spotId)?.name;
-  return name ? <Text className="text-lg font-semibold text-text">{`Planning: ${name}`}</Text> : null;
-}
+const ORDER = { active: 0, done: 1, archived: 2 } as const;
 
 export default function Shoot() {
   const { placeId, spotId } = useLocalSearchParams<{ placeId?: string; spotId?: string }>();
-  const chosen = Boolean(placeId || spotId);
+  const plans = usePlans();
+  const loaded = useRolls().rolls.find((r) => r.status === 'loaded');
+  const list = (plans.data?.plans ?? []).filter((p) => p.status !== 'archived').sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+
   return (
     <Screen title="Shoot">
-      {chosen ? (
-        <View className="gap-2 rounded-lg bg-surface p-4">
-          {placeId ? <ChosenPlace placeId={placeId} /> : null}
-          {spotId && !placeId ? <ChosenSpot spotId={spotId} /> : null}
-          <Text className="text-text-muted">Shoot plans arrive in the next update. This place stays chosen here.</Text>
-        </View>
+      {loaded ? <RollCard roll={loaded} onPress={() => router.push(`/roll/${loaded.id}`)} /> : null}
+      {placeId || spotId ? (
+        <NewPlan placeId={placeId} spotId={spotId} />
       ) : (
-        <Empty title="Coming soon" hint="Shoot plans and the film log arrive in a coming update." />
+        <View className="gap-2 rounded-lg bg-surface p-4">
+          <Text className="text-text-muted">To plan a shoot, choose a place first.</Text>
+          <TextLink title="Pick a place in Explore" onPress={() => router.navigate('/explore')} />
+        </View>
       )}
+
+      <Text accessibilityRole="header" className="text-xl font-semibold text-text">
+        My plans
+      </Text>
+      {plans.isPending ? <Loading label="Loading your plans…" /> : null}
+      {plans.isError && !plans.data ? <ErrorState error={plans.error} onRetry={() => void plans.refetch()} /> : null}
+      {plans.isSuccess && list.length === 0 ? <Empty title="No plans yet" hint="Pick a place in Explore and tap Plan a shoot here." /> : null}
+      {list.map((plan) => (
+        <PlanRow key={plan.id} plan={plan} onPress={() => router.push(`/plan/${plan.id}`)} />
+      ))}
     </Screen>
   );
 }

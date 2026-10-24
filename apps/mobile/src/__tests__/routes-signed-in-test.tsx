@@ -27,6 +27,8 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
     // Gear already added, so the signed-in user lands on Today, not Onboarding.
     '/api/v2/me/gear': { items: [{ id: '00000000-0000-4000-8000-000000000001', kind: 'body', catalogId: 'fujifilm-x-t5', name: 'Fujifilm X-T5', capability: null }] },
     '/api/v2/challenges/active': { challenge: null },
+    '/api/v2/plans': { plans: [] },
+    '/api/v2/rolls': { rolls: [] },
   };
   mockState.request.mockImplementation(async (path: string) => answers[path.split('?')[0]!] ?? { challenge: null });
 
@@ -37,7 +39,7 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
 
   const tabs = [
     ['Explore', /Real places on a map/],
-    ['Shoot', /Shoot plans and the film log/],
+    ['Shoot', /To plan a shoot, choose a place first/],
     ['Photos', /Photo import and feedback/],
     ['Me', /Signed in as seun@example.com/],
   ] as const;
