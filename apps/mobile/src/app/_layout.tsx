@@ -51,6 +51,8 @@ function Navigator() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="place/[placeId]" />
         <Stack.Screen name="plan/[id]" />
+        <Stack.Screen name="roll/load" />
+        <Stack.Screen name="roll/[id]" />
         <Stack.Screen name="spot/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>

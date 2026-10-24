@@ -21,7 +21,7 @@ export default function Shoot() {
 
   return (
     <Screen title="Shoot">
-      {loaded ? <RollCard roll={loaded} onPress={() => router.push(`/roll/${loaded.id}`)} /> : null}
+      {loaded ? <RollCard roll={loaded} onPress={() => router.push(`/roll/${loaded.id}`)} /> : <TextLink title="Load a film roll" onPress={() => router.push('/roll/load')} />}
       {placeId || spotId ? (
         <NewPlan placeId={placeId} spotId={spotId} />
       ) : (

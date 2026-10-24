@@ -116,6 +116,15 @@ test('the loaded roll shows at the top with its frame count', async () => {
   mockApi.current = fakeApi({ ...routes, 'GET /api/v2/rolls': { rolls: [roll(), roll({ id: '22222222-aaaa-4bbb-8ccc-0000000000f1', status: 'finished' })] } });
   await renderScreen(<Shoot />);
   expect(await screen.findByText('Kodak Portra 400 · frame 14 of 36')).toBeTruthy();
+  expect(screen.queryByText('Load a film roll')).toBeNull();
+});
+
+test('with no roll loaded, Load a film roll opens Load a roll', async () => {
+  mockParams.current = {};
+  mockApi.current = fakeApi(routes);
+  await renderScreen(<Shoot />);
+  await act(async () => await fireEvent.press(await screen.findByText('Load a film roll')));
+  expect(router.push).toHaveBeenLastCalledWith('/roll/load');
 });
 
 test('with no place chosen it points to Explore; no plans yet shows the empty state', async () => {
