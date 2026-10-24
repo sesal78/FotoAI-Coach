@@ -1,5 +1,5 @@
-// FotoAI session cookies. Separate names from the Appwrite cookie (foto_session)
-// so both stacks can run side by side during the rollback window.
+// FotoAI session cookies. Separate names from the legacy cookie (foto_session)
+// so an old cookie never opens a FotoAI session.
 //
 // The browser never sees the token: cookies are HttpOnly and only the server
 // forwards them to Supabase.

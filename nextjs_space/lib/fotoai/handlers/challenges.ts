@@ -6,7 +6,7 @@
 //   POST  /api/fotoai/challenges/generate {challengeType?, forceGenerate?}
 //                                                 generate (or return today's) own challenge
 //
-// Not ported on purpose: the Appwrite route's `?latest=true` path, which
+// Not ported on purpose: the legacy route's `?latest=true` path, which
 // returned the newest challenge of ANY user without authentication.
 
 import {

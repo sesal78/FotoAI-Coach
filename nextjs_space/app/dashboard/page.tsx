@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import {
   usePendingChallenge,
   useUserProgress,
@@ -35,7 +35,7 @@ import {
 } from '@/lib/fotoai/client-challenges';
 
 export default function DashboardPage() {
-  const { user: session, status: sessionStatus } = useAppwriteAuth();
+  const { user: session, status: sessionStatus } = useAuth();
 
   const hasFotoaiSession = sessionStatus === 'authenticated';
   const { data: newestPending, isLoading: challengeLoading } = usePendingChallenge(hasFotoaiSession);

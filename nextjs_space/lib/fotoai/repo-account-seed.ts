@@ -1,5 +1,5 @@
 // Seeds a new account's preferences and progress rows, like the legacy
-// Appwrite register route did. Runs with the USER token (RLS applies) once a
+// register route did. Runs with the USER token (RLS applies) once a
 // session exists: after sign-up confirmation, or at register when Auth returns
 // a session straight away. Existing rows are never overwritten.
 

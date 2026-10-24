@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import { useSkillTree } from '@/hooks/fotoai/skills';
 import { motion } from 'framer-motion';
 import {
@@ -194,7 +194,7 @@ function CategorySection({ category, skills }: { category: string; skills: Skill
 }
 
 export default function SkillsPage() {
-  const { user, status: authStatus } = useAppwriteAuth();
+  const { user, status: authStatus } = useAuth();
   const { data: tree, isLoading } = useSkillTree(authStatus === 'authenticated');
   const [activeTab, setActiveTab] = useState<'all' | SkillCategory>('all');
 

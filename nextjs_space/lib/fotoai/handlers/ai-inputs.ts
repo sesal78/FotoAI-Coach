@@ -1,8 +1,8 @@
 // Shared input helpers for the FotoAI vision handlers (reverse, editing, portfolio).
 //
-// Builds the same LLM inputs the legacy Appwrite routes built: the caller's
+// Builds the same LLM inputs the legacy (pre-Supabase) routes built: the caller's
 // skill level and gear (now read owner-scoped), image data URIs, and the RAW
-// rejection rule from app/api/editing-recipe/route.ts.
+// rejection rule from the old editing-recipe route.
 
 import { FotoaiError, FotoaiUpstreamError, FotoaiValidationError } from '../errors.ts';
 import type { IncomingPhoto } from '../photos.ts';

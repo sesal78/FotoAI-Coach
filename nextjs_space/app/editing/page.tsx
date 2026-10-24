@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import { useEditingRecipes } from '@/hooks/fotoai/editing';
 import { createFotoaiEditingRecipe, type FotoaiEditingRecipe } from '@/lib/fotoai/client-ai';
 import { Button } from '@/components/ui/button';
@@ -199,7 +199,7 @@ function HistoryCard({ analysis }: { analysis: FotoaiEditingRecipe }) {
 }
 
 export default function EditingPage() {
-  const { status } = useAppwriteAuth();
+  const { status } = useAuth();
   const { data: recipes = [], isLoading: recipesLoading, refetch } = useEditingRecipes(status === 'authenticated');
   const [originalPhoto, setOriginalPhoto] = useState<File | null>(null);
   const [editedPhoto, setEditedPhoto] = useState<File | null>(null);

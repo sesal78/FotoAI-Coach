@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth'
+import { useAuth } from '@/contexts/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -72,7 +72,7 @@ function saveChatHistory(messages: Message[]) {
 }
 
 export default function ChatPage() {
-  const { status } = useAppwriteAuth()
+  const { status } = useAuth()
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [loadingChallenge, setLoadingChallenge] = useState(false)
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory())

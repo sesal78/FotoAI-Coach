@@ -4,14 +4,14 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff, Camera } from 'lucide-react';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/dashboard';
   const verified = searchParams.get('verified') === '1';
-  const { signIn, status } = useAppwriteAuth();
+  const { signIn, status } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -63,7 +63,7 @@ function LoginForm() {
           </div>
           <div className="flex items-center gap-3 text-background/40 text-sm">
             <Camera className="h-4 w-4" />
-            <span>Powered by Appwrite + Abacus.AI</span>
+            <span>Powered by Supabase + OpenAI</span>
           </div>
         </div>
       </div>

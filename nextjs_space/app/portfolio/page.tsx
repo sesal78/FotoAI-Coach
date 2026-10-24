@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { useAppwriteAuth } from '@/hooks/useAppwriteAuth';
+import { useAuth } from '@/contexts/auth-context';
 import { usePortfolioAnalyses } from '@/hooks/fotoai/portfolio';
 import { createFotoaiPortfolioAnalysis } from '@/lib/fotoai/client-ai';
 import { motion } from 'framer-motion';
@@ -12,7 +12,7 @@ import {
 import type { PortfolioAnalysis } from '@/lib/types';
 
 export default function PortfolioPage() {
-  const { user, status: authStatus } = useAppwriteAuth();
+  const { user, status: authStatus } = useAuth();
   const { data: history, refetch: refetchHistory } = usePortfolioAnalyses(authStatus === 'authenticated');
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
