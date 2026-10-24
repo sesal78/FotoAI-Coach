@@ -131,3 +131,27 @@ test('a failed photo or explain is not retried by itself (each try uses the hour
   await waitFor(() => expect(photo.result.current.isError && explain.result.current.isError).toBe(true));
   expect(mockApi.current.calls).toHaveLength(2);
 });
+
+test("saving, favouriting and removing a Google spot update that place's own screen at once, with no paid refetch", async () => {
+  const GSPOT = { ...SPOT, source: 'google', placeId: PLACE.placeId, name: PLACE.name };
+  mockApi.current = fakeApi({
+    'POST /api/v2/me/spots': { spot: GSPOT },
+    [`PATCH /api/v2/me/spots/${SPOT.id}`]: (b: unknown) => ({ spot: { ...GSPOT, ...(b as object) } }),
+    [`DELETE /api/v2/me/spots/${SPOT.id}`]: { success: true },
+  });
+  const { client, wrapper } = setup();
+  client.setQueryData(keys.spots, { spots: [] });
+  client.setQueryData(keys.place(PLACE.placeId), { place: PLACE, light: null, weather: null, spot: null });
+  const add = await renderHook(() => useAddSpot(), { wrapper });
+  const update = await renderHook(() => useUpdateSpot(), { wrapper });
+  const remove = await renderHook(() => useDeleteSpot(), { wrapper });
+  const onScreen = () => (client.getQueryData(keys.place(PLACE.placeId)) as { spot: { favourite: boolean } | null }).spot;
+  await act(async () => void (await add.result.current.mutateAsync({ placeId: PLACE.placeId })));
+  expect(onScreen()).toMatchObject({ id: SPOT.id, favourite: false });
+  await act(async () => void (await update.result.current.mutateAsync({ id: SPOT.id, patch: { favourite: true } })));
+  expect(onScreen()).toMatchObject({ favourite: true });
+  await act(async () => void (await remove.result.current.mutateAsync(SPOT.id)));
+  expect(onScreen()).toBeNull();
+  // Each place screen GET reserves one Places call: a write never asks for it again.
+  expect(mockApi.current.calls.some((c) => c.method === 'GET')).toBe(false);
+});

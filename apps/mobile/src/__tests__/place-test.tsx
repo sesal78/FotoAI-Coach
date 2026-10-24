@@ -181,3 +181,14 @@ test('loading, not found and offline states', async () => {
   await renderScreen(<PlaceScreen />);
   expect(await screen.findByTestId('offline-banner')).toBeTruthy();
 });
+
+test('after Save to My spots the place shows as saved, even when the place is not loaded again', async () => {
+  // On the phone the screen kept its first answer (spot: null): no favourites, and Save stayed.
+  mockApi.current = fakeApi(placeRoutes({
+    'POST /api/v2/me/spots': { spot: spot({ id: SID, source: 'google', placeId: PID, name: 'Federation Square', favourite: false }) },
+  }));
+  await renderScreen(<PlaceScreen />);
+  await act(async () => await fireEvent.press(await screen.findByText('Save to My spots')));
+  expect(await screen.findByText('Add to favourites')).toBeTruthy();
+  expect(screen.queryByText('Save to My spots')).toBeNull();
+});
