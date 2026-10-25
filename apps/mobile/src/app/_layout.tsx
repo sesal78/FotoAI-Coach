@@ -2,11 +2,12 @@ import '../global.css';
 
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import { SessionProvider, useSession } from '../auth/session';
 import { getSupabase } from '../auth/supabase';
-import { claimAccount, clearAccountData, queryClient } from '../data/client';
+import { claimAccount, clearAccountData, queryClient, startFieldSync } from '../data/client';
 import { savedReads } from '../data/persist';
 import { appEnv } from '../lib/env';
 import { Screen } from '../ui/form';
@@ -15,6 +16,7 @@ import { ThemeProvider } from '../ui/ThemeProvider';
 
 export default function RootLayout() {
   const supabase = getSupabase();
+  useEffect(() => startFieldSync(), []);
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={savedReads.options}>
       <ThemeProvider>
@@ -46,8 +48,12 @@ function Navigator() {
         <Stack.Screen name="me/gear/custom" />
         <Stack.Screen name="me/loadout" />
         <Stack.Screen name="me/settings" />
+        <Stack.Screen name="me/sync" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="place/[placeId]" />
+        <Stack.Screen name="plan/[id]" />
+        <Stack.Screen name="roll/load" />
+        <Stack.Screen name="roll/[id]" />
         <Stack.Screen name="spot/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>

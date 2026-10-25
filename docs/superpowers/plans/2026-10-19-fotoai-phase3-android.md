@@ -516,15 +516,131 @@ Without the server key the APK still ships: Explore shows "Places unavailable" a
 - [ ] **Seun's steps:** add the two keys (table above).
 - [ ] **Stop for Seun's yes.** Then: redeploy Dokploy so the server key loads (smoke 48/48 still green; on the phone, Explore lists nearby places), merge, build the preview APK on EAS, and Seun runs the 3D checklist.
 
-## Sub-phase 3E: Shoot and the offline field mode (task level)
+## Sub-phase 3E: Shoot and the offline field mode (step level, expanded 24 Oct 2026)
 
-**Ships:** APK only.
-- **E1 Local store:** expo-sqlite tables `cache` (key, json, updated_at) and `outbox` (id, kind, path, method, body, attempts, next_try_at, created_at). Opened plans and the active roll are kept in `cache`.
-- **E2 Sync engine:** runs on start, on reconnect (netinfo) and every 30 s while online; sends outbox items in order, with backoff; deletes an item only after a 2xx (or a 4xx the server will never accept, which is moved to a visible "Needs attention" list, never dropped silently). A badge shows how many records wait.
-- **E3 New plan:** place or spot, date, loadout (body, lens, film), `POST /api/v2/plans`; the server's validation messages shown at the field.
-- **E4 Plan view:** ordered steps with settings and times in the place's timezone; "Done" and "Skip" write to the outbox (`PATCH .../steps/:stepId` with `updatedAt`).
-- **E5 Film:** load a roll (stock list, box speed, push or pull, exposures), a frame logger with the counter and an end-of-roll warning, the sunny 16 helper from `@fotoai/core`, and frame logging through the outbox with a client id.
-- **Tests:** `a frame logged offline is sent once when back online`; `the outbox survives a restart`; `two taps on Done send one change`; `a step changed on the web later wins over an older offline change`. **Checklist:** 3E section with an airplane-mode run, a forced app kill and the return online.
+**Ships:** APK only. No migration, no code deploy: every endpoint 3E calls is live. **Production:** one EAS preview build on Seun's yes, then Seun's phone checklist.
+
+**Facts this expansion is built on (read 24 Oct 2026, against `master` `d9baf45`):**
+- Live and used by 3E:
+  - `POST /api/v2/plans` with `{ placeId | spotId, date? }` → `{ plan }` (201). The server uses the **saved loadout** (it answers "Set your loadout first", or "Load a film first" for a film body) and runs the AI (limit: 20 plans an hour). The date defaults to today in the place's timezone.
+  - `GET /api/v2/plans` (summaries), `GET /api/v2/plans/:id` (`placeName` fetched fresh from Google, `steps` with `startsAt` in the place's timezone), `PATCH /api/v2/plans/:id` `{ status: active | done | archived }`.
+  - `PATCH /api/v2/plans/:id/steps/:stepId` `{ status: todo | done | skipped, updatedAt }`: **last write wins**. An older change answers `applied: false` with the stored step; a time in the future is a 400.
+  - `GET`/`POST /api/v2/rolls`, `GET`/`PATCH`/`DELETE /api/v2/rolls/:id`, `POST /api/v2/rolls/:id/frames`. Roll and frame ids come from the phone; **a replayed create returns the stored record** (safe to send twice). A frame past the roll's end (+2 spare) is a 400.
+  - `@fotoai/core`: `FILM_STOCKS`, `findStock`, `sunny16(scene, iso)`, `framesLeft`, `pushPullStops`.
+- In the app today: saved reads (TanStack persister on expo-sqlite, 7 days, per account, cleared on sign-out), NetInfo drives `onlineManager`, `expo-crypto` is installed (for ids), `useWhere` gives the place, the loadout screen (3C) holds body, lens and film. Shoot shows only the place handed over from Explore.
+- Google terms: `placeName` in a plan is Google content, so it is **not** saved on the phone (same rule as spots).
+
+**Simplification against the task-level plan:** the old E1 asked for a separate `cache` table. The saved reads from 3C already keep reads on the phone, so 3E reuses them for plans and rolls. Only the **outbox** is new.
+
+**Rules for every 3E screen:** the four states (loading, empty, error with Retry, offline); a write made offline shows at once on the screen and waits in the outbox; nothing waiting is ever dropped without the user's yes; the AI runs only from a tap ("Make the plan").
+
+### Task E0: Branch setup and the 3D build link
+
+**Files:** `apps/mobile/CHECKLIST.md` (the 3D build link at the top of section 3D).
+
+- [ ] **Step 1:** add the link. **Step 2: Commit.** `docs(mobile): 3D build link in the checklist`
+
+### Task E1: The outbox (survives a restart)
+
+**Files:** create `apps/mobile/src/data/outbox.ts`; tests `apps/mobile/src/data/__tests__/outbox-test.ts`.
+
+**Interface:**
+- An expo-sqlite table `outbox` (`id`, `owner`, `kind`, `method`, `path`, `body`, `key`, `attempts`, `next_try_at`, `state`, `error`, `created_at`) in the app's database.
+- `enqueue({ kind, method, path, body, key })`: `key` names the record (for example `step:<stepId>`). A new change to the same key **replaces** the older one that has not been sent yet, so two taps send one change.
+- `owner` is the signed-in account. Items are only ever sent with their owner's session.
+- `useOutbox()`: the waiting count and the "Needs attention" items, kept live.
+
+- [ ] **Step 1: Write the failing tests:** `an item survives a restart (a new store on the same database still has it)`; `two changes to the same step keep only the newest`; `items come back in the order they were made`; `items of another account are never listed`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): an outbox that survives restarts`
+
+### Task E2: The sync engine
+
+**Files:** create `apps/mobile/src/data/sync.ts`; wire it in `apps/mobile/src/app/_layout.tsx`; tests `apps/mobile/src/data/__tests__/sync-test.ts`.
+
+**Interface:**
+- Runs on start, on reconnect, after each `enqueue`, and every 30 s while online and items wait. One run at a time.
+- Sends items in order. On a 2xx: delete the item and put the answer into the matching read (plan, roll).
+- No signal, a timeout or a 5xx: keep it, and wait longer each time (5 s, 30 s, 2 min, then 10 min).
+- A 401: stop until the user signs in again.
+- Any other 4xx: the server will never accept it, so it moves to "Needs attention" with the server's message. It is **never** dropped silently.
+- Sign-out with items waiting: the app asks first ("3 changes are not sent yet"). If the user signs out anyway, the items stay and are sent the next time **that** account signs in.
+
+- [ ] **Step 1: Write the failing tests:** `a frame logged offline is sent once when back online`; `a 500 is tried again later, a 400 moves to Needs attention`; `a 401 waits for the next sign-in`; `items wait for their own account`; `two runs never overlap`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): sync the outbox when the phone is online`
+
+### Task E3: Plan and roll data hooks
+
+**Files:** modify `apps/mobile/src/data/{keys,schemas,hooks,persist}.ts`; tests `apps/mobile/src/data/__tests__/shoot-hooks-test.tsx`.
+
+**Interfaces:**
+- `usePlans()`, `usePlan(id)` (saved on the phone, with `placeName` removed when saved), `useMakePlan()` (online only; the server's message shows at the field).
+- `useStepChange(planId)`: sets the step on screen at once and enqueues `PATCH .../steps/:stepId` with `updatedAt` = the tap time. When the answer says `applied: false`, the screen takes the server's step.
+- `useRolls()`, `useRoll(id)` (saved), `useLoadRoll()`, `useLogFrame(rollId)`, `useFinishRoll(rollId)`: each makes its id on the phone, shows at once, and goes through the outbox.
+
+- [ ] **Step 1: Write the failing tests:** `a plan opened once still opens with no signal (without its Google place name)`; `two taps on Done send one change`; `a step changed on the web later wins over an older offline change`; `a frame logged offline counts at once`; `Set your loadout first shows the server's message`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): plan and roll hooks through the outbox`
+
+### Task E4: The Shoot tab and New plan
+
+**Files:** rewrite `apps/mobile/src/app/(tabs)/shoot.tsx`; create `apps/mobile/src/ui/shoot/` (`PlanRow.tsx`, `NewPlan.tsx`, `RollCard.tsx`); tests `apps/mobile/src/__tests__/shoot-test.tsx` (replaces `shoot-handoff-test.tsx`).
+
+**Interface:**
+- Top: the active roll card (when one is loaded) and the outbox badge ("2 changes waiting").
+- **New plan** opens with the place handed over from Explore (`placeId` or `spotId`), or asks to pick one in Explore. It shows the date (today, tomorrow, or a date) and the current loadout with "Change loadout".
+- "Make the plan" calls the server. "Set your loadout first" and "Load a film first" show with a link to the loadout. A 429 shows the server's message.
+- Below: my plans, active first, then done; each row shows the place, the date and the steps done.
+
+- [ ] **Step 1: Write the failing tests:** `Plan a shoot here opens New plan with that place`; `Make the plan sends the place and the date`; `the loadout message links to the loadout`; `plans list active first`; plus loading, empty, error and offline (New plan says it needs a signal; the list still shows).
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): Shoot tab with my plans and New plan`
+
+### Task E5: The plan screen
+
+**Files:** create `apps/mobile/src/app/plan/[id].tsx`; create `apps/mobile/src/ui/shoot/StepCard.tsx`; register the route; tests `apps/mobile/src/__tests__/plan-test.tsx`.
+
+**Interface:**
+- Title, the place (or "Saved on this phone" when offline), the date and the loadout, the plan's notes.
+- Steps in order, each with its time in the **place's** timezone, the instruction, the tip and the settings (mode, aperture, shutter, ISO, focal length).
+- Each step: **Done**, **Skip**, and **Undo** once changed. These work offline.
+- "Mark plan done" and "Archive" (through the outbox). "Log a frame" on a step opens the frame logger with that step's settings.
+
+- [ ] **Step 1: Write the failing tests:** `steps show their times in the place's timezone`; `Done works with no signal and is sent when back online`; `a step the server says is newer replaces the local one`; `Log a frame carries the step's settings`; plus the four states.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): plan screen with steps that work offline`
+
+### Task E6: Film: load a roll and log frames
+
+**Files:** create `apps/mobile/src/app/roll/load.tsx` and `apps/mobile/src/app/roll/[id].tsx`; create `apps/mobile/src/ui/shoot/` (`StockPicker.tsx`, `FrameLogger.tsx`, `Sunny16.tsx`); register the routes; tests `apps/mobile/src/__tests__/roll-test.tsx`.
+
+**Interfaces:**
+- **Load a roll** (film body in the loadout only): a stock from `FILM_STOCKS` or my own name with its box ISO; rated ISO with the push or pull shown ("+1 stop push"); exposures 12, 24, 36 or a number. One roll is active at a time.
+- **Roll screen:** the counter ("Frame 14 of 36, 22 left"), the frames logged, and "Finish roll".
+- **Frame logger:** frame number (the next one, can be changed), aperture, shutter and ISO (filled from the step or from **Sunny 16**), a note, and the place when location is already allowed (never asked for here). Save works offline.
+- **Sunny 16 helper:** pick the light (full sun to open shade, golden hour); it gives aperture and shutter at the rated ISO. Blue hour says "Meter it: Sunny 16 does not cover this light."
+- **End of roll:** a warning at 2 frames left; at 0, "Roll full: finish it" (2 spare frames past the end are still allowed, as the server allows).
+
+- [ ] **Step 1: Write the failing tests:** `a roll loads with a known stock or my own`; `the push or pull is shown`; `the counter counts a frame logged offline`; `Sunny 16 gives f/16 at 1/125 for ISO 125 in full sun`; `the end-of-roll warning shows at 2 left`; `a frame logged offline is sent once when back online`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): load a film roll and log frames offline`
+
+### Task E7: Waiting changes and Needs attention
+
+**Files:** create `apps/mobile/src/app/me/sync.tsx`; modify `apps/mobile/src/app/me/settings.tsx` (a row "Changes waiting: 2") and the sign-out flow (asks when items wait); tests `apps/mobile/src/__tests__/sync-screen-test.tsx`.
+
+**Interface:** the count waiting, "Send now", and the Needs attention list with each item's message, **Try again**, and **Remove** (asks first).
+
+- [ ] **Step 1: Write the failing tests:** `the badge counts waiting changes`; `Try again sends the item again`; `Remove asks first`; `sign-out with changes waiting asks first and keeps them`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): see and retry changes that wait`
+
+### Task E8: 3E release
+
+- [ ] One fresh reviewer checks the whole branch; one fix pass; PR; CI green in all four jobs.
+- [ ] Add `apps/mobile/CHECKLIST.md` section 3E: make a plan from a place; open it in airplane mode; mark steps done and skip one; load a roll and log 3 frames in airplane mode; kill the app and reopen it (the changes still wait); turn airplane mode off (they send once, and the badge clears); a step changed on the web wins; finish the roll.
+- [ ] **Stop for Seun's yes.** Then: merge, build the preview APK on EAS (and check it opens on the emulator), and Seun runs the 3E checklist.
 
 ## Sub-phase 3F: Photos and the Coach (task level)
 

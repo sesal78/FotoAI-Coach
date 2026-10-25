@@ -9,3 +9,7 @@ jest.mock('react-native-maps', () => {
   const Marker = (props: Record<string, unknown>) => React.createElement(View, { ...props, testID: props.testID ?? 'marker' });
   return { __esModule: true, default: MapView, Marker, PROVIDER_GOOGLE: 'google' };
 });
+
+// expo-crypto's randomUUID is native; in Jest it returns nothing. Ids made on the phone (outbox
+// items, rolls, frames) need to be real and unique in tests too.
+jest.mock('expo-crypto', () => ({ ...jest.requireActual('expo-crypto'), randomUUID: () => jest.requireActual('node:crypto').randomUUID() }));
