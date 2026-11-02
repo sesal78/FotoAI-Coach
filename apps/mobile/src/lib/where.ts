@@ -1,6 +1,6 @@
 // Where Today looks: the home area from preferences, else the phone's location (foreground only,
-// and only once the user has allowed it: the permission is asked from a tap, never by itself),
-// else nowhere: Today then asks for a home area and never invents a place.
+// and only once the user has allowed it: Today asks from a tap, never by itself), else nowhere:
+// Today then asks for a home area and never invents a place. Explore asks once when it opens.
 
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
@@ -21,9 +21,24 @@ export type Where =
 /** About 100 m: enough for light and weather, without storing where exactly someone lives. */
 export const roughly = (n: number) => Math.round(n * 1000) / 1000;
 
+/** A fresh fix can take long (indoors, no GPS); after this, the last known position is used. */
+const FRESH_FIX_MS = 10_000;
+
+function withinTime<T>(work: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    work.then(
+      (value) => (clearTimeout(timer), resolve(value)),
+      () => (clearTimeout(timer), resolve(null)),
+    );
+  });
+}
+
 /**
- * The phone's location, or null when it is refused or unknown. Never throws. With `ask`, the
- * permission is requested when Android still allows asking; without it, it is only checked.
+ * The phone's location now, or null when it is refused or unknown. Never throws. With `ask`, the
+ * permission is requested when Android still allows asking; without it, it is only checked. A
+ * fresh fix comes first; the last known position (at most 15 minutes old) is only the fallback,
+ * so a phone that moved is not shown where it was.
  */
 export async function phoneLocation({ ask = true }: { ask?: boolean } = {}): Promise<LatLng | null> {
   try {
@@ -31,8 +46,8 @@ export async function phoneLocation({ ask = true }: { ask?: boolean } = {}): Pro
     if (!permission.granted && ask && permission.canAskAgain) permission = await Location.requestForegroundPermissionsAsync();
     if (!permission.granted) return null;
     const position =
-      (await Location.getLastKnownPositionAsync({ maxAge: 15 * 60_000 })) ??
-      (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }));
+      (await withinTime(Promise.resolve().then(() => Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low })), FRESH_FIX_MS)) ??
+      (await Location.getLastKnownPositionAsync({ maxAge: 15 * 60_000 }));
     return position ? { lat: roughly(position.coords.latitude), lng: roughly(position.coords.longitude) } : null;
   } catch {
     return null;
@@ -41,8 +56,8 @@ export async function phoneLocation({ ask = true }: { ask?: boolean } = {}): Pro
 
 /**
  * Where Today looks, and `ask` to request the location permission from a tap. With `preferPhone`
- * (Explore), the phone's location wins when it is already allowed, and the home area is the
- * fallback; it is still never asked for by itself.
+ * (Explore), the permission is asked once when the screen opens, the phone's location wins when
+ * allowed, and the home area is the fallback.
  */
 export function useWhere({ preferPhone = false }: { preferPhone?: boolean } = {}): { where: Where; ask: () => void } {
   const prefs = usePreferences();
@@ -54,8 +69,8 @@ export function useWhere({ preferPhone = false }: { preferPhone?: boolean } = {}
   useEffect(() => {
     if (!needPhone || phone !== 'idle') return;
     setPhone('checking');
-    void phoneLocation({ ask: false }).then((at) => setPhone(at ?? 'none'));
-  }, [needPhone, phone]);
+    void phoneLocation({ ask: preferPhone }).then((at) => setPhone(at ?? 'none'));
+  }, [needPhone, phone, preferPhone]);
 
   // Back from Android settings (or anywhere): check again, in case location was allowed there.
   // With preferPhone the check is silent: Explore keeps what it shows (and any pin being typed)
