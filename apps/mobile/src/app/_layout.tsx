@@ -2,17 +2,20 @@ import '../global.css';
 
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
+import Storage from 'expo-sqlite/kv-store';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import { SessionProvider, useSession } from '../auth/session';
 import { getSupabase } from '../auth/supabase';
 import { claimAccount, clearAccountData, queryClient, startFieldSync } from '../data/client';
-import { savedReads } from '../data/persist';
+import { savedReads, savedReadsOwner } from '../data/persist';
 import { appEnv } from '../lib/env';
 import { Screen } from '../ui/form';
 import { Loading } from '../ui/states';
 import { ThemeProvider } from '../ui/ThemeProvider';
+
+const rememberedUser = () => savedReadsOwner(Storage);
 
 export default function RootLayout() {
   const supabase = getSupabase();
@@ -21,7 +24,7 @@ export default function RootLayout() {
     <PersistQueryClientProvider client={queryClient} persistOptions={savedReads.options}>
       <ThemeProvider>
         {appEnv.ok && supabase ? (
-          <SessionProvider auth={supabase.auth} onSignedOut={clearAccountData} onSignedIn={claimAccount}>
+          <SessionProvider auth={supabase.auth} onSignedOut={clearAccountData} onSignedIn={claimAccount} rememberedUser={rememberedUser}>
             <Navigator />
           </SessionProvider>
         ) : (
