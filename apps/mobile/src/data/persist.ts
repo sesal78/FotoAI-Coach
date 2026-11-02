@@ -1,5 +1,6 @@
 // Reads are kept on the phone (expo-sqlite kv-store) so a screen opened with no signal shows its
-// last good answer. Only successful reads are saved, never writes; they last 7 days and are
+// last good answer. Only reads with an answer are saved, never writes; a read whose refresh failed
+// (no signal) is saved as its last good answer. They last 7 days and are
 // dropped when the app version changes. Sign-out clears them. No token is ever in a read.
 // Google Places answers (names, addresses, photos) carry `meta.save: false` and are never saved:
 // the Google Maps Platform terms allow them fresh only.
@@ -9,8 +10,10 @@ import type { PersistedClient, PersistQueryClientOptions } from '@tanstack/react
 import Constants from 'expo-constants';
 import Storage from 'expo-sqlite/kv-store';
 
+import { SAVED_MAX_AGE } from './query-defaults';
+
+export { SAVED_MAX_AGE };
 export const SAVED_KEY = 'fotoai.saved-reads.v1';
-export const SAVED_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const OWNER_KEY = 'fotoai.saved-reads.owner.v1';
 
 interface StringStorage {
@@ -40,13 +43,29 @@ export function withoutGoogleContent(client: PersistedClient): PersistedClient {
   return { ...client, clientState: { ...client.clientState, queries } };
 }
 
+/**
+ * A read whose last refresh failed (offline) keeps its answer but has status `error`. It is saved
+ * as its last good answer, so after a restart the screen shows it, not an error.
+ */
+export function asLastGood(client: PersistedClient): PersistedClient {
+  const queries = client.clientState.queries.map((q) =>
+    q.state.status === 'error' && q.state.data !== undefined ? { ...q, state: { ...q.state, status: 'success' as const, error: null, fetchFailureReason: null } } : q,
+  );
+  return { ...client, clientState: { ...client.clientState, queries } };
+}
+
 export function createSavedReads(storage: StringStorage, buster: string) {
-  const persister = createAsyncStoragePersister({ storage, key: SAVED_KEY, throttleTime: 1000, serialize: (client) => JSON.stringify(withoutGoogleContent(client)) });
+  const persister = createAsyncStoragePersister({
+    storage,
+    key: SAVED_KEY,
+    throttleTime: 1000,
+    serialize: (client) => JSON.stringify(asLastGood(withoutGoogleContent(client))),
+  });
   const options: Omit<PersistQueryClientOptions, 'queryClient'> = {
     persister,
     maxAge: SAVED_MAX_AGE,
     buster,
-    dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && q.meta?.save !== false, shouldDehydrateMutation: () => false },
+    dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.data !== undefined && q.meta?.save !== false, shouldDehydrateMutation: () => false },
   };
   return { persister, options, clear: () => Promise.resolve(persister.removeClient()).catch(() => undefined) };
 }
@@ -58,15 +77,18 @@ interface SyncStore {
   setItemSync: (key: string, value: string) => void;
 }
 
+/** The account the saved reads belong to (the last one signed in on this phone), or null. */
+export function savedReadsOwner(store: Pick<SyncStore, 'getItemSync'>): string | null {
+  try {
+    return store.getItemSync(OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
 /** Keeps the saved reads only when they belong to `userId`; otherwise clears them and takes them over. */
 export function claimSavedReads(userId: string, store: SyncStore, clear: () => void): void {
-  let owner: string | null = null;
-  try {
-    owner = store.getItemSync(OWNER_KEY);
-  } catch {
-    owner = null;
-  }
-  if (owner === userId) return;
+  if (savedReadsOwner(store) === userId) return;
   clear();
   try {
     store.setItemSync(OWNER_KEY, userId);

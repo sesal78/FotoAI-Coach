@@ -10,7 +10,15 @@ jest.mock('../data/client', () => ({ getApi: () => mockApi.current }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
 jest.mock('../lib/maps', () => ({ mapsConfigured: () => true }));
 // Sydney, far from the Fitzroy home area in PREFS_HOME.
-const mockLocation: { granted: boolean; asked: number; hold: Promise<void> | null } = { granted: true, asked: 0, hold: null };
+// `allowOnAsk`: the user taps Allow in Android's question. `fresh`: where the phone is now (null
+// when no fix comes); the last known position is Sydney.
+const mockLocation: { granted: boolean; asked: number; hold: Promise<void> | null; allowOnAsk: boolean; fresh: { latitude: number; longitude: number } | null } = {
+  granted: true,
+  asked: 0,
+  hold: null,
+  allowOnAsk: false,
+  fresh: null,
+};
 jest.mock('expo-location', () => ({
   Accuracy: { Low: 2 },
   getForegroundPermissionsAsync: async () => {
@@ -19,10 +27,11 @@ jest.mock('expo-location', () => ({
   },
   requestForegroundPermissionsAsync: async () => {
     mockLocation.asked += 1;
+    if (mockLocation.allowOnAsk) mockLocation.granted = true;
     return { granted: mockLocation.granted, canAskAgain: true };
   },
   getLastKnownPositionAsync: async () => (mockLocation.granted ? { coords: { latitude: -33.8688, longitude: 151.2093 } } : null),
-  getCurrentPositionAsync: async () => null,
+  getCurrentPositionAsync: async () => (mockLocation.granted && mockLocation.fresh ? { coords: mockLocation.fresh } : null),
 }));
 
 const routes = {
@@ -36,6 +45,8 @@ let backToApp: (state: AppStateStatus) => void = () => undefined;
 beforeEach(() => {
   mockLocation.asked = 0;
   mockLocation.hold = null;
+  mockLocation.allowOnAsk = false;
+  mockLocation.fresh = null;
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
     backToApp = handler as (state: AppStateStatus) => void;
     return { remove: () => undefined } as ReturnType<typeof AppState.addEventListener>;
@@ -53,13 +64,31 @@ test('with location allowed, Explore looks where the phone is, even with a home 
   expect(mockLocation.asked).toBe(0);
 });
 
-test('with location not allowed, Explore uses the home area and does not ask by itself', async () => {
+test('with location not allowed yet, Explore asks once when it opens; allowed, it looks where the phone is', async () => {
+  mockLocation.granted = false;
+  mockLocation.allowOnAsk = true;
+  mockApi.current = fakeApi(routes);
+  await renderScreen(<Explore />);
+  await waitFor(() => expect(nearbyAt()).toContain('lat=-33.8690&lng=151.2090'));
+  expect(mockLocation.asked).toBe(1);
+  expect(nearbyCalls()).toHaveLength(1); // never searched the home area first
+});
+
+test('with location refused at the question, Explore uses the home area', async () => {
   mockLocation.granted = false;
   mockApi.current = fakeApi(routes);
   await renderScreen(<Explore />);
   await waitFor(() => expect(nearbyAt()).toContain('lat=-37.8100&lng=144.9600'));
   expect(screen.queryByText('Use my location')).toBeNull();
-  expect(mockLocation.asked).toBe(0);
+  expect(mockLocation.asked).toBe(1);
+});
+
+test('Explore uses where the phone is now, not an older last known position', async () => {
+  mockLocation.granted = true;
+  mockLocation.fresh = { latitude: -31.9523, longitude: 115.8613 }; // Perth
+  mockApi.current = fakeApi(routes);
+  await renderScreen(<Explore />);
+  await waitFor(() => expect(nearbyAt()).toContain('lat=-31.9520&lng=115.8610'));
 });
 
 test('coming back to the app with location still refused keeps Explore as it was (no loading, no new search)', async () => {
@@ -86,5 +115,5 @@ test('allowing location in Android settings and coming back moves Explore to whe
   mockLocation.granted = true;
   await act(async () => backToApp('active'));
   await waitFor(() => expect(nearbyCalls().at(-1)).toContain('lat=-33.8690&lng=151.2090'));
-  expect(mockLocation.asked).toBe(0);
+  expect(mockLocation.asked).toBe(1); // asked once at the start, never again on return
 });

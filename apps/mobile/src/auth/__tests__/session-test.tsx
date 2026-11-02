@@ -4,10 +4,10 @@ import { Text } from 'react-native';
 import { b64ToUtf8, utf8ToB64 } from '../expo-crypto-port';
 import { SessionProvider, useSession, type SessionAuth } from '../session';
 
-function fakeAuth(session: object | null) {
+function fakeAuth(session: object | null, error: object | null = null) {
   let listener: ((event: string, s: object | null) => void) | null = null;
   const auth: SessionAuth = {
-    getSession: jest.fn(async () => ({ data: { session }, error: null })) as never,
+    getSession: jest.fn(async () => ({ data: { session }, error })) as never,
     onAuthStateChange: jest.fn((cb) => {
       listener = cb as never;
       return { data: { subscription: { unsubscribe: jest.fn() } } };
@@ -80,6 +80,45 @@ test('no session at start clears whatever an earlier account left on the phone',
   const onSignedOut = jest.fn();
   await render(<SessionProvider auth={auth} onSignedOut={onSignedOut}><Probe /></SessionProvider>);
   await screen.findByText('signed_out');
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
+// Supabase offline with an expired access token: no session, and a network error (the stored
+// session stays in storage until a refresh is refused).
+const AUTH_OFFLINE = { name: 'AuthRetryableFetchError', status: 0, message: 'Failed to fetch' };
+
+test('offline at start with an expired session stays signed in as the last account, so its saved data stays', async () => {
+  const { auth, emit } = fakeAuth(null, AUTH_OFFLINE);
+  const onSignedOut = jest.fn();
+  const onSignedIn = jest.fn();
+  await render(<SessionProvider auth={auth} onSignedOut={onSignedOut} onSignedIn={onSignedIn} rememberedUser={() => 'u-1'}><Probe /></SessionProvider>);
+  expect(await screen.findByText('signed_in')).toBeTruthy();
+  expect(onSignedIn).toHaveBeenCalledWith('u-1');
+  // Supabase's own start event says "no session" for the same reason: not a sign-out.
+  await act(async () => emit('INITIAL_SESSION', null));
+  expect(screen.getByText('signed_in')).toBeTruthy();
+  expect(onSignedOut).not.toHaveBeenCalled();
+  // Back online: the refresh works, or is refused (then the phone signs out).
+  await act(async () => emit('TOKEN_REFRESHED', { access_token: 't2', user: { id: 'u-1' } }));
+  expect(screen.getByText('signed_in')).toBeTruthy();
+  await act(async () => emit('SIGNED_OUT', null));
+  expect(screen.getByText('signed_out')).toBeTruthy();
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
+test('offline at start with no account remembered on this phone is signed out', async () => {
+  const { auth } = fakeAuth(null, AUTH_OFFLINE);
+  const onSignedOut = jest.fn();
+  await render(<SessionProvider auth={auth} onSignedOut={onSignedOut} rememberedUser={() => null}><Probe /></SessionProvider>);
+  expect(await screen.findByText('signed_out')).toBeTruthy();
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
+test('a refused session at start (not a network error) signs out', async () => {
+  const { auth } = fakeAuth(null, { name: 'AuthApiError', status: 400, message: 'Invalid Refresh Token' });
+  const onSignedOut = jest.fn();
+  await render(<SessionProvider auth={auth} onSignedOut={onSignedOut} rememberedUser={() => 'u-1'}><Probe /></SessionProvider>);
+  expect(await screen.findByText('signed_out')).toBeTruthy();
   expect(onSignedOut).toHaveBeenCalledTimes(1);
 });
 
