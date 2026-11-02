@@ -2,9 +2,11 @@ import { onlineManager, QueryClient } from '@tanstack/react-query';
 import { persistQueryClientRestore, persistQueryClientSave } from '@tanstack/react-query-persist-client';
 import { act, render, screen } from '@testing-library/react-native';
 
+import { ApiClientError } from '../../lib/api';
 import { LastUpdated } from '../../ui/LastUpdated';
 import { keys } from '../keys';
-import { claimSavedReads, createSavedReads, SAVED_KEY, SAVED_MAX_AGE } from '../persist';
+import { claimSavedReads, createSavedReads, SAVED_KEY, SAVED_MAX_AGE, savedReadsOwner } from '../persist';
+import { QUERY_DEFAULTS } from '../query-defaults';
 
 function memoryStorage() {
   const data = new Map<string, string>();
@@ -29,6 +31,28 @@ test('a saved read comes back after a restart (a new client on the same storage)
   const after = new QueryClient();
   await persistQueryClientRestore({ queryClient: after, persister: saved.persister, buster: '0.1.0', maxAge: SAVED_MAX_AGE });
   expect(after.getQueryData(keys.me)).toEqual(ME);
+});
+
+test('a saved read whose refresh failed offline still comes back after a restart', async () => {
+  const storage = memoryStorage();
+  const saved = createSavedReads(storage, '0.1.0');
+  const before = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  await before.fetchQuery({ queryKey: keys.me, queryFn: async () => ME });
+  // Airplane mode: the refresh fails, the screen keeps showing ME.
+  await before
+    .fetchQuery({ queryKey: keys.me, staleTime: 0, queryFn: async () => Promise.reject(new ApiClientError('offline', 0, 'No connection')) })
+    .catch(() => undefined);
+  expect(before.getQueryState(keys.me)?.status).toBe('error');
+  await persistQueryClientSave({ queryClient: before, persister: saved.persister, buster: '0.1.0', dehydrateOptions: saved.options.dehydrateOptions });
+
+  const after = new QueryClient();
+  await persistQueryClientRestore({ queryClient: after, persister: saved.persister, buster: '0.1.0', maxAge: SAVED_MAX_AGE });
+  expect(after.getQueryData(keys.me)).toEqual(ME);
+  expect(after.getQueryState(keys.me)?.status).toBe('success');
+});
+
+test('a read stays in memory as long as its copy on the phone (a closed screen is not dropped after 5 minutes)', () => {
+  expect(QUERY_DEFAULTS.queries.gcTime).toBeGreaterThanOrEqual(SAVED_MAX_AGE);
 });
 
 test('a new app version does not restore old saved reads', async () => {
@@ -71,6 +95,8 @@ test('saved reads from another account are cleared when a different account sign
   expect(clear).toHaveBeenCalledTimes(1); // same account: keep its saved reads
   claimSavedReads('user-b', store, clear);
   expect(clear).toHaveBeenCalledTimes(2);
+  expect(savedReadsOwner(store)).toBe('user-b');
+  expect(savedReadsOwner({ getItemSync: () => { throw new Error('no storage'); } })).toBeNull();
 });
 
 test("a saved Google spot keeps no Google name or coordinates on the phone (a pin keeps its own)", async () => {
