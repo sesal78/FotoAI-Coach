@@ -84,8 +84,8 @@ Build: the 3E fix preview APK (PR link and APK link added when it is built). No 
 
 Build: the preview APK from PR #29 "feat(mobile): weather pictures and sun path on Today". No server change.
 
-1. Open Today. Without scrolling you see: the weather and light card, the challenge, the suggested spot (if you have a favourite spot) and "Plan my shoot".
-2. The top of the card is a short moving picture of the weather now (for example sun for "Clear", drops for "Rain"). On it, on the left: the place, the temperature, the weather word, and cloud and wind.
+1. Open Today. Without scrolling you see: the weather and light card, the challenge, the suggested spot (if you have a favourite spot) and "Plan my shoot". The weather picture grows to use the free space, so there is no large empty gap under "Plan my shoot".
+2. The top of the card is a moving picture of the weather now (for example sun for "Clear", drops for "Rain"). On it, on the left: the place, the temperature, the weather word, and cloud and wind.
 3. Under it: the countdown in a coloured box (golden or blue) with its times, and a small sun path beside it. In daylight a sun dot glows on the arc.
 4. The table has Blue, Golden and Sun for Morning and Evening, with "Rise" and "Set" times. The next (or current) golden or blue time is marked.
 5. The challenge is one row with "Continue" (or "New challenge") on the right.

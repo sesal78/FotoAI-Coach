@@ -1,7 +1,7 @@
 // Weather and light in one card, on Today and on a place: a short moving picture of the weather
 // with the temperature on it, the countdown to the next good light beside a small sun path, and the
 // day's light times as a small table (blue, golden, sun; morning and evening) with the next one
-// marked. Short on purpose: Today fits on one screen with the challenge and "Plan my shoot".
+// marked. On Today the picture grows into the space left, so the screen is full but does not scroll.
 
 import type { LightTimesDto, Units, WeatherDto } from '@fotoai/contracts';
 import { StyleSheet, Text, View } from 'react-native';
@@ -34,13 +34,13 @@ const PILL: Record<LightKind, { bg: string; text: string }> = {
   blue: { bg: '#c9d5ee', text: '#13203d' },
 };
 
-function WeatherStrip({ weather, units, night, place }: { weather: WeatherDto | null; units: Units; night: boolean; place?: string }) {
+function WeatherStrip({ weather, units, night, place, grow }: { weather: WeatherDto | null; units: Units; night: boolean; place?: string; grow: boolean }) {
   const c = weather?.current;
   const scene = c ? sceneOf(c.condition, c.windKph, night) : null;
   // Over the picture the words have the picture's ink (light on dark skies); else theme colours.
   const ink = scene ? { color: scene.night || scene.kind === 'thunder' ? '#f6ebdd' : '#2b1d12' } : undefined;
   return (
-    <View style={{ height: SCENE_HEIGHT }} className={scene ? undefined : 'bg-surface-alt'}>
+    <View style={grow ? { minHeight: SCENE_HEIGHT, flexGrow: 1 } : { height: SCENE_HEIGHT }} className={scene ? undefined : 'bg-surface-alt'}>
       {scene ? (
         <View style={StyleSheet.absoluteFill}>
           <WeatherScene scene={scene} />
@@ -127,12 +127,27 @@ function TimesRow({ label, blue, golden, sun, sunWord, next }: { label: string; 
   );
 }
 
-export function ConditionsCard({ light, weather, units, now, place }: { light: LightTimesDto; weather: WeatherDto | null; units: Units; now: Date; place?: string }) {
+/** `grow`: the weather picture takes the space left on the screen (Today), never less than SCENE_HEIGHT. */
+export function ConditionsCard({
+  light,
+  weather,
+  units,
+  now,
+  place,
+  grow = false,
+}: {
+  light: LightTimesDto;
+  weather: WeatherDto | null;
+  units: Units;
+  now: Date;
+  place?: string;
+  grow?: boolean;
+}) {
   const next = nextGoodLight(light, now);
   const arc = dayArc(light, now);
   return (
-    <View className="overflow-hidden rounded-lg bg-surface">
-      <WeatherStrip weather={weather} units={units} night={isNight(light, now)} place={place} />
+    <View className={`overflow-hidden rounded-lg bg-surface${grow ? ' grow' : ''}`}>
+      <WeatherStrip weather={weather} units={units} night={isNight(light, now)} place={place} grow={grow} />
       <View className="gap-2 px-4 pb-3 pt-3">
         <View className="flex-row items-center gap-3">
           <View className="flex-1">

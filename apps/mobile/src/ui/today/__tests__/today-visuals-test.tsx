@@ -1,22 +1,24 @@
-import { screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo, Animated } from 'react-native';
 
 import { LIGHT, WEATHER } from '../../../../test/fixtures';
 import { renderScreen } from '../../../../test/harness';
 import { ConditionsCard } from '../ConditionsCard';
 import { sceneOf, WINDY_KPH } from '../scene';
+import { SCENE_HEIGHT } from '../WeatherScene';
 
 // The pictures are hidden from screen readers (the words say the same), so queries include hidden parts.
 const hidden = { includeHiddenElements: true } as const;
 const at = (local: string) => new Date(`2026-10-20T${local}:00+11:00`);
 const weather = (over: Partial<typeof WEATHER.current>) => ({ ...WEATHER, current: { ...WEATHER.current, ...over } });
-const card = (props: { condition?: (typeof WEATHER.current)['condition']; windKph?: number; now?: string; none?: boolean } = {}) => (
+const card = (props: { condition?: (typeof WEATHER.current)['condition']; windKph?: number; now?: string; none?: boolean; grow?: boolean } = {}) => (
   <ConditionsCard
     light={LIGHT}
     weather={props.none ? null : weather({ condition: props.condition ?? 'partly_cloudy', windKph: props.windKph ?? 12 })}
     units="metric"
     now={at(props.now ?? '13:05')}
     place="Fitzroy"
+    grow={props.grow}
   />
 );
 
@@ -104,4 +106,16 @@ test('before blue morning the sun is off the path', async () => {
   await renderScreen(card({ now: '05:00' }));
   expect(screen.getByTestId('sun-path', hidden)).toBeTruthy();
   expect(screen.queryByTestId('sun-now', hidden)).toBeNull();
+});
+
+test('on Today the picture grows into the space left, and the rain fills the taller picture', async () => {
+  await renderScreen(card({ condition: 'rain', grow: true }));
+  const scene = screen.getByTestId('weather-scene-rain', hidden);
+  expect(scene.parent?.parent).toHaveStyle({ minHeight: SCENE_HEIGHT, flexGrow: 1 });
+  fireEvent(scene, 'layout', { nativeEvent: { layout: { width: 360, height: 2 * SCENE_HEIGHT } } });
+  // Each rain layer is two pictures high, so it loops with no seam at the new height.
+  type Node = { props?: { style?: unknown }; children?: Array<Node | string> | null };
+  const styles = (n: Node | string | null): object[] =>
+    !n || typeof n === 'string' ? [] : [...[n.props?.style].flat().filter((x): x is object => !!x), ...(n.children ?? []).flatMap(styles)];
+  await waitFor(() => expect(styles(screen.toJSON() as Node)).toContainEqual(expect.objectContaining({ top: -2 * SCENE_HEIGHT, height: 4 * SCENE_HEIGHT })));
 });

@@ -31,8 +31,8 @@ function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) 
   if (conditions.isPending) return <Loading label="Loading the light…" />;
   if (conditions.isError && !conditions.data) return <ErrorState error={conditions.error} onRetry={() => void conditions.refetch()} />;
   return (
-    <View className="gap-2">
-      <ConditionsCard light={conditions.data.light} weather={conditions.data.weather} units={units} now={now} place={where.label} />
+    <View className="grow gap-2">
+      <ConditionsCard light={conditions.data.light} weather={conditions.data.weather} units={units} now={now} place={where.label} grow />
       <LastUpdated at={conditions.dataUpdatedAt} />
     </View>
   );
@@ -55,7 +55,7 @@ export default function Today() {
   const spots = useSpots();
 
   return (
-    <Screen title="Today">
+    <Screen title="Today" fill>
       {where.state === 'loading' ? <Loading label="Finding where you are…" /> : null}
       {where.state === 'none' ? <SetHomeCard onAsk={ask} /> : null}
       {where.state === 'ready' ? <LightSection where={where} /> : null}

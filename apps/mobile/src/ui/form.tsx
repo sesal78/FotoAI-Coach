@@ -29,13 +29,14 @@ export function useAction() {
   return { busy, error, setError, run };
 }
 
-export function Screen({ title, children }: { title?: string; children: ReactNode }) {
+/** `fill` lets a child with `grow` take the space left on the screen (Today's weather picture). */
+export function Screen({ title, fill = false, children }: { title?: string; fill?: boolean; children: ReactNode }) {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right']}>
       {/* The app draws edge to edge, so Android no longer shrinks it for the keyboard: padding
           keeps the field being typed in above the keyboard. */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView contentContainerClassName="gap-4 p-5 pb-32" keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerClassName={`gap-4 p-5 pb-32${fill ? ' grow' : ''}`} keyboardShouldPersistTaps="handled">
           {title ? <Text accessibilityRole="header" className="text-3xl font-bold text-text">{title}</Text> : null}
           {children}
         </ScrollView>
