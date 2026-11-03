@@ -1,6 +1,6 @@
 import type { LightTimesDto } from '@fotoai/contracts';
 
-import { clockOf, nextGoodLight } from '../light';
+import { clockOf, dayArc, isNight, nextGoodLight } from '../light';
 
 // Melbourne, 20 Oct 2026 (+11:00).
 const LIGHT: LightTimesDto = {
@@ -47,4 +47,34 @@ test('a polar day has no windows', () => {
 test("clockOf keeps the place's clock, not the phone's", () => {
   expect(clockOf('2026-10-20T19:41:00+11:00')).toBe('19:41');
   expect(clockOf('2026-10-20T05:07:59-04:00')).toBe('05:07');
+});
+
+test('night is from sunset to sunrise, always in a polar night, never in a polar day', () => {
+  expect(isNight(LIGHT, at('06:27'))).toBe(true);
+  expect(isNight(LIGHT, at('06:28'))).toBe(false);
+  expect(isNight(LIGHT, at('19:40'))).toBe(false);
+  expect(isNight(LIGHT, at('19:41'))).toBe(true);
+  const nulls = { sunrise: null, sunset: null, blueMorning: null, goldenMorning: null, goldenEvening: null, blueEvening: null };
+  expect(isNight({ ...LIGHT, ...nulls, sunAlwaysDown: true }, at('12:00'))).toBe(true);
+  expect(isNight({ ...LIGHT, ...nulls, sunAlwaysUp: true }, at('00:30'))).toBe(false);
+});
+
+test('the sun path runs from blue morning to blue evening, with each window and the sun on it', () => {
+  const arc = dayArc(LIGHT, at('13:05'))!;
+  expect(arc.from).toBe(LIGHT.blueMorning!.start);
+  expect(arc.to).toBe(LIGHT.blueEvening!.end);
+  expect(arc.windows.map((w) => w.kind)).toEqual(['blue', 'golden', 'golden', 'blue']);
+  expect(arc.windows[0]!.start).toBe(0);
+  expect(arc.windows[3]!.end).toBe(1);
+  // 05:50 to 20:20 is 870 minutes; golden evening starts at 19:05 (795 minutes in).
+  expect(arc.windows[2]!.start).toBeCloseTo(795 / 870);
+  expect(arc.sun).toBeCloseTo(435 / 870);
+  expect(dayArc(LIGHT, at('05:30'))!.sun).toBeNull();
+  expect(dayArc(LIGHT, at('21:00'))!.sun).toBeNull();
+});
+
+test('with no blue windows the sun path runs sunrise to sunset; a polar day has none', () => {
+  expect(dayArc({ ...LIGHT, blueMorning: null, blueEvening: null }, at('12:00'))!.from).toBe(LIGHT.sunrise);
+  const polar = { ...LIGHT, sunAlwaysUp: true, sunrise: null, sunset: null, blueMorning: null, goldenMorning: null, goldenEvening: null, blueEvening: null };
+  expect(dayArc(polar, at('12:00'))).toBeNull();
 });

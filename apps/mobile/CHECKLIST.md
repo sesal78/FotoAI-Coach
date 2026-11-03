@@ -79,3 +79,14 @@ Build: the 3E fix preview APK (PR link and APK link added when it is built). No 
 10. Turn airplane mode off. On the roll, tap "Finish roll": it says "This roll is finished".
 11. Away from your home area, with location allowed (or not yet asked): open Explore. The first time, Android asks for location; tap "While using the app". The map centres on where you are now (the blue dot), not on your home area. Tap "Don't allow" instead (on a fresh install): Explore uses your home area.
 12. Stay offline for more than an hour (airplane mode), then close and reopen the app: you are still signed in and your saved plans show. Turn airplane mode off: the waiting changes send without a new sign-in.
+
+## Today: weather pictures and sun path
+
+Build: the preview APK from PR "feat(mobile): weather pictures and sun path on Today". No server change.
+
+1. Open Today. The weather card has a moving picture at the top that matches the words under it (for example sun for "Clear", drops for "Rain"). The words are the same as before.
+2. The light card shows the countdown in a coloured box (golden for golden hour, blue for blue hour), then the sun path: an arc with blue and golden parts at each end. In daylight a sun dot sits on the arc where the sun is now, and it glows softly.
+3. Under the arc, the row for the next (or current) golden or blue time is marked. Each row has a small colour mark.
+4. After sunset, with clear or partly cloudy weather, the weather picture shows the moon and stars.
+5. Turn on Settings > Accessibility > Remove animations (the name can differ by phone), then open Today again. The pictures show but do not move. Turn it off again.
+6. Me > Settings: try "Golden dark" and "Camera body". The cards still read well.

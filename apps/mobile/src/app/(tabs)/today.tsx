@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useConditions, usePreferences, useSpots } from '../../data/hooks';
+import { isNight } from '../../lib/light';
 import { useWhere, type Where } from '../../lib/where';
 import { PrimaryButton, Screen } from '../../ui/form';
 import { LastUpdated, localDay } from '../../ui/LastUpdated';
@@ -34,7 +35,7 @@ function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) 
   return (
     <View className="gap-4">
       <LightCard light={conditions.data.light} now={now} place={where.label} />
-      <WeatherCard weather={conditions.data.weather} units={units} />
+      <WeatherCard weather={conditions.data.weather} units={units} night={isNight(conditions.data.light, now)} />
       <LastUpdated at={conditions.dataUpdatedAt} />
     </View>
   );

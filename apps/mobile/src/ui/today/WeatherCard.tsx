@@ -1,7 +1,11 @@
-// Weather now at the place, in the user's units, with its source's attribution.
+// Weather now at the place, in the user's units, with its source's attribution, under a moving
+// picture of that weather (see WeatherScene).
 
 import type { Units, WeatherDto } from '@fotoai/contracts';
 import { Text, View } from 'react-native';
+
+import { sceneOf } from './scene';
+import { WeatherScene } from './WeatherScene';
 
 const CONDITION: Record<WeatherDto['current']['condition'], string> = {
   clear: 'Clear',
@@ -18,7 +22,7 @@ const CONDITION: Record<WeatherDto['current']['condition'], string> = {
 export const temperature = (c: number, units: Units) => (units === 'imperial' ? `${Math.round((c * 9) / 5 + 32)}°F` : `${Math.round(c)}°C`);
 export const windSpeed = (kph: number, units: Units) => (units === 'imperial' ? `${Math.round(kph / 1.609)} mph` : `${Math.round(kph)} km/h`);
 
-export function WeatherCard({ weather, units }: { weather: WeatherDto | null; units: Units }) {
+export function WeatherCard({ weather, units, night = false }: { weather: WeatherDto | null; units: Units; night?: boolean }) {
   if (!weather) {
     return (
       <View className="rounded-lg bg-surface p-4">
@@ -27,11 +31,15 @@ export function WeatherCard({ weather, units }: { weather: WeatherDto | null; un
     );
   }
   const c = weather.current;
+  const scene = sceneOf(c.condition, c.windKph, night);
   return (
-    <View className="gap-1 rounded-lg bg-surface p-4">
-      <Text className="text-lg text-text">{`${CONDITION[c.condition]}, ${temperature(c.temperatureC, units)}`}</Text>
-      <Text className="text-text-muted">{`${c.cloudPct}% cloud · wind ${windSpeed(c.windKph, units)}`}</Text>
-      <Text className="text-xs text-text-muted">{weather.attribution}</Text>
+    <View className="overflow-hidden rounded-lg bg-surface">
+      {scene ? <WeatherScene scene={scene} /> : null}
+      <View className="gap-1 p-4">
+        <Text className="text-lg text-text">{`${CONDITION[c.condition]}, ${temperature(c.temperatureC, units)}`}</Text>
+        <Text className="text-text-muted">{`${c.cloudPct}% cloud · wind ${windSpeed(c.windKph, units)}`}</Text>
+        <Text className="text-xs text-text-muted">{weather.attribution}</Text>
+      </View>
     </View>
   );
 }
