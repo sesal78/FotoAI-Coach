@@ -6,6 +6,9 @@ import { Modal, Pressable, Text, View } from 'react-native';
 
 import { useTheme } from './ThemeProvider';
 
+/** Room to leave on the right of a screen's last row, so the floating button sits beside it (56 pt button, 12 pt gap). */
+export const COACH_CLEARANCE = 68;
+
 export function CoachButton() {
   const [open, setOpen] = useState(false);
   const { tokens } = useTheme();

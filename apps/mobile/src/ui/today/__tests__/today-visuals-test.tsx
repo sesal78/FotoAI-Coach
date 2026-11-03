@@ -89,17 +89,20 @@ test('the light times are a small table, with sunrise and sunset, and the next w
   await renderScreen(card());
   expect(screen.getByText('Golden hour in 6 h')).toBeTruthy();
   expect(screen.getByText('19:05 to 19:58')).toBeTruthy();
-  expect(screen.getByText('05:50–06:10')).toBeTruthy();
-  expect(screen.getByText('Rise 06:28')).toBeTruthy();
-  expect(screen.getByText('Set 19:41')).toBeTruthy();
-  expect(screen.getByTestId('light-cell-marked')).toHaveTextContent('19:05–19:58');
+  expect(screen.getByText('05:50')).toBeTruthy();
+  expect(screen.getByText('to 06:10')).toBeTruthy();
+  expect(screen.getByText('06:28')).toBeTruthy();
+  expect(screen.getByText('Rise')).toBeTruthy();
+  expect(screen.getByText('19:41')).toBeTruthy();
+  expect(screen.getByText('Set')).toBeTruthy();
+  expect(screen.getByTestId('light-cell-marked')).toHaveTextContent(/^19:05\s*to 19:58$/);
   expect(screen.getByLabelText('Evening: blue hour 19:58 to 20:20, golden hour 19:05 to 19:58, sunset 19:41')).toBeTruthy();
   expect(screen.getByTestId('sun-now', hidden)).toBeTruthy();
 });
 
 test('during blue morning its time is marked', async () => {
   await renderScreen(card({ now: '06:00' }));
-  expect(screen.getByTestId('light-cell-marked')).toHaveTextContent('05:50–06:10');
+  expect(screen.getByTestId('light-cell-marked')).toHaveTextContent(/^05:50\s*to 06:10$/);
 });
 
 test('before blue morning the sun is off the path', async () => {

@@ -63,7 +63,7 @@ test('the place shows its facts, the photo with its attributions, and the light'
   expect(screen.getByText('Place data from Google Maps')).toBeTruthy();
   expect(screen.getByText('Photo: Jo Smith')).toBeTruthy();
   expect(screen.getByText(/1\.2 km away/)).toBeTruthy();
-  expect(screen.getByText('19:05–19:58')).toBeTruthy();
+  expect(screen.getByText('to 19:58')).toBeTruthy();
   await act(async () => await fireEvent.press(screen.getByText('Photo: Jo Smith')));
   expect(open).toHaveBeenCalledWith('https://maps.google.com/maps/contrib/123');
   await act(async () => await fireEvent.press(screen.getByText('Open in Google Maps')));

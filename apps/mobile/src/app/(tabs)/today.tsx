@@ -7,6 +7,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useConditions, usePreferences, useSpots } from '../../data/hooks';
 import { useWhere, type Where } from '../../lib/where';
+import { COACH_CLEARANCE } from '../../ui/CoachButton';
 import { PrimaryButton, Screen } from '../../ui/form';
 import { LastUpdated, localDay } from '../../ui/LastUpdated';
 import { ErrorState, Loading } from '../../ui/states';
@@ -61,7 +62,10 @@ export default function Today() {
       {where.state === 'ready' ? <LightSection where={where} /> : null}
       <ChallengeCard />
       <SpotCard spots={spots.data?.spots} />
-      <PrimaryButton title="Plan my shoot" onPress={() => router.navigate('/shoot')} />
+      {/* The last row: the floating Coach button sits on its right. */}
+      <View style={{ marginRight: COACH_CLEARANCE }}>
+        <PrimaryButton title="Plan my shoot" onPress={() => router.navigate('/shoot')} />
+      </View>
     </Screen>
   );
 }

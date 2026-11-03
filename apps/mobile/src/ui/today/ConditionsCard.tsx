@@ -88,41 +88,45 @@ function Countdown({ light, next, now }: { light: LightTimesDto; next: GoodLight
 }
 
 type Window = { start: string; end: string } | null;
-const span = (w: Window) => (w ? `${clockOf(w.start)}–${clockOf(w.end)}` : '–');
 const spoken = (w: Window) => (w ? `${clockOf(w.start)} to ${clockOf(w.end)}` : 'none');
 
 function Head({ label, mark }: { label: string; mark: LightKind | 'sun' }) {
   return (
     <View className="flex-1 flex-row items-center gap-1 px-1">
       {mark === 'sun' ? <View className="h-2 w-2 rounded-full bg-text" /> : <View style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: LIGHT_COLOURS[mark] }} />}
-      <Text className="text-xs font-semibold text-text-muted">{label}</Text>
+      <Text className="text-sm font-semibold text-text-muted">{label}</Text>
     </View>
   );
 }
 
-function Cell({ text, on = false }: { text: string; on?: boolean }) {
+/** A time, big, with a small line under it ("to 06:10", "Rise"). Two lines, so the times stay big on a narrow phone. */
+function Cell({ time, under, on = false }: { time: string; under: string; on?: boolean }) {
   return (
-    <View testID={on ? 'light-cell-marked' : undefined} className={`flex-1 rounded-md px-1 py-0.5 ${on ? 'bg-surface-alt' : ''}`}>
-      <Text numberOfLines={1} adjustsFontSizeToFit className={`text-sm text-text ${on ? 'font-bold' : ''}`}>
-        {text}
+    <View testID={on ? 'light-cell-marked' : undefined} className={`flex-1 rounded-md px-1.5 py-1 ${on ? 'bg-surface-alt' : ''}`}>
+      <Text numberOfLines={1} adjustsFontSizeToFit className={`text-lg text-text ${on ? 'font-bold' : 'font-semibold'}`}>
+        {time}
+      </Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit className="text-sm text-text-muted">
+        {under}
       </Text>
     </View>
   );
 }
 
+const WindowCell = ({ w, on }: { w: Window; on: boolean }) => (w ? <Cell time={clockOf(w.start)} under={`to ${clockOf(w.end)}`} on={on} /> : <Cell time="–" under="" />);
+
 function TimesRow({ label, blue, golden, sun, sunWord, next }: { label: string; blue: Window; golden: Window; sun: string | null; sunWord: 'Rise' | 'Set'; next: GoodLight | null }) {
   const marked = (w: Window) => w !== null && next !== null && w.start === next.start;
-  const sunText = sun ? `${sunWord} ${clockOf(sun)}` : '–';
   return (
     <View
       accessible
       accessibilityLabel={`${label}: blue hour ${spoken(blue)}, golden hour ${spoken(golden)}, ${sunWord === 'Rise' ? 'sunrise' : 'sunset'} ${sun ? clockOf(sun) : 'none'}`}
       className="flex-row items-center"
     >
-      <Text className="w-16 text-sm font-semibold text-text-muted">{label}</Text>
-      <Cell text={span(blue)} on={marked(blue)} />
-      <Cell text={span(golden)} on={marked(golden)} />
-      <Cell text={sunText} />
+      <Text className="w-[72px] text-base font-semibold text-text-muted">{label}</Text>
+      <WindowCell w={blue} on={marked(blue)} />
+      <WindowCell w={golden} on={marked(golden)} />
+      <Cell time={sun ? clockOf(sun) : '–'} under={sunWord} />
     </View>
   );
 }
@@ -155,9 +159,9 @@ export function ConditionsCard({
           </View>
           {arc ? <SunPath arc={arc} /> : null}
         </View>
-        <View className="gap-0.5">
+        <View className="gap-1">
           <View className="flex-row" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            <View className="w-16" />
+            <View className="w-[72px]" />
             <Head label="Blue" mark="blue" />
             <Head label="Golden" mark="golden" />
             <Head label="Sun" mark="sun" />
