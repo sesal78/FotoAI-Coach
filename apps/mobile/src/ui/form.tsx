@@ -59,7 +59,8 @@ export function Field({ label, ...input }: { label: string } & TextInputProps) {
   );
 }
 
-export function PrimaryButton({ title, onPress, busy = false }: { title: string; onPress: () => void; busy?: boolean }) {
+/** `small` fits beside text in a one-line card row. */
+export function PrimaryButton({ title, onPress, busy = false, small = false }: { title: string; onPress: () => void; busy?: boolean; small?: boolean }) {
   const { tokens } = useTheme();
   return (
     <Pressable
@@ -67,9 +68,9 @@ export function PrimaryButton({ title, onPress, busy = false }: { title: string;
       accessibilityState={{ busy, disabled: busy }}
       disabled={busy}
       onPress={onPress}
-      className="items-center rounded-pill bg-primary px-5 py-3"
+      className={`min-h-11 items-center justify-center rounded-pill bg-primary ${small ? 'px-4 py-2' : 'px-5 py-3'}`}
     >
-      {busy ? <ActivityIndicator color={tokens.colors.onPrimary} /> : <Text className="text-base font-semibold text-on-primary">{title}</Text>}
+      {busy ? <ActivityIndicator color={tokens.colors.onPrimary} /> : <Text className={`${small ? 'text-sm' : 'text-base'} font-semibold text-on-primary`}>{title}</Text>}
     </Pressable>
   );
 }

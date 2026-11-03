@@ -82,11 +82,14 @@ Build: the 3E fix preview APK (PR link and APK link added when it is built). No 
 
 ## Today: weather pictures and sun path
 
-Build: the preview APK from PR "feat(mobile): weather pictures and sun path on Today". No server change.
+Build: the preview APK from PR #29 "feat(mobile): weather pictures and sun path on Today". No server change.
 
-1. Open Today. The weather card has a moving picture at the top that matches the words under it (for example sun for "Clear", drops for "Rain"). The words are the same as before.
-2. The light card shows the countdown in a coloured box (golden for golden hour, blue for blue hour), then the sun path: an arc with blue and golden parts at each end. In daylight a sun dot sits on the arc where the sun is now, and it glows softly.
-3. Under the arc, the row for the next (or current) golden or blue time is marked. Each row has a small colour mark.
-4. After sunset, with clear or partly cloudy weather, the weather picture shows the moon and stars.
-5. Turn on Settings > Accessibility > Remove animations (the name can differ by phone), then open Today again. The pictures show but do not move. Turn it off again.
-6. Me > Settings: try "Golden dark" and "Camera body". The cards still read well.
+1. Open Today. Without scrolling you see: the weather and light card, the challenge, the suggested spot (if you have a favourite spot) and "Plan my shoot".
+2. The top of the card is a short moving picture of the weather now (for example sun for "Clear", drops for "Rain"). On it, on the left: the place, the temperature, the weather word, and cloud and wind.
+3. Under it: the countdown in a coloured box (golden or blue) with its times, and a small sun path beside it. In daylight a sun dot glows on the arc.
+4. The table has Blue, Golden and Sun for Morning and Evening, with "Rise" and "Set" times. The next (or current) golden or blue time is marked.
+5. The challenge is one row with "Continue" (or "New challenge") on the right.
+6. After sunset, with clear or partly cloudy weather, the picture shows the moon and stars.
+7. Turn on Settings > Accessibility > Remove animations (the name can differ by phone), then open Today again. The picture shows but does not move. Turn it off again.
+8. Me > Settings: try "Golden dark" and "Camera body". The card still reads well.
+9. Explore: open a place. It shows the same card (without the place name, which is the page title).

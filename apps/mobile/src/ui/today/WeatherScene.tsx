@@ -1,5 +1,5 @@
-// The moving picture at the top of the weather card: sun, moon and stars, clouds, rain, snow,
-// thunder, fog and wind. Drawn with react-native-svg and moved with React Native's Animated on the
+// The moving picture at the top of the conditions card: sun, moon and stars, clouds, rain, snow,
+// thunder, fog and wind. The left part stays calm: the temperature and weather words sit there. Drawn with react-native-svg and moved with React Native's Animated on the
 // native thread (transform and opacity only). When the phone asks for less motion, it stays still.
 
 import { useEffect, useRef, useState } from 'react';
@@ -9,7 +9,7 @@ import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from 're
 import type { Scene } from './scene';
 import { useReducedMotion } from './useReducedMotion';
 
-export const SCENE_HEIGHT = 120;
+export const SCENE_HEIGHT = 92;
 
 const CLOUD = 'M22 58a20 20 0 0 1-2-40 26 26 0 0 1 49-6 18 18 0 0 1 25 17 15 15 0 0 1-4 29z';
 const MOON = 'M20 6A14 14 0 1 0 20 34A10 14 0 1 1 20 6Z';
@@ -37,7 +37,7 @@ function Sun({ run }: { run: boolean }) {
   const pulse = useLoop(1_500, run, true);
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   return (
-    <View style={{ position: 'absolute', right: 20, top: 8, width: 100, height: 100 }}>
+    <View style={{ position: 'absolute', right: 12, top: 6, width: 78, height: 78 }}>
       <Animated.View style={[fill, { opacity: between(pulse, 0.55, 0.25), transform: [{ scale: between(pulse, 1, 1.18) }] }]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 100">
           <Circle cx={50} cy={50} r={30} fill="#ffb347" />
@@ -59,7 +59,7 @@ function Sun({ run }: { run: boolean }) {
   );
 }
 
-const STARS: Array<[number, number]> = [[6, 18], [14, 60], [22, 32], [31, 78], [40, 14], [48, 52], [57, 26], [66, 70], [10, 40], [52, 84]];
+const STARS: Array<[number, number]> = [[46, 18], [52, 62], [58, 30], [64, 78], [70, 12], [76, 50], [82, 82], [90, 66], [94, 24], [86, 40]];
 
 function MoonAndStars({ run }: { run: boolean }) {
   const twinkle = useLoop(1_200, run, true);
@@ -73,7 +73,7 @@ function MoonAndStars({ run }: { run: boolean }) {
           ))}
         </Animated.View>
       ))}
-      <Svg style={{ position: 'absolute', right: 40, top: 22 }} width={44} height={44} viewBox="0 0 40 40">
+      <Svg style={{ position: 'absolute', right: 26, top: 14 }} width={40} height={40} viewBox="0 0 40 40">
         <Path d={MOON} fill="#f4ecd2" />
       </Svg>
     </>
@@ -105,7 +105,7 @@ function FallLayer({ type, ms, index, run, night }: { type: Fall; ms: number; in
   const sway = useLoop(2_400, run && type === 'snow', true);
   const items = Array.from({ length: FALL[type].per }, (_, i) => {
     const n = index * FALL[type].per + i;
-    return { left: `${((n * 37) % 90) + 5}%` as DimensionValue, top: (n * 53) % SCENE_HEIGHT };
+    return { left: `${((n * 37) % 50) + 46}%` as DimensionValue, top: (n * 53) % SCENE_HEIGHT };
   });
   const dot =
     type === 'snow'
@@ -149,7 +149,7 @@ function Thunder({ run }: { run: boolean }) {
   }, [flash, run]);
   return (
     <>
-      <Animated.View style={{ position: 'absolute', left: '48%', top: 54, opacity: flash.interpolate({ inputRange: [0, 0.3, 0.75], outputRange: [0, 1, 1] }) }}>
+      <Animated.View style={{ position: 'absolute', left: '68%', top: 44, opacity: flash.interpolate({ inputRange: [0, 0.3, 0.75], outputRange: [0, 1, 1] }) }}>
         <Svg width={30} height={40} viewBox="0 0 30 40">
           <Path d="M18 0L6 20h9L9 40 27 14h-9l6-14z" fill="#ffd54a" />
         </Svg>
@@ -160,7 +160,7 @@ function Thunder({ run }: { run: boolean }) {
 }
 
 function Fog({ run }: { run: boolean }) {
-  const bands: Array<[number, number]> = [[16, 8_000], [46, 11_000], [76, 9_000]];
+  const bands: Array<[number, number]> = [[10, 8_000], [36, 11_000], [62, 9_000]];
   return (
     <>
       {bands.map(([top, ms]) => (
@@ -181,7 +181,7 @@ function FogBand({ top, ms, run }: { top: number; ms: number; run: boolean }) {
 }
 
 function Wind({ run, width, night }: { run: boolean; width: number; night: boolean }) {
-  const lines: Array<[DimensionValue, number]> = [['24%', 2_200], ['50%', 2_600], ['72%', 3_000]];
+  const lines: Array<[DimensionValue, number]> = [['22%', 2_200], ['50%', 2_600], ['78%', 3_000]];
   return (
     <>
       {lines.map(([top, ms]) => (
@@ -208,9 +208,9 @@ export function WeatherScene({ scene }: { scene: Scene }) {
   const sky = kind === 'clear' || kind === 'partly_cloudy' ? night ? <MoonAndStars run={run} /> : <Sun run={run} /> : null;
   const fall: Fall | null = kind === 'rain' || kind === 'thunder' ? 'rain' : kind === 'drizzle' ? 'drizzle' : kind === 'snow' ? 'snow' : null;
   const clouds =
-    kind === 'partly_cloudy' ? [{ left: '8%', top: 44, width: 110, ms: 9_000 }]
-    : kind === 'cloudy' ? [{ left: '44%', top: 6, width: 120, ms: 17_000 }, { left: '6%', top: 34, width: 140, ms: 9_000 }]
-    : kind === 'rain' || kind === 'drizzle' || kind === 'thunder' ? [{ left: '22%', top: -4, width: 160, ms: 13_000 }]
+    kind === 'partly_cloudy' ? [{ left: '48%', top: 40, width: 90, ms: 9_000 }]
+    : kind === 'cloudy' ? [{ left: '66%', top: 2, width: 100, ms: 17_000 }, { left: '48%', top: 30, width: 120, ms: 9_000 }]
+    : kind === 'rain' || kind === 'drizzle' || kind === 'thunder' ? [{ left: '52%', top: -6, width: 140, ms: 13_000 }]
     : [];
 
   return (

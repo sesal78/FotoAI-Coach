@@ -6,15 +6,13 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useConditions, usePreferences, useSpots } from '../../data/hooks';
-import { isNight } from '../../lib/light';
 import { useWhere, type Where } from '../../lib/where';
 import { PrimaryButton, Screen } from '../../ui/form';
 import { LastUpdated, localDay } from '../../ui/LastUpdated';
 import { ErrorState, Loading } from '../../ui/states';
 import { ChallengeCard } from '../../ui/today/ChallengeCard';
-import { LightCard } from '../../ui/today/LightCard';
+import { ConditionsCard } from '../../ui/today/ConditionsCard';
 import { SpotCard } from '../../ui/today/SpotCard';
-import { WeatherCard } from '../../ui/today/WeatherCard';
 
 /** The current time, updated every `everyMs`. */
 function useNow(everyMs: number): Date {
@@ -33,9 +31,8 @@ function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) 
   if (conditions.isPending) return <Loading label="Loading the light…" />;
   if (conditions.isError && !conditions.data) return <ErrorState error={conditions.error} onRetry={() => void conditions.refetch()} />;
   return (
-    <View className="gap-4">
-      <LightCard light={conditions.data.light} now={now} place={where.label} />
-      <WeatherCard weather={conditions.data.weather} units={units} night={isNight(conditions.data.light, now)} />
+    <View className="gap-2">
+      <ConditionsCard light={conditions.data.light} weather={conditions.data.weather} units={units} now={now} place={where.label} />
       <LastUpdated at={conditions.dataUpdatedAt} />
     </View>
   );
