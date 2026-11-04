@@ -287,6 +287,8 @@ export const listPhotos: V2Body = async (request, deps) => {
   const principal = await requirePrincipal(request, deps);
   const raw = params.get('cursor');
   const cursor = raw ? decodeCursor(raw) : null;
+  const rollId = params.get('rollId');
+  if (rollId !== null && !UUID.test(rollId)) throw new ApiError('validation', 'rollId must be a UUID');
   let query = createUserClient(deps.env, principal.accessToken)
     .from(T_PHOTOS)
     .select(COLUMNS)
@@ -295,6 +297,7 @@ export const listPhotos: V2Body = async (request, deps) => {
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(PAGE + 1);
+  if (rollId) query = query.eq('roll_id', rollId.toLowerCase());
   if (cursor) query = query.or(`created_at.lt."${cursor.issuedDate}",and(created_at.eq."${cursor.issuedDate}",id.lt.${cursor.id})`);
   const { data, error } = await query;
   if (error) throw upstream('load photos');
@@ -302,6 +305,15 @@ export const listPhotos: V2Body = async (request, deps) => {
   const page = rows.slice(0, PAGE);
   const last = page.at(-1);
   return json({ photos: page.map(toPhoto), nextCursor: rows.length > PAGE && last ? encodeCursor(last.created_at, last.id) : null });
+};
+
+/** One of the caller's photos, pending or ready (RLS keeps it to the caller's own rows). */
+export const getPhoto: V2Body = async (request, deps, { params }) => {
+  rejectBrowserIdentity(new URL(request.url).searchParams);
+  const principal = await requirePrincipal(request, deps);
+  const row = await readPhoto(deps, principal, idParam(params));
+  if (!row) throw new ApiError('not_found', 'Photo not found');
+  return json({ photo: toPhoto(row) });
 };
 
 export const getPhotoUrl: V2Body = async (request, deps, { params }) => {

@@ -94,6 +94,8 @@ test('the 2E-2a photo route modules load and answer 401 without a token (no netw
   assert.equal((await photos.POST(new Request('http://localhost/api/v2/photos', { method: 'POST', body: '{}' }), params)).status, 401);
   const confirm = await import('../../app/api/v2/photos/[id]/confirm/route.ts');
   assert.equal((await confirm.POST(new Request(`http://localhost/api/v2/photos/${id}/confirm`, { method: 'POST' }), params)).status, 401);
+  const one = await import('../../app/api/v2/photos/[id]/route.ts');
+  assert.equal((await one.GET(new Request(`http://localhost/api/v2/photos/${id}`), params)).status, 401);
   const url = await import('../../app/api/v2/photos/[id]/url/route.ts');
   assert.equal((await url.GET(new Request(`http://localhost/api/v2/photos/${id}/url`), params)).status, 401);
 });

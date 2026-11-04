@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { mockModel } from '../../ai/test/support/mock-model.ts';
 import { localDbFromEnv } from '../../db/test/support/local-db.ts';
 import { createTestUser, deleteTestUsers, testEnv, type TestUser } from '../../db/test/support/seed.ts';
-import { confirmPhoto, createPhoto, defineV2Handler, getPhotoUrl, listPhotos, type V2Body, type V2Deps } from '../src/index.ts';
+import { confirmPhoto, createPhoto, defineV2Handler, getPhoto, getPhotoUrl, listPhotos, type V2Body, type V2Deps } from '../src/index.ts';
 
 const db = localDbFromEnv();
 type Row = Record<string, unknown>;
@@ -165,6 +165,47 @@ describe.skipIf(!db)('v2 photos against the local Supabase (real Storage)', () =
     const res = await call(confirmPhoto, a, { method: 'POST', params: { id: photo.id } });
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/type/i);
+  });
+
+  test('GET /photos/:id returns my pending or ready photo', async () => {
+    const { photo, upload: link } = await (await create(a)).json();
+    const pending = await call(getPhoto, a, { params: { id: photo.id } });
+    expect(pending.status).toBe(200);
+    expect((await pending.json()).photo).toMatchObject({ id: photo.id, status: 'pending' });
+    await upload(link);
+    await call(confirmPhoto, a, { method: 'POST', params: { id: photo.id } });
+    expect((await (await call(getPhoto, a, { params: { id: photo.id } })).json()).photo).toMatchObject({ id: photo.id, status: 'ready' });
+    expect((await call(getPhoto, a, { params: { id: 'nope' } })).status).toBe(400);
+  });
+
+  test('GET /photos/:id of another user is a 404', async () => {
+    const { photo } = await (await create(a)).json();
+    const res = await call(getPhoto, b, { params: { id: photo.id } });
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('Photo not found');
+  });
+
+  test("GET /photos?rollId lists only that roll's ready photos", async () => {
+    const roll = randomUUID();
+    const udb = createUserClient(deps.env, a.token);
+    expect((await udb.from('fotoai_film_rolls').insert({ id: roll, user_id: a.id, stock_name: 'Kodak Portra 400', box_iso: 400, rated_iso: 400, exposures: 36 } as never)).error).toBeNull();
+    const ready = async (over: Row) => {
+      const { photo, upload: link } = await (await create(a, over)).json();
+      await upload(link);
+      await call(confirmPhoto, a, { method: 'POST', params: { id: photo.id } });
+      return photo.id as string;
+    };
+    const onRoll = await ready({ source: 'scan', rollId: roll });
+    const other = await ready({});
+    await create(a, { source: 'scan', rollId: roll }); // still pending: not listed
+    const res = await call(listPhotos, a, { query: `?rollId=${roll}` });
+    expect(res.status).toBe(200);
+    const ids = ((await res.json()).photos as Array<{ id: string }>).map((p) => p.id);
+    expect(ids).toEqual([onRoll]);
+    expect(ids).not.toContain(other);
+    const bad = await call(listPhotos, a, { query: '?rollId=nope' });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toBe('rollId must be a UUID');
   });
 
   test('the 201st upload in an hour is 429', async () => {

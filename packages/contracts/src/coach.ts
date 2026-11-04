@@ -12,7 +12,16 @@ export const COACH_SCREENS = ['today', 'explore', 'shoot', 'photos', 'me'] as co
 export const CoachInput = z
   .object({
     message: z.string().trim().min(1).max(2000),
-    context: z.object({ screen: z.enum(COACH_SCREENS), planId: inId.optional(), rollId: inId.optional() }).strict(),
+    context: z
+      .object({
+        screen: z.enum(COACH_SCREENS),
+        planId: inId.optional(),
+        rollId: inId.optional(),
+        /** The Google place or the user's own spot on screen, so the coach can propose a plan there. */
+        placeId: z.string().trim().min(1).max(300).optional(),
+        spotId: inId.optional(),
+      })
+      .strict(),
   })
   .strict();
 

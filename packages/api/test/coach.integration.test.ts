@@ -99,6 +99,47 @@ describe.skipIf(!db)('v2 coach against the local Supabase', () => {
     expect(JSON.stringify(model.doGenerateCalls[0]!.prompt)).not.toContain('Secret Stock');
   });
 
+  const promptOf = (model: ReturnType<typeof mockChatModel>) => JSON.stringify(model.doGenerateCalls[0]!.prompt);
+
+  test("the coach context lists the open plan's place id", async () => {
+    const [plan] = await seedRows(db!, 'fotoai_shoot_plans', [
+      { user_id: a.id, place_source: 'google', place_id: 'ChIJ0T2NLmJC1moRbU6M9oX9mWQ', plan_date: '2026-11-05', timezone: 'Australia/Melbourne', title: 'Pier at dusk', summary: 's', loadout: {}, prompt_id: 'shoot-plan', prompt_version: 1, model: 'm' },
+    ]);
+    const { deps, model } = withModel({ text: 'ok' });
+    expect((await ask(deps, a, 'when should I go?', { screen: 'shoot', planId: String(plan!.id) })).status).toBe(200);
+    expect(promptOf(model)).toContain('placeId ChIJ0T2NLmJC1moRbU6M9oX9mWQ');
+  });
+
+  test("the coach context lists the user's spots and the place on screen", async () => {
+    const { deps, model } = withModel({ text: 'ok' });
+    expect((await ask(deps, a, 'plan me a shoot here', { screen: 'explore', placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4' })).status).toBe(200);
+    const prompt = promptOf(model);
+    expect(prompt).toContain('placeId ChIJN1t_tDeuEmsRUsoyG83frY4');
+    expect(prompt).toContain(`My pier: spotId ${aSpot}`);
+  });
+
+  test('a plan proposal for an id in the context is kept', async () => {
+    const { deps, model } = withModel({ text: 'Go at dusk.', toolCalls: [{ name: 'proposePlan', input: { placeId: null, spotId: aSpot, date: null } }] });
+    const res = await (await ask(deps, a, 'plan this spot', { screen: 'explore', spotId: aSpot })).json();
+    expect(promptOf(model)).toContain(`spotId ${aSpot}`);
+    expect(res.proposal).toEqual({ kind: 'plan', spotId: aSpot, date: null });
+  });
+
+  test("the context never holds another user's spot", async () => {
+    const { deps, model } = withModel({ text: 'ok' });
+    expect((await ask(deps, a, 'what about this one?', { screen: 'explore', spotId: bSpot })).status).toBe(200);
+    const prompt = promptOf(model);
+    expect(prompt).not.toContain(bSpot);
+    expect(prompt).not.toContain('B pier');
+  });
+
+  test('a bad place or spot id in the context is a 400 before the model', async () => {
+    const { deps, model } = withModel({ text: 'x' });
+    expect((await ask(deps, a, 'hi', { screen: 'explore', spotId: 'not-a-uuid' })).status).toBe(400);
+    expect((await ask(deps, a, 'hi', { screen: 'explore', placeId: 'x'.repeat(301) })).status).toBe(400);
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
   test('history is never readable by another user, and DELETE clears only mine', async () => {
     const { deps } = withModel({ text: 'noted' });
     await ask(deps, c, 'my own words');
