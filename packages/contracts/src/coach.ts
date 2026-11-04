@@ -4,6 +4,7 @@
 import { z } from 'zod';
 
 import { ChallengeDto } from './challenges.ts';
+import { PLACE_ID_RE } from './places.ts';
 
 const inId = z.string().uuid().transform((s) => s.toLowerCase());
 
@@ -18,7 +19,7 @@ export const CoachInput = z
         planId: inId.optional(),
         rollId: inId.optional(),
         /** The Google place or the user's own spot on screen, so the coach can propose a plan there. */
-        placeId: z.string().trim().min(1).max(300).optional(),
+        placeId: z.string().regex(PLACE_ID_RE).optional(),
         spotId: inId.optional(),
       })
       .strict(),

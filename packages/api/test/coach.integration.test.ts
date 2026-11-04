@@ -125,6 +125,13 @@ describe.skipIf(!db)('v2 coach against the local Supabase', () => {
     expect(res.proposal).toEqual({ kind: 'plan', spotId: aSpot, date: null });
   });
 
+  test('a saved Google place is listed by id with a fixed label, never a Google name', async () => {
+    const [google] = await seedRows(db!, 'fotoai_places', [{ user_id: b.id, source: 'google', place_id: 'ChIJP3Sa8ziYEmsRUKgyFmh9AQM' }]);
+    const { deps, model } = withModel({ text: 'ok' });
+    expect((await ask(deps, b, 'any ideas?', { screen: 'explore' })).status).toBe(200);
+    expect(promptOf(model)).toContain(`a saved Google place: spotId ${String(google!.id)}`);
+  });
+
   test("the context never holds another user's spot", async () => {
     const { deps, model } = withModel({ text: 'ok' });
     expect((await ask(deps, a, 'what about this one?', { screen: 'explore', spotId: bSpot })).status).toBe(200);
@@ -137,6 +144,7 @@ describe.skipIf(!db)('v2 coach against the local Supabase', () => {
     const { deps, model } = withModel({ text: 'x' });
     expect((await ask(deps, a, 'hi', { screen: 'explore', spotId: 'not-a-uuid' })).status).toBe(400);
     expect((await ask(deps, a, 'hi', { screen: 'explore', placeId: 'x'.repeat(301) })).status).toBe(400);
+    expect((await ask(deps, a, 'hi', { screen: 'explore', placeId: 'has space' })).status).toBe(400);
     expect(model.doGenerateCalls).toHaveLength(0);
   });
 

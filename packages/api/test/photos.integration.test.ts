@@ -203,6 +203,7 @@ describe.skipIf(!db)('v2 photos against the local Supabase (real Storage)', () =
     const ids = ((await res.json()).photos as Array<{ id: string }>).map((p) => p.id);
     expect(ids).toEqual([onRoll]);
     expect(ids).not.toContain(other);
+    expect((await (await call(listPhotos, b, { query: `?rollId=${roll}` })).json()).photos).toEqual([]);
     const bad = await call(listPhotos, a, { query: '?rollId=nope' });
     expect(bad.status).toBe(400);
     expect((await bad.json()).error).toBe('rollId must be a UUID');
