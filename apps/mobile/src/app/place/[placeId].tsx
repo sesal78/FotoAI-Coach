@@ -13,8 +13,7 @@ import { GoogleAttribution } from '../../ui/explore/GoogleAttribution';
 import { PlacePhoto } from '../../ui/explore/PlacePhoto';
 import { Field, Notice, PrimaryButton, Screen, TextLink } from '../../ui/form';
 import { ErrorState, errorText, Loading } from '../../ui/states';
-import { LightCard } from '../../ui/today/LightCard';
-import { WeatherCard } from '../../ui/today/WeatherCard';
+import { ConditionsCard } from '../../ui/today/ConditionsCard';
 
 const typeName = (t: string | null) => (t ? t.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : null);
 
@@ -66,8 +65,7 @@ export default function PlaceScreen() {
       {place.formattedAddress ? <Text className="text-text">{place.formattedAddress}</Text> : null}
       <PlacePhoto placeId={place.placeId} photo={place.photos[0] ?? place.photo} placeName={place.name} />
       <GoogleAttribution />
-      <LightCard light={light} now={new Date()} place={place.name} />
-      <WeatherCard weather={weather} units={units} />
+      <ConditionsCard light={light} weather={weather} units={units} now={new Date()} />
       <ExplainCard query={explain} />
       <PrimaryButton title="Plan a shoot here" onPress={() => router.navigate(`/shoot?placeId=${encodeURIComponent(place.placeId)}`)} />
       {place.googleMapsUri ? <TextLink title="Open in Google Maps" onPress={() => void Linking.openURL(place.googleMapsUri!)} /> : null}

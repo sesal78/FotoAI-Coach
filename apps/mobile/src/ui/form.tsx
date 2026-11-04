@@ -29,13 +29,17 @@ export function useAction() {
   return { busy, error, setError, run };
 }
 
-export function Screen({ title, children }: { title?: string; children: ReactNode }) {
+/**
+ * `fill` lets a child with `grow` take the space left on the screen (Today's weather picture), and
+ * drops the tall bottom padding: the screen then keeps its last row clear of the Coach button itself.
+ */
+export function Screen({ title, fill = false, children }: { title?: string; fill?: boolean; children: ReactNode }) {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right']}>
       {/* The app draws edge to edge, so Android no longer shrinks it for the keyboard: padding
           keeps the field being typed in above the keyboard. */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView contentContainerClassName="gap-4 p-5 pb-32" keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerClassName={fill ? 'grow gap-4 p-5' : 'gap-4 p-5 pb-32'} keyboardShouldPersistTaps="handled">
           {title ? <Text accessibilityRole="header" className="text-3xl font-bold text-text">{title}</Text> : null}
           {children}
         </ScrollView>
@@ -59,7 +63,8 @@ export function Field({ label, ...input }: { label: string } & TextInputProps) {
   );
 }
 
-export function PrimaryButton({ title, onPress, busy = false }: { title: string; onPress: () => void; busy?: boolean }) {
+/** `small` fits beside text in a one-line card row. */
+export function PrimaryButton({ title, onPress, busy = false, small = false }: { title: string; onPress: () => void; busy?: boolean; small?: boolean }) {
   const { tokens } = useTheme();
   return (
     <Pressable
@@ -67,9 +72,9 @@ export function PrimaryButton({ title, onPress, busy = false }: { title: string;
       accessibilityState={{ busy, disabled: busy }}
       disabled={busy}
       onPress={onPress}
-      className="items-center rounded-pill bg-primary px-5 py-3"
+      className={`min-h-11 items-center justify-center rounded-pill bg-primary ${small ? 'px-4 py-2' : 'px-5 py-3'}`}
     >
-      {busy ? <ActivityIndicator color={tokens.colors.onPrimary} /> : <Text className="text-base font-semibold text-on-primary">{title}</Text>}
+      {busy ? <ActivityIndicator color={tokens.colors.onPrimary} /> : <Text className={`${small ? 'text-sm' : 'text-base'} font-semibold text-on-primary`}>{title}</Text>}
     </Pressable>
   );
 }

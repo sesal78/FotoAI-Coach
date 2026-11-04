@@ -5,6 +5,7 @@ import { challenge, LIGHT, PREFS_HOME, PREFS_NONE, spot, WEATHER } from '../../t
 import { fakeApi, renderScreen } from '../../test/harness';
 import Today from '../app/(tabs)/today';
 import { ApiClientError } from '../lib/api';
+import { COACH_CLEARANCE } from '../ui/CoachButton';
 
 const mockApi: { current: ReturnType<typeof fakeApi> | null } = { current: null };
 jest.mock('../data/client', () => ({ getApi: () => mockApi.current }));
@@ -48,8 +49,8 @@ test('Today uses the home area first', async () => {
   const conditions = mockApi.current.calls.find((c) => c.path.startsWith('/api/v2/conditions'))!;
   expect(conditions.path).toBe('/api/v2/conditions?lat=-37.8100&lng=144.9600');
   expect(await screen.findByText(/Golden hour in/)).toBeTruthy();
-  expect(screen.getByText('19:05–19:58')).toBeTruthy();
-  expect(screen.getByText('05:50–06:10')).toBeTruthy(); // blue morning
+  expect(screen.getByText('to 19:58')).toBeTruthy(); // golden evening
+  expect(screen.getByText('to 06:10')).toBeTruthy(); // blue morning
 });
 
 test("with no home area Today uses the phone's location", async () => {
@@ -114,9 +115,10 @@ test('the suggested spot is the first favourite, and is hidden when there is non
   expect(screen.queryByText('Suggested spot')).toBeNull();
 });
 
-test('Plan my shoot opens Shoot', async () => {
+test('Plan my shoot opens Shoot, and leaves room on its right for the Coach button', async () => {
   mockApi.current = fakeApi(routes());
   await renderScreen(<Today />);
+  expect((await screen.findByRole('button', { name: 'Plan my shoot' })).parent).toHaveStyle({ marginRight: COACH_CLEARANCE });
   await act(async () => await fireEvent.press(await screen.findByText('Plan my shoot')));
   expect(router.navigate).toHaveBeenCalledWith('/shoot');
 });

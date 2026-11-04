@@ -79,3 +79,17 @@ Build: the 3E fix preview APK (PR link and APK link added when it is built). No 
 10. Turn airplane mode off. On the roll, tap "Finish roll": it says "This roll is finished".
 11. Away from your home area, with location allowed (or not yet asked): open Explore. The first time, Android asks for location; tap "While using the app". The map centres on where you are now (the blue dot), not on your home area. Tap "Don't allow" instead (on a fresh install): Explore uses your home area.
 12. Stay offline for more than an hour (airplane mode), then close and reopen the app: you are still signed in and your saved plans show. Turn airplane mode off: the waiting changes send without a new sign-in.
+
+## Today: weather pictures and sun path
+
+Build: the preview APK from PR #29 "feat(mobile): weather pictures and sun path on Today". No server change.
+
+1. Open Today. Without scrolling you see: the weather and light card, the challenge, the suggested spot (if you have a favourite spot) and "Plan my shoot". The weather picture grows to use the free space, so there is no large empty gap under "Plan my shoot". The round Coach button sits on the right of "Plan my shoot" and does not cover it.
+2. The top of the card is a moving picture of the weather now (for example sun for "Clear", drops for "Rain"). On it, on the left: the place, the temperature, the weather word, and cloud and wind.
+3. Under it: the countdown in a coloured box (golden or blue) with its times, and a small sun path beside it. In daylight a sun dot glows on the arc.
+4. The table has Blue, Golden and Sun for Morning and Evening. Each cell shows a big start time with "to" and the end time under it; the Sun cells show the time with "Rise" or "Set" under it. The next (or current) golden or blue time is marked.
+5. The challenge is one row with "Continue" (or "New challenge") on the right.
+6. After sunset, with clear or partly cloudy weather, the picture shows the moon and stars.
+7. Turn on Settings > Accessibility > Remove animations (the name can differ by phone), then open Today again. The picture shows but does not move. Turn it off again.
+8. Me > Settings: try "Golden dark" and "Camera body". The card still reads well.
+9. Explore: open a place. It shows the same card (without the place name, which is the page title).

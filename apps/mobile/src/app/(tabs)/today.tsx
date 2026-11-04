@@ -7,13 +7,13 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useConditions, usePreferences, useSpots } from '../../data/hooks';
 import { useWhere, type Where } from '../../lib/where';
+import { COACH_CLEARANCE } from '../../ui/CoachButton';
 import { PrimaryButton, Screen } from '../../ui/form';
 import { LastUpdated, localDay } from '../../ui/LastUpdated';
 import { ErrorState, Loading } from '../../ui/states';
 import { ChallengeCard } from '../../ui/today/ChallengeCard';
-import { LightCard } from '../../ui/today/LightCard';
+import { ConditionsCard } from '../../ui/today/ConditionsCard';
 import { SpotCard } from '../../ui/today/SpotCard';
-import { WeatherCard } from '../../ui/today/WeatherCard';
 
 /** The current time, updated every `everyMs`. */
 function useNow(everyMs: number): Date {
@@ -32,9 +32,8 @@ function LightSection({ where }: { where: Extract<Where, { state: 'ready' }> }) 
   if (conditions.isPending) return <Loading label="Loading the light…" />;
   if (conditions.isError && !conditions.data) return <ErrorState error={conditions.error} onRetry={() => void conditions.refetch()} />;
   return (
-    <View className="gap-4">
-      <LightCard light={conditions.data.light} now={now} place={where.label} />
-      <WeatherCard weather={conditions.data.weather} units={units} />
+    <View className="grow gap-2">
+      <ConditionsCard light={conditions.data.light} weather={conditions.data.weather} units={units} now={now} place={where.label} grow />
       <LastUpdated at={conditions.dataUpdatedAt} />
     </View>
   );
@@ -57,13 +56,16 @@ export default function Today() {
   const spots = useSpots();
 
   return (
-    <Screen title="Today">
+    <Screen title="Today" fill>
       {where.state === 'loading' ? <Loading label="Finding where you are…" /> : null}
       {where.state === 'none' ? <SetHomeCard onAsk={ask} /> : null}
       {where.state === 'ready' ? <LightSection where={where} /> : null}
       <ChallengeCard />
       <SpotCard spots={spots.data?.spots} />
-      <PrimaryButton title="Plan my shoot" onPress={() => router.navigate('/shoot')} />
+      {/* The last row: the floating Coach button sits on its right. */}
+      <View style={{ marginRight: COACH_CLEARANCE }}>
+        <PrimaryButton title="Plan my shoot" onPress={() => router.navigate('/shoot')} />
+      </View>
     </Screen>
   );
 }
