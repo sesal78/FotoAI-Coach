@@ -30,7 +30,7 @@ export { loadSavedLoadout } from './gear.ts';
 export { explainGooglePlace, explainSpot } from './explain.ts';
 export { addFrame, createRoll, deleteRoll, getRoll, listRolls, matchScans, patchRoll } from './rolls.ts';
 export { loadGearItems } from './gear.ts';
-export { confirmPhoto, createPhoto, getPhotoUrl, listPhotos } from './photos.ts';
+export { confirmPhoto, createPhoto, getPhoto, getPhotoUrl, listPhotos } from './photos.ts';
 export { clearCoachHistory, coachReply, getCoachHistory } from './coach.ts';
 export { getProgress } from './progress.ts';
 export { analysePhoto, listPhotoAnalyses } from './analyses.ts';

@@ -642,15 +642,286 @@ Without the server key the APK still ships: Explore shows "Places unavailable" a
 - [ ] Add `apps/mobile/CHECKLIST.md` section 3E: make a plan from a place; open it in airplane mode; mark steps done and skip one; load a roll and log 3 frames in airplane mode; kill the app and reopen it (the changes still wait); turn airplane mode off (they send once, and the badge clears); a step changed on the web wins; finish the roll.
 - [ ] **Stop for Seun's yes.** Then: merge, build the preview APK on EAS (and check it opens on the emulator), and Seun runs the 3E checklist.
 
-## Sub-phase 3F: Photos and the Coach (task level)
+## Sub-phase 3F: Photos and the Coach (step level, expanded 4 Nov 2026)
 
-**Ships:** APK only.
-- **F1 Import:** pick from the gallery with EXIF (`expo-image-picker` with `exif: true`; `expo-media-library` with `ACCESS_MEDIA_LOCATION` for the location); EXIF is read before any change; HEIC becomes JPEG and the long side is cut to 3000 px (JPEG quality 0.9) with `expo-image-manipulator`; create, upload to the signed link and confirm run through the outbox with a client id, so a killed upload resumes.
-- **F2 Library:** ready photos in a grid; detail with EXIF, place, the linked step and the check result; signed read links are fetched when shown (never stored).
-- **F3 Rolls and scans:** roll list and detail; add scans in order; pair scan *n* with frame *n*, drag to fix; `POST /api/v2/rolls/:id/scans`.
-- **F4 Analyse:** critique, editing tips and recreate (B4) on a photo, with the saved results listed.
-- **F5 Coach sheet:** sends the screen and the open plan or roll as context; shows history; a proposed challenge opens its card; a proposed plan opens New plan filled in; "Clear history".
-- **Tests:** `EXIF and GPS reach the create call`; `a resized photo keeps its EXIF in the create call`; `an upload killed half way resumes`; `a coach proposal opens the right screen`. **Checklist:** 3F section.
+**Ships:** two PRs, in order.
+- **PR 3F-0 (server, small):** 3 gaps closed. No migration. One deploy on Seun's yes.
+- **PR 3F (app):** APK only. One EAS preview build on Seun's yes, then Seun's phone checklist.
+
+**Facts this expansion is built on (read 4 Nov 2026, against `master` `3d98f82`):**
+- Photos, live:
+  - `POST /api/v2/photos` `{ id, source: gallery|scan|camera, mime, bytes, exif?, stepId?, rollId? }` → 201 `{ photo, upload: { url, token, path } }`. A replay with the same id is safe: still pending gives a fresh upload link; ready gives `{ photo }` with no `upload`. Limit: 200 new photos an hour. Bytes 1 to 52,428,800.
+  - Bucket `fotoai-submissions`. The phone sends the bytes with its own Supabase client: `storage.from('fotoai-submissions').uploadToSignedUrl(path, token, bytes, { contentType: mime })`.
+  - `POST /api/v2/photos/:id/confirm` (no body) → `{ photo }`. The uploaded size and type **must equal** the declared `bytes` and `mime` (else a 400). Confirm links a step by time (±45 min) when no `stepId` was sent, runs the AI check, and gives XP. A replay is safe.
+  - `GET /api/v2/photos?cursor=` → `{ photos, nextCursor }`: ready photos only, newest first, 50 a page. `GET /api/v2/photos/:id/url` → `{ url, expiresAt }`, 300 s.
+  - `ExifInput` (strict, all optional): `cameraMake`, `cameraModel`, `lensModel` (1–80 chars), `focalMm`, `aperture`, `shutterSeconds` (positive), `iso` (positive int), `takenAt` (ISO with offset), `takenOffset` (`+HH:MM`), `lat`, `lng`.
+- Scans, live: `POST /api/v2/rolls/:id/scans` `{ photoIds (1–80), overrides?: { [photoId]: frameNo } }` → `{ matches: [{ photoId, frameNo | null }] }`. Only ready photos with `source: 'scan'`. Overrides must name a **logged** frame. The others fill free logged frames in frame order.
+- Analyse, live: `POST /api/v2/photos/:id/analyse` `{ mode: critique|editing|recreate }` → 201 `{ analysis }` (30 an hour; "This photo cannot be analysed" when the check says unsafe). `GET /api/v2/photos/:id/analyses` → `{ analyses }`, newest first.
+- Coach, live: `POST /api/v2/coach` `{ message (1–2000), context: { screen, planId?, rollId? } }` → `{ reply, proposal | null }` (120 an hour). Proposal: `{ kind: 'challenge', challenge }` or `{ kind: 'plan', placeId | spotId, date | null }`. `GET /api/v2/coach/history` → last 50 `{ messages }`, oldest first. `DELETE /api/v2/coach/history` → `{ success, deleted }`.
+- **Gaps found (closed in 3F-0):**
+  1. The coach is told to "call proposePlan with an id from the context", but the context holds **no place id and no spot id** (`packages/api/src/coach.ts` `loadContext`). So a plan proposal can never work today.
+  2. No `GET /api/v2/photos/:id`. A photo screen opened from a link or a step cannot load.
+  3. No way to list a roll's scans: `GET /rolls/:id` has no scans and `GET /photos` has no filter.
+- In the app today:
+  - Not installed: `expo-image-picker`, `expo-media-library`, `expo-image-manipulator`; `expo-file-system` comes only through `expo`. No `ACCESS_MEDIA_LOCATION`.
+  - The outbox (`OutboxKind = step | plan | roll | rollStatus | frame`) sends **one JSON request per item**. It has no file upload.
+  - The Photos tab says "Coming soon". The Coach button opens a "later update" modal. It is mounted only in `(tabs)/_layout.tsx`, so it is missing on the plan and roll screens and knows no plan or roll.
+  - New plan (`NewPlan.tsx`) reads only `placeId` and `spotId`, not a date.
+  - About 234 app tests.
+
+**Simplifications against the task-level plan:**
+- **One outbox item per photo**, with no new queue. Every step of the upload is safe to repeat. So the item's sender always runs the whole chain: create (a replay gives a fresh link), upload, confirm. A killed upload, or a link that ran out while the phone was offline, simply starts that chain again.
+- **Scans: tap to swap, not drag.** Tap a scan, then tap a frame. Same result, with no drag gesture to build and test.
+- No photo delete in 3F. The server has no delete route (see "Not in 3F").
+
+**Rules for every 3F screen:**
+- Each screen has the four states: loading, empty, error with Retry, and offline.
+- An import made offline shows at once with "Waiting to upload". It is sent later.
+- Nothing waiting is dropped without the user's yes.
+- The AI runs only from a tap.
+- Signed links are never saved on the phone or logged.
+
+### Task F0: Server gaps (PR 3F-0)
+
+**Files:**
+- Modify `packages/contracts/src/coach.ts`: `CoachInput.context` gains `placeId?` (string, max 300) and `spotId?` (uuid).
+- Modify `packages/contracts/src/photos.ts`: add `PhotoResponse = { photo }` and `PhotoListResponse = { photos, nextCursor }`.
+- Create `packages/ai/src/prompts/coach.v2.ts` (version 2, replaces v1 in use):
+  - `CoachPromptInput` gains `places: Array<{ label: string; placeId?: string; spotId?: string }>`.
+  - The context lists the place on screen, the open plan's place, and up to 10 of the user's spots (name and id).
+  - The rule becomes "a plan uses only an id listed under Places".
+- Modify `packages/api/src/coach.ts` `loadContext` to add:
+  - the plan row's `place_id` / `spot_id`;
+  - the caller's own spots;
+  - the screen's `placeId` / `spotId`, as an id only (no Google call).
+- Create `nextjs_space/app/api/v2/photos/[id]/route.ts` and a handler in `packages/api/src/photos.ts`: `GET` → `{ photo }`. It returns a photo in any status, but only the caller's; otherwise 404 "Photo not found".
+- Modify `GET /api/v2/photos` to take `?rollId=<uuid>`, which lists the ready photos on that roll. A bad id gives 400 "rollId must be a UUID".
+- Tests: `packages/api/test/coach*.test.ts`, `packages/api/test/photos*.test.ts`, `packages/ai/test/coach-prompt*.test.ts`.
+
+- [ ] **Step 1: Write the failing tests:**
+  - `the coach context lists the open plan's place id`;
+  - `the coach context lists the user's spots and the place on screen`;
+  - `a plan proposal for an id in the context is kept`;
+  - `the context never holds another user's spot`;
+  - `GET /photos/:id returns my pending or ready photo`;
+  - `GET /photos/:id of another user is a 404`;
+  - `GET /photos?rollId lists only that roll's ready photos`.
+- [ ] **Step 2: RED, implement, GREEN.** All `nextjs_space` and `packages` tests pass.
+- [ ] **Step 3: Commit.** `feat(api): coach sees place ids; read one photo; photos by roll`
+- [ ] **Step 4:** One fresh reviewer, one fix pass, PR, CI green in all four jobs.
+- [ ] **Step 5: Stop for Seun's yes.** Then merge and deploy (Dokploy). Then a read-only check with a real token: `GET /api/v2/photos/<id>` gives 200 or 404, never 500. Rollback: redeploy the commit before the merge.
+
+### Task F1: Import: pick, read EXIF, resize, queue the upload
+
+**Files:**
+- Install in the Sandbox worktree: `npx expo install expo-image-picker expo-media-library expo-image-manipulator expo-file-system`.
+- Modify `apps/mobile/app.config.ts`:
+  - Add the expo-media-library plugin with `isAccessMediaLocationEnabled: true`, and no write or audio permission.
+  - Add the expo-image-picker plugin with no camera or microphone permission.
+  - The app-config test checks both.
+- Create `apps/mobile/src/lib/exif.ts`: `exifToInput(raw: Record<string, unknown>, gps?: { latitude: number; longitude: number } | null): ExifInput`.
+  - Field mapping:
+    - `Make` → `cameraMake`, `Model` → `cameraModel`, `LensModel` → `lensModel`.
+    - `FocalLength` → `focalMm`, `FNumber` → `aperture`, `ExposureTime` → `shutterSeconds`.
+    - `ISOSpeedRatings` or `PhotographicSensitivity` → `iso`.
+    - `DateTimeOriginal` + `OffsetTimeOriginal` → `takenAt` / `takenOffset`.
+  - GPS: use the media-library location first. Otherwise use the EXIF GPS tags with their N/S/E/W refs.
+  - A value that the contract would reject is left out, not sent.
+  - With no offset, `takenAt` uses the phone's offset for that date, and `takenOffset` is left out.
+- Create `apps/mobile/src/lib/prepare-photo.ts`: `preparePhoto(asset, photoId): Promise<{ file: string; mime: 'image/jpeg'; bytes: number; exif: ExifInput }>`.
+  1. Read the EXIF **first**.
+  2. Cut the long side to 3000 px. Never make a photo larger.
+  3. Save as JPEG, quality 0.9.
+  4. Copy the result to `Paths.document/uploads/<photoId>.jpg`.
+  - `bytes` is the size of that copy.
+- Modify `apps/mobile/src/data/outbox.ts`: add `OutboxKind` `'photo'`. Its body is `{ id, source, mime, bytes, exif, stepId?, rollId?, file }`.
+- Modify `apps/mobile/src/data/sync.ts`: `request` also receives `kind`.
+- Create `apps/mobile/src/data/upload.ts`: `sendPhoto(body): Promise<{ photo: PhotoDto }>`.
+  - It runs create, then `uploadToSignedUrl` (only when `upload` is present), then confirm.
+  - A Storage network error is retryable (`upstream`). A 4xx goes to Needs attention.
+- Modify `client.ts`: route `kind === 'photo'` to `sendPhoto`.
+- Modify `sent.ts`: `applySent` for `'photo'` adds the photo to the photo reads and deletes the local file.
+- Removing a photo item in Needs attention also deletes its file.
+- Create `apps/mobile/src/data/photos.ts`: `useImport()`.
+  1. Ask for photo and media-location permission once.
+  2. Pick several photos (`allowsMultipleSelection`, `exif: true`).
+  3. Run `preparePhoto` on each one, then `enqueue` it.
+  - It keeps `assetId → photoId` per account in the kv-store. If the same gallery photo is picked again, it says "Already imported" and does not send it again.
+- Tests: `src/lib/__tests__/exif-test.ts`, `src/lib/__tests__/prepare-photo-test.ts`, `src/data/__tests__/upload-test.ts`, `src/data/__tests__/import-test.tsx`.
+
+- [ ] **Step 1: Write the failing tests:**
+  - `EXIF and GPS reach the create call`. Use Make `RICOH`, FNumber `2.8`, ExposureTime `0.004`, ISO `200`, and the media-library location `-37.81, 144.96`.
+  - `a resized photo keeps its EXIF in the create call`.
+  - `a HEIC photo is sent as image/jpeg with the size of the new file`.
+  - `a photo with no EXIF is still imported`.
+  - `a time with no offset uses the phone's offset`.
+  - `an upload killed half way resumes`. The upload throws once. The next run replays create, gets a fresh link, uploads and confirms. There is 1 photo.
+  - `a link that ran out starts the chain again`.
+  - `a size mismatch moves to Needs attention`.
+  - `the same gallery photo picked twice is sent once`.
+  - `photo items wait for their own account`.
+- [ ] **Step 2: RED, implement, GREEN.** Then `pnpm typecheck` and the mobile tests.
+- [ ] **Step 3: Commit.** `feat(mobile): import photos with EXIF through the outbox`
+
+### Task F2: The Photos tab and the photo screen
+
+**Files:**
+- Rewrite `apps/mobile/src/app/(tabs)/photos.tsx`.
+- Create `apps/mobile/src/app/photo/[id].tsx`.
+- Create in `apps/mobile/src/ui/photos/`: `PhotoGrid.tsx`, `PhotoTile.tsx`, `ExifCard.tsx`, `CheckBadge.tsx`.
+- Modify `keys.ts` and `schemas.ts` (use `PhotoResponse` / `PhotoListResponse` from contracts).
+- Add to `photos.ts`:
+  - `usePhotos()`: infinite, saved on the phone.
+  - `usePhoto(id)`: from the saved list first, then `GET /photos/:id`.
+  - `usePhotoUrl(id)`: `meta: { save: false }`, fresh for 4 min, fetched again when the image fails to load.
+- Tests: `src/__tests__/photos-test.tsx`, `src/__tests__/photo-test.tsx`.
+
+**Interface:**
+- **Photos tab**, from top to bottom:
+  - "Import photos", and the rolls with scans (F3).
+  - The waiting uploads (from the outbox), with their local file and "Waiting to upload".
+  - The grid of ready photos, 3 across, loaded as they come into view.
+- **Photo screen**:
+  - The picture.
+  - The EXIF card: camera, lens, focal length, aperture, shutter as `1/250`, ISO, and the time in the photo's own offset. If there is no camera data, it says "No camera data".
+  - The place: "Near <plan place>" when the photo is linked to a step, otherwise the coordinates.
+  - The linked step (its title, with a link to its plan), when that plan is saved on the phone.
+  - The check badge: "Matches the brief", "Does not match the brief" or "Not checked yet".
+  - Analyse (F4).
+
+- [ ] **Step 1: Write the failing tests:**
+  - `the grid shows ready photos newest first`.
+  - `a waiting upload shows before it is sent`.
+  - `the EXIF card shows 1/250 s and f/2.8`.
+  - `a photo with no camera data says so`.
+  - `a linked step links to its plan`.
+  - `a signed link is never saved on the phone`.
+  - `a link that ran out is fetched again`.
+  - The four states. Offline: the saved grid still shows, and the pictures say "Needs a signal".
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): Photos tab and photo screen`
+
+### Task F3: Film scans
+
+**Files:**
+- Create `apps/mobile/src/app/roll/scans/[id].tsx`.
+- Create `apps/mobile/src/ui/photos/ScanPairing.tsx`.
+- Create `apps/mobile/src/lib/pair-scans.ts`: `pairScans(logged: number[], taken: number[], scanIds: string[], swaps: Record<string, number>): Array<{ photoId: string; frameNo: number | null }>`. It pairs the same way as the server: free logged frames, in order.
+- Modify `apps/mobile/src/app/roll/[id].tsx`: add "Add scans" and the roll's scans (`GET /photos?rollId=`).
+- Modify the Photos tab: add a "Rolls" row that opens the roll list.
+- Modify `outbox.ts`: add kind `'scans'`. It is the JSON `POST /rolls/:id/scans` with **every** pair sent as an override, so the server stores what the user saw.
+- Tests: `src/lib/__tests__/pair-scans-test.ts`, `src/__tests__/scans-test.tsx`.
+
+**Interface:**
+- "Add scans" picks several photos, in order. Each one is imported with `source: 'scan'` and `rollId` (F1).
+- The pairing screen shows scan *n* beside frame *n*, using the free logged frames in order.
+- To swap 2 scans, tap a scan, then tap a frame.
+- A scan with no logged frame shows "No frame logged". "Add frame N" opens the frame logger with that number, then comes back here.
+- "Save pairs" puts the scans item in the outbox **after** the photo items. The outbox sends in order, so the pairs go only after the uploads are done.
+
+- [ ] **Step 1: Write the failing tests:**
+  - `scans pair with free logged frames in order`.
+  - `a frame already held by an older scan is skipped`.
+  - `tap to swap moves two scans`.
+  - `a scan past the last frame says No frame logged`.
+  - `Save pairs sends every pair as an override`.
+  - `the scans item waits for its uploads`.
+  - `scans made offline are sent once when back online`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): add film scans and pair them with frames`
+
+### Task F4: Analyse
+
+**Files:**
+- Create in `apps/mobile/src/ui/photos/`: `Analyse.tsx`, `CritiqueCard.tsx`, `EditingCard.tsx`, `RecreateCard.tsx`.
+- Add to `photos.ts`: `useAnalyses(photoId)` (saved on the phone) and `useAnalyse(photoId)` (online only).
+- Modify `photo/[id].tsx`.
+- Tests: `src/__tests__/analyse-test.tsx`.
+
+**Interface:**
+- 3 buttons: "Critique", "Editing tips" and "How to recreate". Each one runs only on a tap and shows "Working…" while it runs.
+- The saved results show newest first, with one card for each mode:
+  - Critique: the 4 scores, the feedback, the strengths, the improvements and the settings.
+  - Editing: the steps (tool, change, why) and the film look.
+  - Recreate: the settings, the light, the position, the recipe and the gear.
+- The server's messages show as they come: unsafe, 429, and "AI is not configured".
+- Offline: the buttons say "Needs a signal". The saved results still show.
+
+- [ ] **Step 1: Write the failing tests:**
+  - `Critique sends mode critique and shows the scores`.
+  - `editing tips list their steps`.
+  - `recreate shows the shot recipe`.
+  - `saved results show newest first with no signal`.
+  - `an unsafe photo shows the server's message`.
+  - `a 429 shows the server's message`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): analyse a photo (critique, editing, recreate)`
+
+### Task F5: The Coach sheet
+
+**Files:**
+- Rewrite `apps/mobile/src/ui/CoachButton.tsx`. Keep `COACH_CLEARANCE`.
+- Create in `apps/mobile/src/ui/coach/`: `CoachSheet.tsx`, `Message.tsx`, `ProposalCard.tsx`.
+- Create `apps/mobile/src/lib/coach-context.ts`: `coachContext(pathname: string, params: Record<string, string | undefined>, activeRollId?: string): CoachInput['context']`. It maps:
+  - `today` and `challenge/*` → `today`.
+  - `explore`, `place/*` and `spot/*` → `explore`, with `placeId` / `spotId`.
+  - `shoot`, `plan/*` and `roll/*` → `shoot`, with `planId` / `rollId`. On the Shoot tab it uses the active roll.
+  - `photos` and `photo/*` → `photos`.
+  - `me/*` → `me`.
+- Move the button from `(tabs)/_layout.tsx` to the signed-in part of `app/_layout.tsx`. Then it also shows on the plan, roll, place and photo screens. It never shows on the sign-in, onboarding or reset screens.
+- Modify `NewPlan.tsx` and `(tabs)/shoot.tsx` to read a `date` param. A valid `YYYY-MM-DD` fills "Or another date".
+- Create `apps/mobile/src/data/coach.ts` with:
+  - `useCoachHistory()` (`save: false`);
+  - `useSendCoach()`;
+  - `useClearCoach()`.
+- Tests: `src/lib/__tests__/coach-context-test.ts`, `src/__tests__/coach-test.tsx`.
+
+**Interface:**
+- The sheet shows the history (oldest first), a text field (max 2000 characters) and Send.
+- The reply shows with its proposal card:
+  - A challenge shows "Open challenge", which opens `/challenge/<id>`.
+  - A plan shows "Plan this shoot", which opens Shoot with `placeId` or `spotId`, and `date`.
+- "Clear history" is in the menu. It asks first.
+- Offline: Send says "Needs a signal". The history loaded in this session still shows.
+
+- [ ] **Step 1: Write the failing tests:**
+  - `the context names the screen and the open plan`.
+  - `on a place screen the context has its placeId`.
+  - `a coach proposal opens the right screen`: a challenge opens `/challenge/<id>`; a plan opens Shoot with the place and the date filled in.
+  - `Clear history asks first`.
+  - `the Coach button shows on the plan screen and not on sign-in`.
+  - `a 429 shows the server's message`.
+  - `a message over 2000 characters cannot be sent`.
+- [ ] **Step 2: RED, implement, GREEN.**
+- [ ] **Step 3: Commit.** `feat(mobile): the Coach sheet with screen context`
+
+### Task F6: 3F release
+
+- [ ] One fresh reviewer checks the whole branch. Then one fix pass, the PR, and CI green in all four jobs (Expo doctor included).
+- [ ] Add section 3F to `apps/mobile/CHECKLIST.md`:
+  1. Import 3 photos from the vendor app's folder. The camera, lens, settings and place show.
+  2. Turn airplane mode on and import 2 photos. Kill the app and reopen it. Turn airplane mode off. Each photo uploads once.
+  3. Pick the same photo again. The app says "Already imported".
+  4. Open a photo taken during a plan step. It links to that step.
+  5. Add 3 scans to a roll and swap 2 of them, then save. The pairs on the roll are correct.
+  6. Run critique, editing tips and recreate on 1 photo.
+  7. Ask the coach for a challenge and open it.
+  8. On a place screen, ask the coach for a plan there. New plan opens with that place.
+  9. Clear the coach history.
+- [ ] **Stop for Seun's yes.** Then merge, build the preview APK on EAS, and check that it opens on the emulator. Then Seun runs the 3F checklist.
+
+### Review Focus (3F)
+
+1. **A photo with no EXIF** (a screenshot, a messaging-app picture) imports and says "No camera data". Tested in F1 and F2.
+2. **Many photos picked offline, then the app is killed.** After the restart, every photo is still waiting, and each one is sent once. Tested in F1 (`an upload killed half way resumes`) and by checklist step 2.
+3. **An upload link that ran out** (the phone was offline longer than the link lasts). The chain starts again with a fresh link. Tested in F1.
+4. **The same gallery photo picked twice** is not sent twice. Tested in F1 and by checklist step 3.
+5. **A signed read link that runs out while the picture is on screen** is fetched again, and it is never saved. Tested in F2.
+
+### Not in 3F
+
+- **Delete a photo.** The server has no route for it. If Seun wants it, it goes into 3F-0 as a route plus a Storage remove.
+- **The camera inside the app** (`source: 'camera'`), **RAW files** and **the portfolio view.** The portfolio moves to phase 4 with the new web app, unless Seun asks for it in 3F.
 
 ## Sub-phase 3G: Release (task level)
 

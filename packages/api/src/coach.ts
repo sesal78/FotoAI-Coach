@@ -4,7 +4,7 @@
 // it names a real Google place or one of the caller's own spots. Every read and write uses the
 // caller's token, so RLS keeps each user to their own rows.
 
-import { COACH_TOOLS, COACH_V1, type ChatToolCall, type ChatTurn, type CoachPromptInput } from '@fotoai/ai';
+import { COACH_TOOLS, COACH_V2, type ChatToolCall, type ChatTurn, type CoachPromptInput } from '@fotoai/ai';
 import { CoachInput, type CoachMessageDto, type CoachProposal } from '@fotoai/contracts';
 import { framesLeft, getSkillById } from '@fotoai/core';
 import { createUserClient } from '@fotoai/db';
@@ -27,37 +27,72 @@ const T_CHALLENGES = 'fotoai_daily_challenges';
 const CHATBOT_TYPE = 'CHATBOT_GENERATED';
 const HISTORY_TURNS = 20;
 const HISTORY_PAGE = 50;
+const SPOTS_IN_CONTEXT = 10;
 const MAX_REPLY = 4000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const upstream = (what: string) => new ApiError('upstream', `Could not ${what}`);
 const orNull = (text: string) => text.trim() || null;
 
-/** What the model may know: the screen, the gear, the weakest skills, and the caller's own plan or roll. */
+type Place = CoachPromptInput['places'][number];
+type SpotRef = { id: string; source: string; name: string | null };
+
+/** What the model may know: the screen, the gear, the weakest skills, the caller's own plan or roll, and the ids it may plan at. */
 async function loadContext(deps: V2Deps, principal: Principal, client: UserClient, context: CoachInput['context']): Promise<CoachPromptInput> {
-  const [loadout, skills, plan, roll] = await Promise.all([
+  const [loadout, skills, open, roll, spots, screenSpot] = await Promise.all([
     loadSavedLoadout(deps, principal),
     client.from('fotoai_user_skills').select('skill_id, current_xp').eq('user_id', principal.userId).order('current_xp', { ascending: true }).limit(5),
     context.planId ? loadPlan(client, context.planId) : null,
     context.rollId ? loadRoll(client, context.rollId) : null,
+    loadSpots(client, principal),
+    context.spotId ? loadSpot(client, principal, context.spotId) : null,
   ]);
   if (skills.error) throw upstream('load your skills');
+
+  // On screen first, then the open plan's place, then the user's own spots; each id once.
+  const places: Place[] = [];
+  const add = (place: Place) => {
+    if (!places.some((p) => (p.placeId ?? p.spotId) === (place.placeId ?? place.spotId))) places.push(place);
+  };
+  if (context.placeId && PLACE_ID.test(context.placeId)) add({ label: 'the place on screen', placeId: context.placeId });
+  if (screenSpot) add({ label: `the spot on screen (${spotLabel(screenSpot)})`, spotId: screenSpot.id });
+  if (open?.place) add(open.place);
+  for (const spot of spots) add({ label: spotLabel(spot), spotId: spot.id });
+
   return {
     screen: context.screen,
     loadout: loadout ? describeLoadout(loadout) : null,
     weakSkills: skills.data.map((s) => getSkillById(s.skill_id)?.name).filter((n): n is string => Boolean(n)),
-    plan,
+    plan: open?.plan ?? null,
     roll,
+    places,
   };
 }
 
-async function loadPlan(client: UserClient, planId: string): Promise<CoachPromptInput['plan']> {
-  const plan = await client.from('fotoai_shoot_plans').select('title').eq('id', planId).maybeSingle();
+/** A Google place's name is not stored (Google terms), so a saved Google place gets a fixed phrase. */
+const spotLabel = (spot: SpotRef) => (spot.source === 'user' && spot.name ? spot.name : 'a saved Google place');
+
+async function loadSpots(client: UserClient, principal: Principal): Promise<SpotRef[]> {
+  const { data, error } = await client.from('fotoai_places').select('id, source, name').eq('user_id', principal.userId).order('created_at', { ascending: false }).limit(SPOTS_IN_CONTEXT);
+  if (error) throw upstream('load your spots');
+  return data as SpotRef[];
+}
+
+async function loadSpot(client: UserClient, principal: Principal, spotId: string): Promise<SpotRef | null> {
+  const { data, error } = await client.from('fotoai_places').select('id, source, name').eq('user_id', principal.userId).eq('id', spotId).maybeSingle();
+  if (error) throw upstream('load the spot');
+  return (data as SpotRef | null) ?? null; // not the caller's: say nothing about it
+}
+
+async function loadPlan(client: UserClient, planId: string): Promise<{ plan: CoachPromptInput['plan']; place: Place | null } | null> {
+  const plan = await client.from('fotoai_shoot_plans').select('title, place_id, spot_id').eq('id', planId).maybeSingle();
   if (plan.error) throw upstream('load the plan');
   if (!plan.data) return null; // not the caller's: say nothing about it
   const steps = await client.from('fotoai_plan_steps').select('title, status').eq('plan_id', planId).order('position').limit(12);
   if (steps.error) throw upstream('load the plan');
-  return { title: plan.data.title, steps: steps.data };
+  const { spot_id: spotId, place_id: placeId } = plan.data;
+  const place: Place | null = spotId ? { label: "the open plan's spot", spotId } : placeId ? { label: "the open plan's place", placeId } : null;
+  return { plan: { title: plan.data.title, steps: steps.data }, place };
 }
 
 async function loadRoll(client: UserClient, rollId: string): Promise<CoachPromptInput['roll']> {
@@ -159,7 +194,7 @@ export const coachReply: V2Body = async (request, deps) => {
   const [context, history] = await Promise.all([loadContext(deps, principal, client, input.context), loadHistory(client)]);
   let out;
   try {
-    out = await deps.ai.chat(COACH_V1, context, { history, message: input.message, tools: COACH_TOOLS });
+    out = await deps.ai.chat(COACH_V2, context, { history, message: input.message, tools: COACH_TOOLS });
   } catch (err) {
     throw fromAi(err);
   }

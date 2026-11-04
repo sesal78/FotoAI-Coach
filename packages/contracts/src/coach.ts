@@ -4,6 +4,7 @@
 import { z } from 'zod';
 
 import { ChallengeDto } from './challenges.ts';
+import { PLACE_ID_RE } from './places.ts';
 
 const inId = z.string().uuid().transform((s) => s.toLowerCase());
 
@@ -12,7 +13,16 @@ export const COACH_SCREENS = ['today', 'explore', 'shoot', 'photos', 'me'] as co
 export const CoachInput = z
   .object({
     message: z.string().trim().min(1).max(2000),
-    context: z.object({ screen: z.enum(COACH_SCREENS), planId: inId.optional(), rollId: inId.optional() }).strict(),
+    context: z
+      .object({
+        screen: z.enum(COACH_SCREENS),
+        planId: inId.optional(),
+        rollId: inId.optional(),
+        /** The Google place or the user's own spot on screen, so the coach can propose a plan there. */
+        placeId: z.string().regex(PLACE_ID_RE).optional(),
+        spotId: inId.optional(),
+      })
+      .strict(),
   })
   .strict();
 

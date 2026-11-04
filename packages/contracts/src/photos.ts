@@ -97,3 +97,9 @@ export const PhotoDto = z.object({
   createdAt: z.string(),
 });
 export type PhotoDto = z.infer<typeof PhotoDto>;
+
+export const PhotoResponse = z.object({ photo: PhotoDto });
+export type PhotoResponse = z.infer<typeof PhotoResponse>;
+
+export const PhotoListResponse = z.object({ photos: z.array(PhotoDto), nextCursor: z.string().nullable() });
+export type PhotoListResponse = z.infer<typeof PhotoListResponse>;
