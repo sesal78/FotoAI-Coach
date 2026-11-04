@@ -65,7 +65,7 @@ Build: 3D preview APK with the phone fixes (PR #22), 24 Oct 2026: https://expo.d
 
 ## 3E: Shoot and the offline field mode
 
-Build: the 3E fix preview APK (PR link and APK link added when it is built). No server change. Before it: a film camera in Me > My gear, set as the loadout with a film loaded.
+Build: the 3E fix preview APK (PR link and APK link added when it is built). No server change. Before it: a film camera in Me > My gear, then Me > Loadout: pick that camera and its lens, fill in Film stock and Box ISO, and tap "Save loadout".
 
 1. In Explore, open a place and tap "Plan a shoot here". Shoot shows New plan with the place, Today, and your loadout. Tap "Make the plan". The plan opens with its steps and their times.
 2. Go back to Shoot. "My plans" lists the new plan.
