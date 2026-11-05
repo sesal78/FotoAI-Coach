@@ -23,6 +23,8 @@ export interface FrameDefaults {
   mode?: SettingsDto['mode'];
   aperture?: number;
   shutterSeconds?: number;
+  /** A frame number to start from (Add frame N, from pairing scans). */
+  frameNo?: number;
 }
 
 /** The roll's camera: its capability, the lens on it, and the lens's gear id (none for a built-in lens). */
@@ -77,7 +79,7 @@ export function FrameLogger({
     [loadout, defaults, gear.body.modes, roll.ratedIso],
   );
   const [mode, setMode] = useState<Settings['mode']>(start.mode);
-  const [frameNo, setFrameNo] = useState('');
+  const [frameNo, setFrameNo] = useState(defaults.frameNo ? String(defaults.frameNo) : '');
   const [aperture, setAperture] = useState(start.aperture ? String(start.aperture) : '');
   const [shutter, setShutter] = useState(start.shutterSeconds ? shutterField(start.shutterSeconds) : '');
   const [note, setNote] = useState('');

@@ -14,7 +14,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { deletePhotoFile } from '../lib/photo-files';
 import { preparePhoto } from '../lib/prepare-photo';
 import { getApi } from './client';
-import { enqueue, fieldOwner } from './field';
+import { enqueue, fieldOwner, outbox } from './field';
 import { importedPhoto, rememberImport } from './imported';
 import { keys } from './keys';
 import type { OutboxItem } from './outbox';
@@ -65,6 +65,52 @@ export function usePhotoUrl(id: string) {
   });
 }
 
+/** A film roll's scans on FotoAI, oldest first, with the frame each one is paired with. Kept on the phone. */
+export function useRollScans(rollId: string) {
+  return useQuery({
+    queryKey: keys.rollScans(rollId),
+    queryFn: async () => {
+      const photos: PhotoList['photos'] = [];
+      let cursor: string | null = null;
+      // A roll has at most 72 frames plus spares: two pages of 50 at most.
+      for (let page = 0; page < 3; page += 1) {
+        const query: string = `rollId=${encodeURIComponent(rollId)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+        const answer: PhotoList = await getApi().request(`/api/v2/photos?${query}`, { schema: PhotoListResponse });
+        photos.push(...answer.photos);
+        cursor = answer.nextCursor;
+        if (!cursor) break;
+      }
+      return { scans: photos.filter((p) => p.source === 'scan').reverse() };
+    },
+  });
+}
+
+/**
+ * Saves the pairs of scans and frames: one outbox item, after the scans' own uploads, so it is
+ * sent only once they are done. Every pair goes as a choice. An unsent older save for this roll
+ * is replaced, so the newest pairs are the ones sent.
+ */
+export function useSaveScans(rollId: string) {
+  return useCallback(
+    async (pairs: Array<{ photoId: string; frameNo: number | null }>) => {
+      const owner = fieldOwner();
+      if (!owner) throw new Error('Sign in to save this change.');
+      for (const item of await outbox.list(owner)) {
+        if (item.kind === 'scans' && item.state === 'waiting' && item.key.startsWith(`scans:${rollId}:`)) await outbox.remove(item.id);
+      }
+      const overrides = Object.fromEntries(pairs.filter((p) => p.frameNo !== null).map((p) => [p.photoId, p.frameNo!]));
+      await enqueue({
+        kind: 'scans',
+        method: 'POST',
+        path: `/api/v2/rolls/${encodeURIComponent(rollId)}/scans`,
+        body: { photoIds: pairs.map((p) => p.photoId), overrides },
+        key: `scans:${rollId}:${Crypto.randomUUID()}`,
+      });
+    },
+    [rollId],
+  );
+}
+
 /** The photos still in the outbox for this account: waiting, or refused by the server. */
 export function useWaitingPhotos(): Array<{ item: OutboxItem; body: PhotoBody }> {
   const items = useOutbox();
@@ -98,6 +144,8 @@ export interface ImportResult {
   added: number;
   already: number;
   failed: number;
+  /** The new photos' ids, in the order picked (for scans: the order of the frames). */
+  ids: string[];
   /** What to tell the user, or null when nothing was picked. */
   message: string | null;
 }
@@ -128,7 +176,7 @@ async function placeOf(assetId: string | null | undefined, allowed: boolean): Pr
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-function messageFor({ added, already, failed }: Omit<ImportResult, 'message'>): string {
+function messageFor({ added, already, failed }: Pick<ImportResult, 'added' | 'already' | 'failed'>): string {
   const parts: string[] = [];
   if (added) parts.push(`${plural(added, 'photo')} waiting to upload`);
   if (already) parts.push(added || failed ? `${already} already imported` : 'Already imported');
@@ -146,9 +194,10 @@ export function useImport() {
     try {
       const allowed = await photoAccess();
       const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: PICK_LIMIT, exif: true, quality: 1 });
-      if (picked.canceled || !picked.assets?.length) return { added: 0, already: 0, failed: 0, message: null };
+      if (picked.canceled || !picked.assets?.length) return { added: 0, already: 0, failed: 0, ids: [], message: null };
 
       const count = { added: 0, already: 0, failed: 0 };
+      const ids: string[] = [];
       for (const asset of picked.assets) {
         if (asset.assetId && (await importedPhoto(owner, asset.assetId))) {
           count.already += 1;
@@ -178,8 +227,9 @@ export function useImport() {
         }
         if (asset.assetId) await rememberImport(owner, asset.assetId, id);
         count.added += 1;
+        ids.push(id);
       }
-      return { ...count, message: messageFor(count) };
+      return { ...count, ids, message: messageFor(count) };
     } finally {
       setBusy(false);
     }

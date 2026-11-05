@@ -18,6 +18,7 @@ function describe(item: OutboxItem): string {
   if (item.kind === 'plan') return 'A plan change';
   if (item.kind === 'roll') return 'A film roll';
   if (item.kind === 'photo') return 'A photo';
+  if (item.kind === 'scans') return 'Scans paired with frames';
   return 'A finished roll';
 }
 

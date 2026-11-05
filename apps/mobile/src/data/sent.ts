@@ -38,6 +38,12 @@ export function applySent(client: QueryClient, item: OutboxItem, answer: unknown
     deletePhotoFile((item.body as { file: string }).file);
     return;
   }
+  if (item.kind === 'scans') {
+    // The pairs are stored: the roll's scans and the library read them again.
+    void client.invalidateQueries({ queryKey: keys.rollScans(segment(item.path, 'rolls')) });
+    void client.invalidateQueries({ queryKey: keys.photos });
+    return;
+  }
   if (item.kind === 'step') {
     const parsed = StepResponse.safeParse(answer);
     if (!parsed.success) return;

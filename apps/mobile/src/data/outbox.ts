@@ -8,7 +8,7 @@ import * as Crypto from 'expo-crypto';
 
 export const OUTBOX_KEY = 'fotoai.outbox.v1';
 
-export type OutboxKind = 'step' | 'plan' | 'roll' | 'rollStatus' | 'frame' | 'photo';
+export type OutboxKind = 'step' | 'plan' | 'roll' | 'rollStatus' | 'frame' | 'photo' | 'scans';
 
 export interface OutboxInput {
   kind: OutboxKind;

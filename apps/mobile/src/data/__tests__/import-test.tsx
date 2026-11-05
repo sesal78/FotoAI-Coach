@@ -83,7 +83,7 @@ test('EXIF and GPS reach the create call', async () => {
   mockPicker.assets = [picked()];
   mockMedia.locations['gal-1'] = { latitude: -37.81, longitude: 144.96 };
   const result = await importNow();
-  expect(result).toEqual({ added: 1, already: 0, failed: 0, message: '1 photo waiting to upload' });
+  expect(result).toEqual({ added: 1, already: 0, failed: 0, ids: [expect.any(String)], message: '1 photo waiting to upload' });
   expect(mockPicker.calls).toEqual([expect.objectContaining({ allowsMultipleSelection: true, exif: true, mediaTypes: ['images'] })]);
   const server = await sendAll();
   expect(server.creates).toEqual([
@@ -125,7 +125,7 @@ test('a scan for a roll is queued as a scan on that roll', async () => {
 test('the same gallery photo picked twice is sent once', async () => {
   mockPicker.assets = [picked()];
   await importNow();
-  expect(await importNow()).toEqual({ added: 0, already: 1, failed: 0, message: 'Already imported' });
+  expect(await importNow()).toEqual({ added: 0, already: 1, failed: 0, ids: [], message: 'Already imported' });
   expect(await outbox.list(OWNER)).toHaveLength(1);
   // Another account on the same phone has its own list.
   setFieldOwner('bbbbbbbb-0000-4000-8000-000000000002');
@@ -151,7 +151,7 @@ test('permission is asked only while Android may still ask', async () => {
 
 test('a closed picker adds nothing', async () => {
   mockPicker.assets = null;
-  expect(await importNow()).toEqual({ added: 0, already: 0, failed: 0, message: null });
+  expect(await importNow()).toEqual({ added: 0, already: 0, failed: 0, ids: [], message: null });
   expect(await outbox.list(OWNER)).toEqual([]);
 });
 
@@ -191,7 +191,7 @@ test('a photo that cannot be read is counted, and the others still go', async ()
     throw new Error('Could not decode the image');
   });
   try {
-    expect(await importNow()).toEqual({ added: 1, already: 0, failed: 1, message: '1 photo waiting to upload. 1 photo could not be read' });
+    expect(await importNow()).toEqual({ added: 1, already: 0, failed: 1, ids: [expect.any(String)], message: '1 photo waiting to upload. 1 photo could not be read' });
   } finally {
     spy.mockRestore();
     manipulator.ImageManipulator.manipulate = real;

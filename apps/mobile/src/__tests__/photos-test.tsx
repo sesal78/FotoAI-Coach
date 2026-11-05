@@ -3,7 +3,7 @@ import type { InfiniteData } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import { photo } from '../../test/fixtures';
+import { photo, roll } from '../../test/fixtures';
 import { fakeApi, renderScreen, testClient } from '../../test/harness';
 import { mockFiles } from '../../test/photo-mocks';
 import Photos from '../app/(tabs)/photos';
@@ -120,4 +120,12 @@ test('offline: the saved grid still shows, and the pictures say they need a sign
   expect(await screen.findByTestId('offline-banner')).toBeTruthy();
   expect(tileIds()).toEqual([`photo-tile-${OLD.id}`]);
   expect(await screen.findByText('Needs a signal')).toBeTruthy();
+});
+
+test('the film rolls row opens a roll, to add its scans', async () => {
+  const film = roll({ status: 'finished' });
+  mockApi.current = fakeApi({ 'GET /api/v2/photos': { photos: [], nextCursor: null }, 'GET /api/v2/rolls': { rolls: [film] } });
+  await renderScreen(<Photos />);
+  await act(async () => await fireEvent.press(await screen.findByText('Kodak Portra 400 · finished')));
+  expect(router.push).toHaveBeenCalledWith(`/roll/${film.id}`);
 });

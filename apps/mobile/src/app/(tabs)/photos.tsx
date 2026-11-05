@@ -1,13 +1,15 @@
-// Photos: Import photos, then the photos still on the phone (waiting to upload, or refused), then
-// the grid of the photos on FotoAI. With no signal the saved grid still shows; an import made
-// offline shows at once and is sent later.
+// Photos: Import photos, the film rolls (to add and pair scans), the photos still on the phone
+// (waiting to upload, or refused), then the grid of the photos on FotoAI. With no signal the saved
+// grid still shows; an import made offline shows at once and is sent later.
 
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useImport, usePhotos, useWaitingPhotos } from '../../data/photos';
-import { Notice, PrimaryButton } from '../../ui/form';
+import { useRolls } from '../../data/shoot';
+import { Notice, PrimaryButton, TextLink } from '../../ui/form';
 import { PhotoGrid, useTileSize } from '../../ui/photos/PhotoGrid';
 import { WaitingTile } from '../../ui/photos/PhotoTile';
 import { Empty, ErrorState, isOffline, Loading, OfflineBanner } from '../../ui/states';
@@ -18,6 +20,8 @@ export default function Photos() {
   const { importPhotos, busy } = useImport();
   const [message, setMessage] = useState<{ text: string; tone: 'info' | 'error' } | null>(null);
   const size = useTileSize();
+  // The newest few rolls: scans are added and paired on the roll screen.
+  const rolls = useRolls().rolls.slice(0, 5);
 
   const onImport = () => {
     setMessage(null);
@@ -34,6 +38,14 @@ export default function Photos() {
       </Text>
       <PrimaryButton title="Import photos" onPress={onImport} busy={busy} />
       {message ? <Notice tone={message.tone} text={message.text} /> : null}
+      {rolls.length > 0 ? (
+        <View className="gap-1">
+          <Text className="font-semibold text-text">Film rolls: add scans</Text>
+          {rolls.map((r) => (
+            <TextLink key={r.id} title={`${r.stockName} · ${r.status === 'loaded' ? 'in the camera' : r.status}`} onPress={() => router.push(`/roll/${r.id}`)} />
+          ))}
+        </View>
+      ) : null}
       {saved && list.error && isOffline(list.error) ? <OfflineBanner onRetry={() => void list.refetch()} /> : null}
       {waiting.length > 0 ? (
         <View className="flex-row flex-wrap" style={{ gap: 6 }}>
