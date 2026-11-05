@@ -53,3 +53,7 @@ export type PlansResponse = z.infer<typeof PlansResponse>;
 export type PlanResponse = z.infer<typeof PlanResponse>;
 export type RollsResponse = z.infer<typeof RollsResponse>;
 export type RollDetailResponse = z.infer<typeof RollDetailResponse>;
+
+// Photos (3F): the list and one photo come from the contracts; the read link is short-lived.
+export { PhotoListResponse, PhotoResponse } from '@fotoai/contracts';
+export const PhotoUrlResponse = z.object({ url: z.string().url(), expiresAt: z.string() });

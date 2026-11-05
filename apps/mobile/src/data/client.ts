@@ -5,6 +5,7 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import { focusManager, onlineManager, QueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 import { z } from 'zod';
@@ -29,13 +30,16 @@ focusManager.setEventListener((handleFocus) => {
 export const queryClient = new QueryClient({ defaultOptions: QUERY_DEFAULTS });
 
 /**
- * Forgets everything read for the signed-in account: the cache and the copy kept on the phone.
- * Changes waiting in the outbox stay: they are sent the next time that account signs in.
+ * Forgets everything read for the signed-in account: the cache, the copy kept on the phone and
+ * the pictures of its photos. Changes waiting in the outbox stay: they are sent the next time
+ * that account signs in.
  */
 export function clearAccountData(): void {
   setFieldOwner(null);
   queryClient.clear();
   void savedReads.clear();
+  void Image.clearDiskCache().catch(() => undefined);
+  void Image.clearMemoryCache().catch(() => undefined);
 }
 
 /** At sign-in: saved reads that belong to another account are dropped before anything shows. */

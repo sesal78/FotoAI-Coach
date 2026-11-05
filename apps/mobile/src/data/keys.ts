@@ -27,6 +27,8 @@ export const keys = {
   // Photos (3F): the library (pages, newest first) and one photo.
   photos: ['photos', 'list'] as const,
   photo: (id: string) => ['photos', 'one', id] as const,
+  // The photo's signed read link: kept in memory only (meta.save: false), never on the phone.
+  photoUrl: (id: string) => ['photos', 'url', id] as const,
   // About 1 km cells, per day: the light and the weather do not change within one.
   conditions: (at: { lat: number; lng: number }, day: string) => ['conditions', round(at.lat), round(at.lng), day] as const,
 };

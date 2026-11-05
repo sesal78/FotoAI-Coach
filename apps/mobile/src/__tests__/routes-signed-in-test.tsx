@@ -29,6 +29,7 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
     '/api/v2/challenges/active': { challenge: null },
     '/api/v2/plans': { plans: [] },
     '/api/v2/rolls': { rolls: [] },
+    '/api/v2/photos': { photos: [], nextCursor: null },
   };
   mockState.request.mockImplementation(async (path: string) => answers[path.split('?')[0]!] ?? { challenge: null });
 
@@ -40,7 +41,7 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
   const tabs = [
     ['Explore', /Real places on a map/],
     ['Shoot', /To plan a shoot, choose a place first/],
-    ['Photos', /Photo import and feedback/],
+    ['Photos', /No photos yet/],
     ['Me', /Signed in as seun@example.com/],
   ] as const;
   for (const [name, text] of tabs) {

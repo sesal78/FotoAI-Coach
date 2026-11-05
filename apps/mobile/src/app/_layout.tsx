@@ -53,6 +53,7 @@ function Navigator() {
         <Stack.Screen name="me/settings" />
         <Stack.Screen name="me/sync" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="photo/[id]" />
         <Stack.Screen name="place/[placeId]" />
         <Stack.Screen name="plan/[id]" />
         <Stack.Screen name="roll/load" />
