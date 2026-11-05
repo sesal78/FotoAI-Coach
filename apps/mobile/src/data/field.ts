@@ -3,6 +3,8 @@
 
 import Storage from 'expo-sqlite/kv-store';
 
+import { deletePhotoFile } from '../lib/photo-files';
+import { forgetImport } from './imported';
 import { createOutbox, type OutboxInput, type OutboxItem } from './outbox';
 
 export const outbox = createOutbox(Storage);
@@ -30,4 +32,16 @@ export async function enqueue(input: OutboxInput): Promise<OutboxItem> {
   const item = await outbox.enqueue(owner, input);
   kick();
   return item;
+}
+
+/**
+ * Removes a waiting change after the user said yes. A photo's file on the phone goes too, and the
+ * gallery photo may then be imported again.
+ */
+export async function discardItem(item: OutboxItem): Promise<void> {
+  await outbox.remove(item.id);
+  if (item.kind !== 'photo') return;
+  const body = item.body as { file: string; assetId?: string | null };
+  deletePhotoFile(body.file);
+  if (body.assetId) await forgetImport(item.owner, body.assetId);
 }

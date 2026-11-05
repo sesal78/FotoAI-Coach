@@ -1,7 +1,7 @@
 // Contract-shaped answers for screen tests.
 
 import { findBody, findLens } from '@fotoai/core';
-import type { ChallengeDto, LightTimesDto, LoadoutDto, Preferences, ProgressResponse, RollDto, ShootPlanDto, SpotDto, WeatherDto } from '@fotoai/contracts';
+import type { ChallengeDto, LightTimesDto, LoadoutDto, PhotoDto, Preferences, ProgressResponse, RollDto, ShootPlanDto, SpotDto, WeatherDto } from '@fotoai/contracts';
 
 export const PREFS_NONE: Preferences = { theme: 'golden', units: 'metric', home: null };
 export const PREFS_HOME: Preferences = { theme: 'golden', units: 'metric', home: { lat: -37.81, lng: 144.96, label: 'Fitzroy' } };
@@ -149,3 +149,30 @@ export const electroLoadout = (): LoadoutDto => {
     film: { stock: 'Kodak Portra 400', boxIso: 400 },
   };
 };
+
+export const PHOTO_ID = '44444444-aaaa-4bbb-8ccc-000000000001';
+
+export const photo = (over: Partial<PhotoDto> = {}): PhotoDto => ({
+  id: PHOTO_ID,
+  source: 'gallery',
+  status: 'ready',
+  mime: 'image/jpeg',
+  bytes: 1000,
+  takenAt: null,
+  takenOffset: null,
+  cameraMake: null,
+  cameraModel: null,
+  lensModel: null,
+  focalMm: null,
+  aperture: null,
+  shutterSeconds: null,
+  iso: null,
+  lat: null,
+  lng: null,
+  stepId: null,
+  frameId: null,
+  rollId: null,
+  check: null,
+  createdAt: '2026-11-05T01:00:00.000Z',
+  ...over,
+});

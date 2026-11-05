@@ -11,7 +11,8 @@ const DELAYS_MS = [5_000, 30_000, 120_000, 600_000];
 
 export interface SyncDeps {
   outbox: Outbox;
-  request: (path: string, opts: { method: OutboxItem['method']; body?: unknown }) => Promise<unknown>;
+  /** Sends one item. `kind` lets a photo run its own chain (create, upload, confirm). */
+  request: (path: string, opts: { method: OutboxItem['method']; body?: unknown; kind: OutboxItem['kind'] }) => Promise<unknown>;
   getOwner: () => string | null;
   isOnline: () => boolean;
   /** Puts the server's answer into the matching read on screen. */
@@ -32,7 +33,7 @@ export function createSync(deps: SyncDeps) {
       if (!item) return;
       let answer: unknown;
       try {
-        answer = await deps.request(item.path, { method: item.method, ...(item.body === undefined ? {} : { body: item.body }) });
+        answer = await deps.request(item.path, { method: item.method, kind: item.kind, ...(item.body === undefined ? {} : { body: item.body }) });
       } catch (err) {
         if (err instanceof ApiClientError && err.status === 401) {
           deps.outbox.release(item.id);

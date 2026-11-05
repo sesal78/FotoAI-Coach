@@ -69,3 +69,16 @@ test('the release build keeps the WorkManager database constructor, so the app d
     | undefined;
   expect(plugin?.[1].android?.extraProguardRules).toContain('-keep class * extends androidx.room.RoomDatabase { <init>(); }');
 });
+
+const pluginOpts = (name: string) => ((config.plugins ?? []).find((p) => Array.isArray(p) && p[0] === name) as [string, Record<string, unknown>] | undefined)?.[1];
+
+test('the photo library is read-only, for photos only, with their location; never camera, microphone or audio', () => {
+  const media = pluginOpts('expo-media-library');
+  expect(media).toMatchObject({ isAccessMediaLocationEnabled: true, granularPermissions: ['photo'], savePhotosPermission: false });
+  expect(String(media!.photosPermission)).toMatch(/photos/i);
+  const picker = pluginOpts('expo-image-picker');
+  expect(picker).toMatchObject({ cameraPermission: false, microphonePermission: false });
+  // The media-library plugin always adds the write permission: the app blocks it.
+  expect(config.android?.blockedPermissions).toEqual(expect.arrayContaining(['android.permission.WRITE_EXTERNAL_STORAGE', 'android.permission.RECORD_AUDIO']));
+  expect(JSON.stringify(config.android?.permissions ?? [])).not.toMatch(/CAMERA|RECORD_AUDIO|READ_MEDIA_AUDIO|READ_MEDIA_VIDEO/);
+});

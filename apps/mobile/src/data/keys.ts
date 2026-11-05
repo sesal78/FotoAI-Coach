@@ -24,6 +24,9 @@ export const keys = {
   plan: (id: string) => ['shoot', 'plan', id] as const,
   rolls: ['shoot', 'rolls'] as const,
   roll: (id: string) => ['shoot', 'roll', id] as const,
+  // Photos (3F): the library (pages, newest first) and one photo.
+  photos: ['photos', 'list'] as const,
+  photo: (id: string) => ['photos', 'one', id] as const,
   // About 1 km cells, per day: the light and the weather do not change within one.
   conditions: (at: { lat: number; lng: number }, day: string) => ['conditions', round(at.lat), round(at.lng), day] as const,
 };

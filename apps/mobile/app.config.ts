@@ -23,7 +23,9 @@ const config: ExpoConfig = {
     },
     predictiveBackGestureEnabled: false,
     // Coarse location is enough for light, weather and a home area; precise is never asked for.
-    blockedPermissions: ['android.permission.ACCESS_FINE_LOCATION'],
+    // The photo library is read only: the media-library plugin always adds the write permission,
+    // and the app has no camera or microphone use.
+    blockedPermissions: ['android.permission.ACCESS_FINE_LOCATION', 'android.permission.WRITE_EXTERNAL_STORAGE', 'android.permission.RECORD_AUDIO'],
     // Saved reads (email, home area, gear) stay on this phone: not copied to Google backups.
     allowBackup: false,
     ...(mapsKey ? { config: { googleMaps: { apiKey: mapsKey } } } : {}),
@@ -45,6 +47,11 @@ const config: ExpoConfig = {
     'expo-sqlite',
     // Foreground only: Today's light and weather, and setting the home area. Never in the background.
     ['expo-location', { locationWhenInUsePermission: 'FotoAI uses your location to show the light and weather where you are, and to set your home area.', isAndroidBackgroundLocationEnabled: false }],
+    // Photos (3F): read the gallery and each photo's place, never save to it. Photos only: no
+    // video or audio access.
+    ['expo-media-library', { photosPermission: 'FotoAI reads the photos you pick, and where they were taken, to coach you on them.', savePhotosPermission: false, isAccessMediaLocationEnabled: true, granularPermissions: ['photo'] }],
+    // The picker: gallery only. No in-app camera in 3F, so no camera or microphone permission.
+    ['expo-image-picker', { photosPermission: 'FotoAI reads the photos you pick to coach you on them.', cameraPermission: false, microphonePermission: false }],
     // react-native-maps brings androidx.work 2.9.1 with Room 2.5. Room's own R8 rule keeps the
     // database class but not its constructor, so the release APK crashed at launch without this.
     ['expo-build-properties', { android: { extraProguardRules: '-keep class * extends androidx.room.RoomDatabase { <init>(); }' } }],

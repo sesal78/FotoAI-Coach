@@ -12,11 +12,13 @@ import { z } from 'zod';
 import { getSupabase } from '../auth/supabase';
 import { ApiClientError, createApi, type Api } from '../lib/api';
 import { appEnv } from '../lib/env';
+import { readPhotoFile } from '../lib/photo-files';
 import { fieldOwner, outbox, setFieldOwner, setKick } from './field';
 import { claimSavedReads, savedReads } from './persist';
 import { QUERY_DEFAULTS } from './query-defaults';
 import { applySent } from './sent';
 import { createSync } from './sync';
+import { createPhotoSender, PHOTO_BUCKET, type PhotoBody } from './upload';
 
 onlineManager.setEventListener((setOnline) => NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)));
 focusManager.setEventListener((handleFocus) => {
@@ -44,9 +46,20 @@ export function claimAccount(userId: string): void {
   void sync.run();
 }
 
+const sendPhoto = createPhotoSender({
+  request: (path, opts) => getApi().request(path, opts),
+  bucket: () => {
+    const supabase = getSupabase();
+    if (!supabase) throw new Error('FotoAI is not configured');
+    return supabase.storage.from(PHOTO_BUCKET);
+  },
+  readFile: readPhotoFile,
+});
+
 export const sync = createSync({
   outbox,
-  request: (path, opts) => getApi().request(path, { ...opts, schema: z.unknown() }),
+  // A photo runs its own chain (create, upload, confirm); every other change is one request.
+  request: (path, { kind, ...opts }) => (kind === 'photo' ? sendPhoto(opts.body as PhotoBody) : getApi().request(path, { ...opts, schema: z.unknown() })),
   getOwner: fieldOwner,
   isOnline: () => onlineManager.isOnline(),
   onSent: (item, answer) => applySent(queryClient, item, answer),
