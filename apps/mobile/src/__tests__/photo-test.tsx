@@ -39,6 +39,7 @@ function routes(p = RICOH, urls: Array<string | Error> = [URL_1]) {
   let n = 0;
   return fakeApi({
     [`GET /api/v2/photos/${p.id}`]: { photo: p },
+    [`GET /api/v2/photos/${p.id}/analyses`]: { analyses: [] },
     [`GET /api/v2/photos/${p.id}/url`]: () => {
       const next = urls[Math.min(n++, urls.length - 1)]!;
       return next instanceof Error ? next : { url: next, expiresAt: '2026-11-05T01:05:00.000Z' };
@@ -120,7 +121,11 @@ test('a link that ran out is fetched again when the picture fails to load', asyn
 });
 
 test('a photo from the saved list opens with no signal; the picture says it needs a signal', async () => {
-  mockApi.current = fakeApi({ [`GET /api/v2/photos/${PHOTO_ID}`]: offline(), [`GET /api/v2/photos/${PHOTO_ID}/url`]: offline() });
+  mockApi.current = fakeApi({
+    [`GET /api/v2/photos/${PHOTO_ID}`]: offline(),
+    [`GET /api/v2/photos/${PHOTO_ID}/url`]: offline(),
+    [`GET /api/v2/photos/${PHOTO_ID}/analyses`]: offline(),
+  });
   const client = testClient();
   client.setQueryData<InfiniteData<PhotoListResponse>>(keys.photos, { pages: [{ photos: [RICOH], nextCursor: null }], pageParams: [null] });
   await renderScreen(<PhotoScreen />, client);

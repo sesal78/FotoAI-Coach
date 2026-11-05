@@ -3,9 +3,10 @@
 // "Waiting to upload" and is sent later; the same gallery photo is never sent twice.
 // Reads: the library (pages, kept on the phone), one photo (from the saved library first), and
 // its signed read link, which lives in memory only, for 4 of its 5 minutes.
+// Analyse: the saved AI results are kept on the phone; a new one needs a signal.
 
-import type { PhotoListResponse as PhotoList, ShootPlanDto } from '@fotoai/contracts';
-import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import type { AnalysisListResponse as AnalysisList, AnalysisMode, PhotoListResponse as PhotoList, ShootPlanDto } from '@fotoai/contracts';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -18,7 +19,7 @@ import { enqueue, fieldOwner, outbox } from './field';
 import { importedPhoto, rememberImport } from './imported';
 import { keys } from './keys';
 import type { OutboxItem } from './outbox';
-import { PhotoListResponse, PhotoResponse, PhotoUrlResponse } from './schemas';
+import { AnalyseResponse, AnalysisListResponse, PhotoListResponse, PhotoResponse, PhotoUrlResponse } from './schemas';
 import { useOutbox } from './shoot';
 import { photoItem, type PhotoBody } from './upload';
 
@@ -62,6 +63,35 @@ export function usePhotoUrl(id: string) {
     staleTime: LINK_FRESH_MS,
     gcTime: LINK_FRESH_MS,
     queryFn: () => getApi().request(`/api/v2/photos/${encodeURIComponent(id)}/url`, { schema: PhotoUrlResponse }),
+  });
+}
+
+/** A photo's AI results, newest first. Kept on the phone, so they show with no signal. */
+export function useAnalyses(photoId: string) {
+  return useQuery({
+    queryKey: keys.analyses(photoId),
+    queryFn: () => getApi().request(`/api/v2/photos/${encodeURIComponent(photoId)}/analyses`, { schema: AnalysisListResponse }),
+  });
+}
+
+/**
+ * Asks the AI about a photo (it costs an AI call): only from a tap, never queued for later and
+ * never sent again by itself. The new result goes first in the saved list. The photo is read
+ * again (the server checks a photo that was not checked yet), and so is the progress (a critique
+ * gives XP).
+ */
+export function useAnalyse(photoId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    networkMode: 'always',
+    retry: false,
+    mutationFn: (mode: AnalysisMode) =>
+      getApi().request(`/api/v2/photos/${encodeURIComponent(photoId)}/analyse`, { method: 'POST', body: { mode }, schema: AnalyseResponse }),
+    onSuccess: ({ analysis }) => {
+      client.setQueryData<AnalysisList>(keys.analyses(photoId), (old) => ({ analyses: [analysis, ...(old?.analyses ?? []).filter((a) => a.id !== analysis.id)] }));
+      void client.invalidateQueries({ queryKey: keys.photo(photoId) });
+      if (analysis.mode === 'critique') void client.invalidateQueries({ queryKey: keys.progress });
+    },
   });
 }
 

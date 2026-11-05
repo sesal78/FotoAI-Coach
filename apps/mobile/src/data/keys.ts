@@ -31,6 +31,8 @@ export const keys = {
   photoUrl: (id: string) => ['photos', 'url', id] as const,
   // A film roll's scans (GET /photos?rollId=), with the frame each one is paired with.
   rollScans: (rollId: string) => ['photos', 'roll', rollId] as const,
+  // A photo's saved AI results (critique, editing tips, recreate), newest first.
+  analyses: (photoId: string) => ['photos', 'analyses', photoId] as const,
   // About 1 km cells, per day: the light and the weather do not change within one.
   conditions: (at: { lat: number; lng: number }, day: string) => ['conditions', round(at.lat), round(at.lng), day] as const,
 };

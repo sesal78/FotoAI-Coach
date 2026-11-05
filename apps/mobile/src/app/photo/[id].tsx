@@ -1,12 +1,14 @@
 // One photo: the picture, what the AI check found, the camera data, where it was taken ("Near" the
-// plan's place when it is linked to a step, otherwise the coordinates) and the linked step.
-// It opens from the saved library with no signal; only the picture needs one.
+// plan's place when it is linked to a step, otherwise the coordinates), the linked step, and
+// Analyse (the AI's critique, editing tips and how to recreate the shot).
+// It opens from the saved library with no signal; only the picture and a new analysis need one.
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Text } from 'react-native';
 
 import { useLinkedStep, usePhoto } from '../../data/photos';
 import { Screen, TextLink } from '../../ui/form';
+import { Analyse } from '../../ui/photos/Analyse';
 import { CheckBadge } from '../../ui/photos/CheckBadge';
 import { ExifCard } from '../../ui/photos/ExifCard';
 import { PhotoImage } from '../../ui/photos/PhotoImage';
@@ -39,6 +41,7 @@ export default function PhotoScreen() {
       <ExifCard photo={photo} />
       {place ? <Text className="text-text">{place}</Text> : null}
       {linked ? <TextLink title={`Step: ${linked.title}`} onPress={() => router.push(`/plan/${linked.planId}`)} /> : null}
+      <Analyse photoId={photo.id} unsafe={photo.check?.safe === false} />
     </Screen>
   );
 }
