@@ -201,3 +201,16 @@ test('a critique refreshes the photo and the progress (its check and XP may chan
   await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: keys.photo(PHOTO_ID) }));
   expect(spy).toHaveBeenCalledWith({ queryKey: keys.progress });
 });
+
+test('no answer in time reads the saved results again (the server may have finished)', async () => {
+  let reads = 0;
+  mockApi.current = routes({
+    [`GET /api/v2/photos/${PHOTO_ID}/analyses`]: () => (++reads === 1 ? { analyses: [] } : { analyses: [CRITIQUE] }),
+    [`POST /api/v2/photos/${PHOTO_ID}/analyse`]: offline(),
+  });
+  await renderScreen(<PhotoScreen />);
+  await screen.findByText('No results yet');
+  await act(async () => await fireEvent.press(screen.getByRole('button', { name: 'Critique' })));
+  expect(await screen.findByText('Overall 74')).toBeTruthy();
+  expect(reads).toBe(2);
+});

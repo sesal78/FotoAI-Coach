@@ -27,7 +27,8 @@ export interface PreparedPhoto {
 export async function preparePhoto(asset: PickedPhoto, photoId: string, gps: { latitude: number; longitude: number } | null = null): Promise<PreparedPhoto> {
   const exif = exifToInput(asset.exif ?? {}, gps);
 
-  const context = ImageManipulator.manipulate(asset.uri);
+  // Decoded no larger than needed: a 50 MP photo at full size can run the phone out of memory.
+  const context = ImageManipulator.manipulate(asset.uri, { maxWidth: MAX_SIDE_PX, maxHeight: MAX_SIDE_PX });
   let image = await context.renderAsync();
   // The size comes from the decoded image: the picker may give 0 when it does not know.
   if (Math.max(image.width, image.height) > MAX_SIDE_PX) {

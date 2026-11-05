@@ -11,7 +11,9 @@ import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 
+import { AI_TIMEOUT_MS, ApiClientError } from '../lib/api';
 import { deletePhotoFile } from '../lib/photo-files';
 import { preparePhoto } from '../lib/prepare-photo';
 import { getApi } from './client';
@@ -86,11 +88,15 @@ export function useAnalyse(photoId: string) {
     networkMode: 'always',
     retry: false,
     mutationFn: (mode: AnalysisMode) =>
-      getApi().request(`/api/v2/photos/${encodeURIComponent(photoId)}/analyse`, { method: 'POST', body: { mode }, schema: AnalyseResponse }),
+      getApi().request(`/api/v2/photos/${encodeURIComponent(photoId)}/analyse`, { method: 'POST', body: { mode }, schema: AnalyseResponse, timeoutMs: AI_TIMEOUT_MS }),
     onSuccess: ({ analysis }) => {
       client.setQueryData<AnalysisList>(keys.analyses(photoId), (old) => ({ analyses: [analysis, ...(old?.analyses ?? []).filter((a) => a.id !== analysis.id)] }));
       void client.invalidateQueries({ queryKey: keys.photo(photoId) });
       if (analysis.mode === 'critique') void client.invalidateQueries({ queryKey: keys.progress });
+    },
+    // No answer may still mean the server finished and saved it: read the saved results again.
+    onError: (err) => {
+      if (err instanceof ApiClientError && err.code === 'offline') void client.invalidateQueries({ queryKey: keys.analyses(photoId) });
     },
   });
 }
@@ -198,10 +204,24 @@ async function photoAccess(): Promise<boolean> {
 async function placeOf(assetId: string | null | undefined, allowed: boolean): Promise<{ latitude: number; longitude: number } | null> {
   if (!allowed || !assetId) return null;
   try {
-    return await new MediaLibrary.Asset(assetId).getLocation();
+    // Android names a media-library photo by its content link; the picker gives its number.
+    const ref = Platform.OS === 'android' && /^\d+$/.test(assetId) ? `content://media/external/images/media/${assetId}` : assetId;
+    return await new MediaLibrary.Asset(ref).getLocation();
   } catch {
     return null;
   }
+}
+
+/**
+ * The same gallery photo picked again gets the same key: its media id, or, when the picker gives
+ * none (the Android photo picker), its file name, size and the time it was taken. Null when the
+ * picker gives none of these: that photo can be imported twice.
+ */
+export function importKey(asset: Pick<ImagePicker.ImagePickerAsset, 'assetId' | 'fileName' | 'fileSize' | 'exif'>): string | null {
+  if (asset.assetId) return asset.assetId;
+  if (!asset.fileName || !asset.fileSize) return null;
+  const taken = asset.exif?.DateTimeOriginal;
+  return `file:${asset.fileName}:${asset.fileSize}:${typeof taken === 'string' ? taken : ''}`;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -229,7 +249,8 @@ export function useImport() {
       const count = { added: 0, already: 0, failed: 0 };
       const ids: string[] = [];
       for (const asset of picked.assets) {
-        if (asset.assetId && (await importedPhoto(owner, asset.assetId))) {
+        const key = importKey(asset);
+        if (key && (await importedPhoto(owner, key))) {
           count.already += 1;
           continue;
         }
@@ -247,7 +268,7 @@ export function useImport() {
             ...(opts.stepId ? { stepId: opts.stepId } : {}),
             ...(opts.rollId ? { rollId: opts.rollId } : {}),
             file: prepared.file,
-            ...(asset.assetId ? { assetId: asset.assetId } : {}),
+            ...(key ? { importKey: key } : {}),
           };
           await enqueue(photoItem(body));
         } catch {
@@ -255,7 +276,7 @@ export function useImport() {
           count.failed += 1;
           continue;
         }
-        if (asset.assetId) await rememberImport(owner, asset.assetId, id);
+        if (key) await rememberImport(owner, key, id);
         count.added += 1;
         ids.push(id);
       }

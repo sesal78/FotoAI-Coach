@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import { z } from 'zod';
 
+import { AI_TIMEOUT_MS, ApiClientError } from '../lib/api';
 import { getApi } from './client';
 import { keys } from './keys';
 import { OkResponse } from './schemas';
@@ -29,7 +30,7 @@ export function useSendCoach() {
   const client = useQueryClient();
   return useMutation({
     retry: false,
-    mutationFn: (input: CoachInput) => getApi().request('/api/v2/coach', { method: 'POST', body: input, schema: CoachReply }),
+    mutationFn: (input: CoachInput) => getApi().request('/api/v2/coach', { method: 'POST', body: input, schema: CoachReply, timeoutMs: AI_TIMEOUT_MS }),
     onSuccess: ({ reply, proposal }, input) => {
       const now = new Date().toISOString();
       const sent: CoachMessageDto[] = [
@@ -37,6 +38,10 @@ export function useSendCoach() {
         { id: Crypto.randomUUID(), role: 'assistant', content: reply, proposal, createdAt: now },
       ];
       client.setQueryData<CoachHistory>(keys.coachHistory, (old) => ({ messages: [...(old?.messages ?? []), ...sent] }));
+    },
+    // No answer may still mean the server replied and stored it: read the history again.
+    onError: (err) => {
+      if (err instanceof ApiClientError && err.code === 'offline') void client.invalidateQueries({ queryKey: keys.coachHistory });
     },
   });
 }

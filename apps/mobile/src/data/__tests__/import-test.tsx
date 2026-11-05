@@ -201,3 +201,37 @@ test('a photo that cannot be read is counted, and the others still go', async ()
   mockPicker.assets = [picked({ assetId: 'gal-1' })];
   expect(await importNow()).toMatchObject({ added: 1 });
 });
+
+test('the Android photo picker gives no assetId: the same photo picked again is still "Already imported"', async () => {
+  const android = picked({ assetId: null, fileName: 'DSCF0001.JPG', fileSize: 5_123_456, exif: { ...RICOH, DateTimeOriginal: '2026:11:04 18:30:00' } });
+  mockPicker.assets = [android];
+  expect(await importNow()).toMatchObject({ added: 1 });
+  mockPicker.assets = [android];
+  expect(await importNow()).toMatchObject({ added: 0, already: 1, message: 'Already imported' });
+  // Another photo with the same name but another size is a new photo.
+  mockPicker.assets = [{ ...android, fileSize: 4_000_000 }];
+  expect(await importNow()).toMatchObject({ added: 1 });
+});
+
+test('removing a refused scan keeps the other scans pairs, and a pairs item with no scan left goes', async () => {
+  mockPicker.assets = [picked({ assetId: 's-1' }), picked({ assetId: 's-2', uri: 'file:///picker/IMG_2.jpg' })];
+  const { ids } = await importNow({ source: 'scan', rollId: '33333333-aaaa-4bbb-8ccc-000000000001' });
+  const [one, two] = ids as [string, string];
+  await outbox.enqueue(OWNER, { kind: 'scans', method: 'POST', path: '/api/v2/rolls/r/scans', body: { photoIds: [one, two], overrides: { [one]: 1, [two]: 2 } }, key: 'scans:r:x' });
+  const photoItem = async (id: string) => (await outbox.list(OWNER)).find((i) => i.kind === 'photo' && (i.body as PhotoBody).id === id)!;
+  await discardItem(await photoItem(one));
+  expect((await outbox.list(OWNER)).find((i) => i.kind === 'scans')!.body).toEqual({ photoIds: [two], overrides: { [two]: 2 } });
+  await discardItem(await photoItem(two));
+  expect((await outbox.list(OWNER)).filter((i) => i.kind === 'scans')).toEqual([]);
+});
+
+test('a sent scan makes its roll read its scans again', async () => {
+  const rollId = '33333333-aaaa-4bbb-8ccc-000000000001';
+  mockPicker.assets = [picked({ assetId: 's-9' })];
+  await importNow({ source: 'scan', rollId });
+  const [item] = await outbox.list(OWNER);
+  const client = new QueryClient();
+  const spy = jest.spyOn(client, 'invalidateQueries');
+  applySent(client, item!, { photo: photo({ id: (item!.body as PhotoBody).id, source: 'scan' }) });
+  expect(spy).toHaveBeenCalledWith({ queryKey: keys.rollScans(rollId) });
+});

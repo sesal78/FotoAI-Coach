@@ -36,6 +36,17 @@ interface StringStorage {
 
 export type Outbox = ReturnType<typeof createOutbox>;
 
+/** The photo ids a scans item pairs with frames (see useSaveScans). */
+const scanPhotoIds = (item: OutboxItem): string[] => (item.body as { photoIds?: string[] } | undefined)?.photoIds ?? [];
+
+/**
+ * A scans item names photos that must be on FotoAI first. While one of them is still here (for
+ * example refused and waiting for the user), the scans item is not sent: the server would refuse it.
+ */
+function waitsForPhotos(item: OutboxItem, here: Set<string>): boolean {
+  return item.kind === 'scans' && scanPhotoIds(item).some((id) => here.has(id));
+}
+
 export function createOutbox(storage: StringStorage, now: () => number = Date.now) {
   let items: OutboxItem[] | null = null;
   // The item being sent right now: a new change to its record is added, never merged into it.
@@ -106,7 +117,10 @@ export function createOutbox(storage: StringStorage, now: () => number = Date.no
     /** The next item to send: the oldest waiting one, once its time has come. A later item never jumps it. */
     next(owner: string): Promise<OutboxItem | null> {
       return read((list) => {
-        const head = list.find((i) => i.owner === owner && i.state === 'waiting');
+        const mine = list.filter((i) => i.owner === owner);
+        const photosHere = new Set(mine.filter((i) => i.kind === 'photo').map((i) => (i.body as { id: string }).id));
+        // Order still holds: a photo waiting before its scans item is sent (or retried) first.
+        const head = mine.find((i) => i.state === 'waiting' && !waitsForPhotos(i, photosHere));
         if (!head || head.nextTryAt > now()) return null;
         sending = head.id;
         return { ...head };
@@ -154,6 +168,14 @@ export function createOutbox(storage: StringStorage, now: () => number = Date.no
       return change((list) => {
         const item = list.find((i) => i.id === id);
         if (item) Object.assign(item, { state: 'waiting', error: null, attempts: 0, nextTryAt: 0 });
+      });
+    },
+
+    /** A waiting item's new body (a scans item after one of its photos was removed). */
+    setBody(id: string, body: unknown): Promise<void> {
+      return change((list) => {
+        const item = list.find((i) => i.id === id);
+        if (item && item.state === 'waiting') item.body = body;
       });
     },
 

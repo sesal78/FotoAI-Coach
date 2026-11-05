@@ -31,6 +31,11 @@ test('a resized photo keeps its EXIF: the long side becomes 3000 px', async () =
   expect(mockFiles.resized).toEqual([{ height: 3000 }]);
 });
 
+test('a large photo is decoded at most 3000 px a side, so it never fills the memory', async () => {
+  await preparePhoto(asset(), PHOTO);
+  expect(mockFiles.loaded).toEqual([{ maxWidth: 3000, maxHeight: 3000 }]);
+});
+
 test('a small photo is never made larger', async () => {
   mockFiles.rendered = { width: 1200, height: 800 };
   await preparePhoto(asset({ width: 1200, height: 800 }), PHOTO);

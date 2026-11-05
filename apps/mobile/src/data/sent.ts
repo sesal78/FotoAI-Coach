@@ -35,6 +35,9 @@ export function applySent(client: QueryClient, item: OutboxItem, answer: unknown
       const [first, ...rest] = old.pages;
       return { ...old, pages: [{ photos: [photo, ...(first?.photos ?? [])], nextCursor: first?.nextCursor ?? null }, ...rest] };
     });
+    // A scan leaves "Waiting to upload": its roll's scans read it again, so it never drops out.
+    const rollId = (item.body as { rollId?: string }).rollId;
+    if (rollId) void client.invalidateQueries({ queryKey: keys.rollScans(rollId) });
     deletePhotoFile((item.body as { file: string }).file);
     return;
   }

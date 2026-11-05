@@ -7,6 +7,8 @@ export const mockFiles = {
   sizes: new Map<string, number>(),
   saved: [] as Array<{ format: string; compress: number }>,
   resized: [] as unknown[],
+  /** The decode limits the image tool was given. */
+  loaded: [] as unknown[],
   /** The size the image tool reads from the next picked photo. */
   rendered: { width: 1200, height: 800 },
   /** The size of the JPEG the image tool writes. */
@@ -15,6 +17,7 @@ export const mockFiles = {
     this.sizes.clear();
     this.saved = [];
     this.resized = [];
+    this.loaded = [];
     this.rendered = { width: 1200, height: 800 };
     this.outBytes = 2_345_678;
   },
@@ -23,7 +26,8 @@ export const mockFiles = {
 export const manipulatorModule = {
   SaveFormat: { JPEG: 'jpeg', PNG: 'png', WEBP: 'webp' },
   ImageManipulator: {
-    manipulate: (uri: string) => {
+    manipulate: (uri: string, options?: unknown) => {
+      mockFiles.loaded.push(options);
       let size = { ...mockFiles.rendered };
       const ctx = {
         resize: (to: { width?: number; height?: number }) => {

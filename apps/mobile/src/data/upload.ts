@@ -8,12 +8,12 @@
 import { ExifInput, PhotoDto, PhotoResponse, PHOTO_SOURCES } from '@fotoai/contracts';
 import { z } from 'zod';
 
-import { ApiClientError, type Api } from '../lib/api';
+import { AI_TIMEOUT_MS, ApiClientError, type Api } from '../lib/api';
 import type { OutboxInput } from './outbox';
 
 export const PHOTO_BUCKET = 'fotoai-submissions';
 
-/** A waiting photo. `file` and `assetId` stay on the phone: they are not sent. */
+/** A waiting photo. `file` and `importKey` stay on the phone: they are not sent. */
 export interface PhotoBody {
   id: string;
   source: (typeof PHOTO_SOURCES)[number];
@@ -24,8 +24,8 @@ export interface PhotoBody {
   rollId?: string;
   /** The JPEG to upload, in the app's own folder. */
   file: string;
-  /** The gallery photo it came from, so the same one is not imported twice. */
-  assetId?: string | null;
+  /** The gallery photo it came from (see importKey), so the same one is not imported twice. */
+  importKey?: string | null;
 }
 
 export const photoItem = (body: PhotoBody): OutboxInput => ({ kind: 'photo', method: 'POST', path: '/api/v2/photos', body, key: `photo:${body.id}` });
@@ -56,7 +56,11 @@ const TRY_AGAIN = 'The photo did not finish uploading. FotoAI will try again.';
  * means the link ran out, not that the user is signed out.
  */
 function storageFailure(fault: unknown): ApiClientError {
-  const status = Number((fault as StorageFault | null)?.status ?? (fault as StorageFault | null)?.statusCode);
+  const f = fault as StorageFault | null;
+  // Storage answers many refusals with HTTP 400 and puts the real reason in statusCode ('413' too
+  // large, '415' wrong type, '403' a link that ran out): that one decides.
+  const own = Number(f?.statusCode);
+  const status = Number.isFinite(own) ? own : Number(f?.status);
   // No signal, a Storage fault, or a refused or expired link: the next create gives a fresh link.
   if (!Number.isFinite(status) || [400, 401, 403, 408, 429].includes(status) || status >= 500) return new ApiClientError('upstream', 0, TRY_AGAIN);
   return new ApiClientError('validation', 0, 'Storage did not take this photo. Remove it, then import it again.');
@@ -66,7 +70,7 @@ export function createPhotoSender(deps: PhotoSenderDeps) {
   return async function sendPhoto(body: PhotoBody): Promise<PhotoResponse> {
     const { file, ...rest } = body;
     const create = { ...rest };
-    delete create.assetId;
+    delete create.importKey;
     const created = await deps.request('/api/v2/photos', { method: 'POST', body: create, schema: CreateAnswer });
     // No link: the photo is already stored (an earlier try got that far).
     if (created.upload) {
@@ -84,6 +88,7 @@ export function createPhotoSender(deps: PhotoSenderDeps) {
       }
       if (result.error) throw storageFailure(result.error);
     }
-    return deps.request(`/api/v2/photos/${encodeURIComponent(body.id)}/confirm`, { method: 'POST', schema: PhotoResponse });
+    // Confirm runs the AI check on the server: it may take longer than a plain request.
+    return deps.request(`/api/v2/photos/${encodeURIComponent(body.id)}/confirm`, { method: 'POST', schema: PhotoResponse, timeoutMs: AI_TIMEOUT_MS });
   };
 }

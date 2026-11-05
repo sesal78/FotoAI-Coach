@@ -1,5 +1,6 @@
-// Which gallery photos each account has already imported (gallery id → photo id), kept on the
-// phone, so picking the same photo again says "Already imported" and sends nothing.
+// Which gallery photos each account has already imported (import key → photo id; see importKey
+// in photos.ts), kept on the phone, so picking the same photo again says "Already imported" and
+// sends nothing.
 
 import Storage from 'expo-sqlite/kv-store';
 
@@ -14,19 +15,19 @@ async function load(owner: string): Promise<Record<string, string>> {
   }
 }
 
-export async function importedPhoto(owner: string, assetId: string): Promise<string | null> {
-  return (await load(owner))[assetId] ?? null;
+export async function importedPhoto(owner: string, key: string): Promise<string | null> {
+  return (await load(owner))[key] ?? null;
 }
 
-export async function rememberImport(owner: string, assetId: string, photoId: string): Promise<void> {
+export async function rememberImport(owner: string, key: string, photoId: string): Promise<void> {
   const map = await load(owner);
-  map[assetId] = photoId;
+  map[key] = photoId;
   await Storage.setItem(keyFor(owner), JSON.stringify(map));
 }
 
-export async function forgetImport(owner: string, assetId: string): Promise<void> {
+export async function forgetImport(owner: string, key: string): Promise<void> {
   const map = await load(owner);
-  if (!(assetId in map)) return;
-  delete map[assetId];
+  if (!(key in map)) return;
+  delete map[key];
   await Storage.setItem(keyFor(owner), JSON.stringify(map));
 }

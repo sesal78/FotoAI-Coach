@@ -43,7 +43,7 @@ export function ExifCard({ photo }: { photo: PhotoDto }) {
   );
   return (
     <View className="gap-1 rounded-lg bg-surface p-4">
-      {lines.length ? lines.map((l, i) => <Text key={l} className={i === 0 ? 'font-semibold text-text' : 'text-text'}>{l}</Text>) : <Text className="text-text-muted">No camera data</Text>}
+      {lines.length ? lines.map((l, i) => <Text key={`${i}-${l}`} className={i === 0 ? 'font-semibold text-text' : 'text-text'}>{l}</Text>) : <Text className="text-text-muted">No camera data</Text>}
     </View>
   );
 }

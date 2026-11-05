@@ -44,7 +44,12 @@ export interface RequestOptions<S extends z.ZodTypeAny> {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
+  /** For a call that runs the AI on the server (it waits up to 30 s and tries twice). */
+  timeoutMs?: number;
 }
+
+/** How long to wait for a call that runs the AI on the server. */
+export const AI_TIMEOUT_MS = 90_000;
 
 const OFFLINE_MESSAGE = 'No connection to FotoAI. Check your signal and try again.';
 
@@ -54,7 +59,7 @@ export function createApi(deps: ApiDeps) {
 
   async function send(path: string, opts: RequestOptions<z.ZodTypeAny>, token: string | null): Promise<Response> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? timeoutMs);
     const onAbort = () => controller.abort();
     opts.signal?.addEventListener('abort', onAbort);
     try {

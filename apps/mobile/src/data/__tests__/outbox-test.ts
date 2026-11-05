@@ -113,3 +113,18 @@ test('Send now makes every waiting item due at once, and a retry keeps its last 
   expect((await outbox.next(A))!.key).toBe('step:s1');
   now += 1;
 });
+
+test('a scans item is not sent while one of its photos is still here (refused), and later items still go', async () => {
+  const outbox = createOutbox(memoryStorage());
+  const photo = (id: string) => ({ kind: 'photo' as const, method: 'POST' as const, path: '/api/v2/photos', body: { id }, key: `photo:${id}` });
+  await outbox.enqueue(A, photo('p1'));
+  await outbox.enqueue(A, { kind: 'scans', method: 'POST', path: '/api/v2/rolls/r1/scans', body: { photoIds: ['p1'], overrides: { p1: 1 } }, key: 'scans:r1:x' });
+  await outbox.enqueue(A, step('s1', 'done'));
+  const first = (await outbox.next(A))!;
+  expect(first.kind).toBe('photo');
+  await outbox.markAttention(first.id, 'The size does not match');
+  // The scans item waits for its photo; the step behind it is sent.
+  expect((await outbox.next(A))!.key).toBe('step:s1');
+  await outbox.remove(first.id);
+  expect((await outbox.next(A))!.key).toBe('scans:r1:x');
+});

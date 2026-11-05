@@ -20,7 +20,7 @@ const body = (over: Partial<PhotoBody> = {}): PhotoBody => ({
   bytes: 1000,
   exif: { cameraMake: 'RICOH', iso: 200 },
   file: `file:///doc/uploads/${P1}.jpg`,
-  assetId: 'asset-1',
+  importKey: 'asset-1',
   ...over,
 });
 
@@ -128,4 +128,20 @@ test('photo items wait for their own account', async () => {
   state.owner = A;
   await sync.run();
   expect(server.rows.get(P1)!.status).toBe('ready');
+});
+
+test('a Storage refusal that cannot get better (statusCode 413 in an HTTP 400) needs attention', async () => {
+  const { server, outbox, sync } = setup();
+  await enqueue(outbox, A, photoItem(body()));
+  server.bucket.uploadToSignedUrl.mockResolvedValueOnce({ error: { status: 400, statusCode: '413', message: 'The object exceeded the maximum allowed size' } } as never);
+  await sync.run();
+  expect(await outbox.list(A)).toEqual([expect.objectContaining({ state: 'attention' })]);
+});
+
+test('a link that ran out (statusCode 403 in an HTTP 400) is tried again', async () => {
+  const { server, outbox, sync } = setup();
+  await enqueue(outbox, A, photoItem(body()));
+  server.bucket.uploadToSignedUrl.mockResolvedValueOnce({ error: { status: 400, statusCode: '403', message: 'jwt expired' } } as never);
+  await sync.run();
+  expect(await outbox.list(A)).toEqual([expect.objectContaining({ state: 'waiting', attempts: 1 })]);
 });

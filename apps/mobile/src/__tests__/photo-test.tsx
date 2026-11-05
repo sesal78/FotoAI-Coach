@@ -134,9 +134,13 @@ test('a photo from the saved list opens with no signal; the picture says it need
 });
 
 test('loading, then a photo that is not mine is an error with Retry', async () => {
-  mockApi.current = fakeApi({ [`GET /api/v2/photos/${PHOTO_ID}`]: new ApiClientError('not_found', 404, 'Photo not found') });
+  // The answer comes only when the test lets it, so "Loading" is seen first every time.
+  let answer!: (e: Error) => void;
+  const late = new Promise<never>((_, reject) => (answer = reject));
+  mockApi.current = fakeApi({ [`GET /api/v2/photos/${PHOTO_ID}`]: () => late });
   await renderScreen(<PhotoScreen />);
   expect(screen.getByText('Loading the photo…')).toBeTruthy();
+  await act(async () => answer(new ApiClientError('not_found', 404, 'Photo not found')));
   expect(await screen.findByText('Photo not found')).toBeTruthy();
   expect(screen.getByText('Retry')).toBeTruthy();
 });
