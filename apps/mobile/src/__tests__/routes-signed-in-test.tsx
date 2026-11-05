@@ -17,7 +17,7 @@ jest.mock('../data/client', () => {
   return { queryClient, clearAccountData: () => queryClient.clear(), startFieldSync: () => () => undefined, getApi: () => ({ request: (...a: unknown[]) => state.request(...a) }) };
 });
 
-test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out of reach', async () => {
+test('signed in: the 5 tabs, the Coach button on every tab and on the plan screen, and sign-in is out of reach', async () => {
   mockState.session = { access_token: 't' };
   const answers: Record<string, unknown> = {
     '/api/v2/me': { userId: '11111111-2222-4333-8444-555555555555', email: 'seun@example.com' },
@@ -29,6 +29,7 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
     '/api/v2/challenges/active': { challenge: null },
     '/api/v2/plans': { plans: [] },
     '/api/v2/rolls': { rolls: [] },
+    '/api/v2/photos': { photos: [], nextCursor: null },
   };
   mockState.request.mockImplementation(async (path: string) => answers[path.split('?')[0]!] ?? { challenge: null });
 
@@ -40,7 +41,7 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
   const tabs = [
     ['Explore', /Real places on a map/],
     ['Shoot', /To plan a shoot, choose a place first/],
-    ['Photos', /Photo import and feedback/],
+    ['Photos', /No photos yet/],
     ['Me', /Signed in as seun@example.com/],
   ] as const;
   for (const [name, text] of tabs) {
@@ -50,6 +51,11 @@ test('signed in: the 5 tabs, the Coach button on every tab, and sign-in is out o
     expect(screen).toHavePathname(`/${name.toLowerCase()}`);
     expect(screen.getByLabelText('Open the coach')).toBeTruthy();
   }
+
+  // The Coach button also shows on a screen outside the tabs, such as a plan.
+  await act(async () => router.push('/plan/22222222-aaaa-4bbb-8ccc-000000000001'));
+  expect(screen).toHavePathname('/plan/22222222-aaaa-4bbb-8ccc-000000000001');
+  expect(screen.getByLabelText('Open the coach')).toBeTruthy();
 
   // The signed-in guard keeps the user out of the sign-in screens.
   await act(async () => router.navigate('/sign-in'));

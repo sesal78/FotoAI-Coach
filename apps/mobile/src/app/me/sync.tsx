@@ -6,7 +6,7 @@
 import { router } from 'expo-router';
 import { Alert, Text, View } from 'react-native';
 
-import { fieldOwner, kickSync, outbox } from '../../data/field';
+import { discardItem, fieldOwner, kickSync, outbox } from '../../data/field';
 import type { OutboxItem } from '../../data/outbox';
 import { useOutbox } from '../../data/shoot';
 import { PrimaryButton, Screen, TextLink } from '../../ui/form';
@@ -17,6 +17,8 @@ function describe(item: OutboxItem): string {
   if (item.kind === 'step') return 'A step change';
   if (item.kind === 'plan') return 'A plan change';
   if (item.kind === 'roll') return 'A film roll';
+  if (item.kind === 'photo') return 'A photo';
+  if (item.kind === 'scans') return 'Scans paired with frames';
   return 'A finished roll';
 }
 
@@ -34,7 +36,7 @@ export default function SyncScreen() {
   const confirmRemove = (item: OutboxItem) =>
     Alert.alert('Remove this change?', `${describe(item)} is not on FotoAI and will be lost.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => void outbox.remove(item.id) },
+      { text: 'Remove', style: 'destructive', onPress: () => void discardItem(item) },
     ]);
 
   return (

@@ -101,3 +101,18 @@ test('an empty 204 body is passed to the schema as undefined', async () => {
   const { api } = setup([new Response(null, { status: 204 })]);
   await expect(api.request('/api/v2/thing', { method: 'DELETE', schema: z.undefined() })).resolves.toBeUndefined();
 });
+
+test('a call that runs the AI may wait longer than the usual timeout', async () => {
+  const late = (ms: number) =>
+    ((_: string, init: RequestInit) =>
+      new Promise((resolve, reject) => {
+        const t = setTimeout(() => resolve(ok({ userId: 'u', email: 'e' })), ms);
+        init.signal?.addEventListener('abort', () => {
+          clearTimeout(t);
+          reject(new DOMException('aborted', 'AbortError'));
+        });
+      })) as unknown as typeof fetch;
+  const api = createApi({ baseUrl: 'https://api.example', getToken: async () => 't', refresh: async () => 'refused' as const, onSignedOut: () => undefined, timeoutMs: 20, fetch: late(60) });
+  await expect(api.request('/api/v2/me', { schema: Me })).rejects.toMatchObject({ code: 'offline' });
+  await expect(api.request('/api/v2/me', { schema: Me, timeoutMs: 500 })).resolves.toEqual({ userId: 'u', email: 'e' });
+});

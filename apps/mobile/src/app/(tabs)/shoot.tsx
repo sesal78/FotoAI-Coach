@@ -1,5 +1,6 @@
 // Shoot: the film roll in the camera, New plan for the place handed over from Explore ("Plan a
-// shoot here" sends `placeId` or `spotId`), and my plans, active first. Plans open with no signal.
+// shoot here" sends `placeId` or `spotId`; the coach can also send a `date`), and my plans, active
+// first. Plans open with no signal.
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
@@ -15,7 +16,7 @@ import { Empty, ErrorState, Loading } from '../../ui/states';
 const ORDER = { active: 0, done: 1, archived: 2 } as const;
 
 export default function Shoot() {
-  const { placeId, spotId } = useLocalSearchParams<{ placeId?: string; spotId?: string }>();
+  const { placeId, spotId, date } = useLocalSearchParams<{ placeId?: string; spotId?: string; date?: string }>();
   const plans = usePlans();
   const loaded = useRolls().rolls.find((r) => r.status === 'loaded');
   const list = (plans.data?.plans ?? []).filter((p) => p.status !== 'archived').sort((a, b) => ORDER[a.status] - ORDER[b.status]);
@@ -25,7 +26,7 @@ export default function Shoot() {
       <WaitingBadge />
       {loaded ? <RollCard roll={loaded} onPress={() => router.push(`/roll/${loaded.id}`)} /> : <TextLink title="Load a film roll" onPress={() => router.push('/roll/load')} />}
       {placeId || spotId ? (
-        <NewPlan placeId={placeId} spotId={spotId} />
+        <NewPlan key={`${placeId ?? spotId}:${date ?? ''}`} placeId={placeId} spotId={spotId} date={date} />
       ) : (
         <View className="gap-2 rounded-lg bg-surface p-4">
           <Text className="text-text-muted">To plan a shoot, choose a place first.</Text>

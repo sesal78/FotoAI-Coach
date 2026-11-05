@@ -5,6 +5,7 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import { focusManager, onlineManager, QueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 import { z } from 'zod';
@@ -12,11 +13,13 @@ import { z } from 'zod';
 import { getSupabase } from '../auth/supabase';
 import { ApiClientError, createApi, type Api } from '../lib/api';
 import { appEnv } from '../lib/env';
+import { readPhotoFile } from '../lib/photo-files';
 import { fieldOwner, outbox, setFieldOwner, setKick } from './field';
 import { claimSavedReads, savedReads } from './persist';
 import { QUERY_DEFAULTS } from './query-defaults';
 import { applySent } from './sent';
 import { createSync } from './sync';
+import { createPhotoSender, PHOTO_BUCKET, type PhotoBody } from './upload';
 
 onlineManager.setEventListener((setOnline) => NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)));
 focusManager.setEventListener((handleFocus) => {
@@ -27,13 +30,16 @@ focusManager.setEventListener((handleFocus) => {
 export const queryClient = new QueryClient({ defaultOptions: QUERY_DEFAULTS });
 
 /**
- * Forgets everything read for the signed-in account: the cache and the copy kept on the phone.
- * Changes waiting in the outbox stay: they are sent the next time that account signs in.
+ * Forgets everything read for the signed-in account: the cache, the copy kept on the phone and
+ * the pictures of its photos. Changes waiting in the outbox stay: they are sent the next time
+ * that account signs in.
  */
 export function clearAccountData(): void {
   setFieldOwner(null);
   queryClient.clear();
   void savedReads.clear();
+  void Image.clearDiskCache().catch(() => undefined);
+  void Image.clearMemoryCache().catch(() => undefined);
 }
 
 /** At sign-in: saved reads that belong to another account are dropped before anything shows. */
@@ -44,9 +50,20 @@ export function claimAccount(userId: string): void {
   void sync.run();
 }
 
+const sendPhoto = createPhotoSender({
+  request: (path, opts) => getApi().request(path, opts),
+  bucket: () => {
+    const supabase = getSupabase();
+    if (!supabase) throw new Error('FotoAI is not configured');
+    return supabase.storage.from(PHOTO_BUCKET);
+  },
+  readFile: readPhotoFile,
+});
+
 export const sync = createSync({
   outbox,
-  request: (path, opts) => getApi().request(path, { ...opts, schema: z.unknown() }),
+  // A photo runs its own chain (create, upload, confirm); every other change is one request.
+  request: (path, { kind, ...opts }) => (kind === 'photo' ? sendPhoto(opts.body as PhotoBody) : getApi().request(path, { ...opts, schema: z.unknown() })),
   getOwner: fieldOwner,
   isOnline: () => onlineManager.isOnline(),
   onSent: (item, answer) => applySent(queryClient, item, answer),

@@ -1,17 +1,29 @@
-// The Coach button floats on every tab. The chat itself arrives in sub-phase 3F.
+// The Coach button floats on every signed-in screen (the tabs, and the plan, roll, place, spot and
+// photo screens), never on sign-in, onboarding or the password reset. It opens the coach chat,
+// which knows the screen it was opened from.
 
+import { useGlobalSearchParams, usePathname } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
 import { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable } from 'react-native';
 
+import { CoachSheet } from './coach/CoachSheet';
 import { useTheme } from './ThemeProvider';
 
 /** Room to leave on the right of a screen's last row, so the floating button sits beside it (56 pt button, 12 pt gap). */
 export const COACH_CLEARANCE = 68;
 
+const HIDDEN = ['/onboarding', '/reset-password'];
+
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
 export function CoachButton() {
+  const pathname = usePathname();
+  const raw = useGlobalSearchParams<Record<string, string | string[]>>();
   const [open, setOpen] = useState(false);
   const { tokens } = useTheme();
+  if (pathname === '/' || HIDDEN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
+  const params = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, one(v)]));
   return (
     <>
       <Pressable
@@ -22,16 +34,8 @@ export function CoachButton() {
       >
         <MessageCircle color={tokens.colors.onPrimary} size={26} />
       </Pressable>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View className="flex-1 justify-end bg-black/40">
-          <View className="gap-3 rounded-t-lg bg-surface p-6">
-            <Text className="text-lg font-semibold text-text">Coach</Text>
-            <Text className="text-text-muted">The coach chat arrives in a later update.</Text>
-            <Pressable accessibilityRole="button" onPress={() => setOpen(false)} className="self-start rounded-pill bg-primary px-4 py-2">
-              <Text className="font-semibold text-on-primary">Close</Text>
-            </Pressable>
-          </View>
-        </View>
+      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
+        {open ? <CoachSheet pathname={pathname} params={params} onClose={() => setOpen(false)} /> : null}
       </Modal>
     </>
   );

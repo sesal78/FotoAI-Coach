@@ -31,7 +31,7 @@ test('a frame logged offline is sent once when back online', async () => {
   await Promise.all([sync.run(), sync.run()]);
   await sync.run();
   expect(request).toHaveBeenCalledTimes(1);
-  expect(request).toHaveBeenCalledWith('/api/v2/rolls/r1/frames', { method: 'POST', body: { id: 'f1' } });
+  expect(request).toHaveBeenCalledWith('/api/v2/rolls/r1/frames', { method: 'POST', kind: 'frame', body: { id: 'f1' } });
   expect(onSent).toHaveBeenCalledWith(expect.objectContaining({ key: 'frame:f1' }), { frame: { id: 'ok' } });
   expect(await outbox.list(A)).toEqual([]);
 });

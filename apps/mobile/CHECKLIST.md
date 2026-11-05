@@ -93,3 +93,18 @@ Build: the preview APK from PR #29 "feat(mobile): weather pictures and sun path 
 7. Turn on Settings > Accessibility > Remove animations (the name can differ by phone), then open Today again. The picture shows but does not move. Turn it off again.
 8. Me > Settings: try "Golden dark" and "Camera body". The card still reads well.
 9. Explore: open a place. It shows the same card (without the place name, which is the page title).
+
+## 3F: Photos and the Coach
+
+Build: the 3F preview APK (PR link and APK link added when it is built). The server part (PR #30) is already live. Before it: a few photos from your camera's phone app (they have the camera settings and the place), a film roll on Shoot with 3 or more logged frames, and 3 film scans in the gallery.
+
+1. Photos > "Import photos". Pick 3 photos from your camera's phone app folder. They show as "Waiting to upload", then in the grid. Open one: the camera, the settings and the time it was taken show. Write down if the lens and the place (coordinates) show too. Android's photo picker may hide them from the app; if they are missing, that becomes a fix task.
+2. Turn on airplane mode. Import 2 photos: they show at once as "Waiting to upload". Close the app fully, then open it again: the 2 photos still wait. Turn airplane mode off: each photo uploads once (2 new photos in the grid, not 4).
+3. Import one of the same photos again. The app says "Already imported".
+4. Open a photo taken during a plan step (within 45 minutes of the step's time). It says "Near" the plan's place and links to that step.
+5. Open a film roll and tap "Add scans". Pick 3 scans in frame order. The pairing screen shows scan 1 beside frame 1, and so on. Tap scan 1, then the frame of scan 2: they swap. Tap "Save pairs". The roll's Scans list shows the swapped frame numbers.
+6. Open one photo. Tap "Critique": it says "Working…", then the scores and the feedback show. Then tap "Editing tips" and "How to recreate". The 3 results show newest first. Turn on airplane mode: the results still show and the buttons say "Needs a signal". Turn it off.
+7. Tap the Coach button and ask "Give me a challenge for this evening". The reply has a challenge with "Open challenge". Tap it: the challenge opens.
+8. In Explore, open a place. Tap the Coach button and ask "Plan a shoot here on Saturday". Tap "Plan this shoot": Shoot shows New plan with that place, and Saturday's date in "Or another date".
+9. Open the Coach, tap the menu (…), then "Clear history". It asks first. Tap "Clear": the chat says "No messages yet".
+10. The Coach button shows on a plan, a roll, a place and a photo screen. Sign out: the sign-in screen has no Coach button.

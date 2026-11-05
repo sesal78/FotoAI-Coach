@@ -1,10 +1,13 @@
 // Puts the server's answer to a sent outbox item into the reads on screen, before the item leaves
 // the outbox, so nothing blinks out between the two. A step answer with applied: false carries a
 // newer step (for example changed on the web): the screen takes it. Rolls and frames are set from
-// the answer directly: no extra read is needed.
+// the answer directly: no extra read is needed. A confirmed photo joins the library and its file
+// on the phone is deleted: the server has it now.
 
-import type { QueryClient } from '@tanstack/react-query';
+import { PhotoResponse, type PhotoListResponse } from '@fotoai/contracts';
+import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 
+import { deletePhotoFile } from '../lib/photo-files';
 import { keys } from './keys';
 import type { OutboxItem } from './outbox';
 import {
@@ -21,6 +24,29 @@ import {
 const segment = (path: string, after: string) => path.split('/')[path.split('/').indexOf(after) + 1] ?? '';
 
 export function applySent(client: QueryClient, item: OutboxItem, answer: unknown): void {
+  if (item.kind === 'photo') {
+    const parsed = PhotoResponse.safeParse(answer);
+    if (!parsed.success) return;
+    const { photo } = parsed.data;
+    client.setQueryData(keys.photo(photo.id), { photo });
+    // Added once, at the top of the newest page: a replay or a read that came first already has it.
+    client.setQueryData<InfiniteData<PhotoListResponse>>(keys.photos, (old) => {
+      if (!old || photo.status !== 'ready' || old.pages.some((p) => p.photos.some((x) => x.id === photo.id))) return old;
+      const [first, ...rest] = old.pages;
+      return { ...old, pages: [{ photos: [photo, ...(first?.photos ?? [])], nextCursor: first?.nextCursor ?? null }, ...rest] };
+    });
+    // A scan leaves "Waiting to upload": its roll's scans read it again, so it never drops out.
+    const rollId = (item.body as { rollId?: string }).rollId;
+    if (rollId) void client.invalidateQueries({ queryKey: keys.rollScans(rollId) });
+    deletePhotoFile((item.body as { file: string }).file);
+    return;
+  }
+  if (item.kind === 'scans') {
+    // The pairs are stored: the roll's scans and the library read them again.
+    void client.invalidateQueries({ queryKey: keys.rollScans(segment(item.path, 'rolls')) });
+    void client.invalidateQueries({ queryKey: keys.photos });
+    return;
+  }
   if (item.kind === 'step') {
     const parsed = StepResponse.safeParse(answer);
     if (!parsed.success) return;

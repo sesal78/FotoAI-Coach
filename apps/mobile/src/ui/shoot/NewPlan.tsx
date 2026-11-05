@@ -33,10 +33,11 @@ function LoadoutLine() {
   return <Text className="text-text">{line}</Text>;
 }
 
-export function NewPlan({ placeId, spotId }: { placeId?: string; spotId?: string }) {
+/** `date` (from the coach) fills Or another date when it is a YYYY-MM-DD. */
+export function NewPlan({ placeId, spotId, date: handed }: { placeId?: string; spotId?: string; date?: string }) {
   const make = useMakePlan();
   const [day, setDay] = useState<'today' | 'tomorrow'>('today');
-  const [other, setOther] = useState('');
+  const [other, setOther] = useState(handed && DATE.test(handed) ? handed : '');
   const [problem, setProblem] = useState<string | null>(null);
 
   const submit = () => {
