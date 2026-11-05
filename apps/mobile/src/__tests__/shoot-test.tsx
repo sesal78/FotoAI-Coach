@@ -69,6 +69,22 @@ test('Plan a shoot here opens New plan with that place, the date and the loadout
   expect(router.push).toHaveBeenLastCalledWith('/me/loadout');
 });
 
+test('a date handed over (from the coach) fills Or another date and is sent', async () => {
+  mockParams.current = { placeId: PID, date: '2026-11-07' };
+  mockApi.current = fakeApi({ ...routes, 'POST /api/v2/plans': { plan: plan() } });
+  await renderScreen(<Shoot />);
+  expect((await screen.findByLabelText('Or another date')).props.value).toBe('2026-11-07');
+  await act(async () => await fireEvent.press(screen.getByText('Make the plan')));
+  expect(mockApi.current.calls.find((c) => c.method === 'POST')?.body).toEqual({ placeId: PID, date: '2026-11-07' });
+});
+
+test('a date that is not YYYY-MM-DD is not filled in', async () => {
+  mockParams.current = { placeId: PID, date: 'saturday' };
+  mockApi.current = fakeApi(routes);
+  await renderScreen(<Shoot />);
+  expect((await screen.findByLabelText('Or another date')).props.value).toBe('');
+});
+
 test('Make the plan sends the place and the date, then opens the plan', async () => {
   mockParams.current = { spotId: SID };
   mockApi.current = fakeApi({ ...routes, 'POST /api/v2/plans': { plan: plan({ placeSource: 'user', placeId: null, spotId: SID }) } });

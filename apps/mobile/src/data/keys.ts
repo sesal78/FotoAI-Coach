@@ -33,6 +33,8 @@ export const keys = {
   rollScans: (rollId: string) => ['photos', 'roll', rollId] as const,
   // A photo's saved AI results (critique, editing tips, recreate), newest first.
   analyses: (photoId: string) => ['photos', 'analyses', photoId] as const,
+  // The coach chat: kept in memory only (meta.save: false), never on the phone.
+  coachHistory: ['coach', 'history'] as const,
   // About 1 km cells, per day: the light and the weather do not change within one.
   conditions: (at: { lat: number; lng: number }, day: string) => ['conditions', round(at.lat), round(at.lng), day] as const,
 };

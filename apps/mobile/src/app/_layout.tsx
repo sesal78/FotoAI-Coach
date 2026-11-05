@@ -4,13 +4,14 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { Stack } from 'expo-router';
 import Storage from 'expo-sqlite/kv-store';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { SessionProvider, useSession } from '../auth/session';
 import { getSupabase } from '../auth/supabase';
 import { claimAccount, clearAccountData, queryClient, startFieldSync } from '../data/client';
 import { savedReads, savedReadsOwner } from '../data/persist';
 import { appEnv } from '../lib/env';
+import { CoachButton } from '../ui/CoachButton';
 import { Screen } from '../ui/form';
 import { Loading } from '../ui/states';
 import { ThemeProvider } from '../ui/ThemeProvider';
@@ -40,33 +41,37 @@ function Navigator() {
   if (status === 'loading') return <Loading />;
   const signedIn = status === 'signed_in';
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Protected guard={signedIn}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="challenge/[id]" />
-        <Stack.Screen name="me/skills" />
-        <Stack.Screen name="me/gear/index" />
-        <Stack.Screen name="me/gear/add" />
-        <Stack.Screen name="me/gear/custom" />
-        <Stack.Screen name="me/loadout" />
-        <Stack.Screen name="me/settings" />
-        <Stack.Screen name="me/sync" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="photo/[id]" />
-        <Stack.Screen name="place/[placeId]" />
-        <Stack.Screen name="plan/[id]" />
-        <Stack.Screen name="roll/load" />
-        <Stack.Screen name="roll/[id]" />
-        <Stack.Screen name="roll/scans/[id]" />
-        <Stack.Screen name="spot/[id]" />
-      </Stack.Protected>
-      <Stack.Protected guard={!signedIn}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-      {/* The reset link works signed in or out. */}
-      <Stack.Screen name="reset-password" />
-    </Stack>
+    <View className="flex-1">
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Protected guard={signedIn}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="challenge/[id]" />
+          <Stack.Screen name="me/skills" />
+          <Stack.Screen name="me/gear/index" />
+          <Stack.Screen name="me/gear/add" />
+          <Stack.Screen name="me/gear/custom" />
+          <Stack.Screen name="me/loadout" />
+          <Stack.Screen name="me/settings" />
+          <Stack.Screen name="me/sync" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="photo/[id]" />
+          <Stack.Screen name="place/[placeId]" />
+          <Stack.Screen name="plan/[id]" />
+          <Stack.Screen name="roll/load" />
+          <Stack.Screen name="roll/[id]" />
+          <Stack.Screen name="roll/scans/[id]" />
+          <Stack.Screen name="spot/[id]" />
+        </Stack.Protected>
+        <Stack.Protected guard={!signedIn}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        {/* The reset link works signed in or out. */}
+        <Stack.Screen name="reset-password" />
+      </Stack>
+      {/* Over every signed-in screen (it hides itself on onboarding and the reset). */}
+      {signedIn ? <CoachButton /> : null}
+    </View>
   );
 }
 

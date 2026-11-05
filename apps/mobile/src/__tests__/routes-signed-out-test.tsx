@@ -30,6 +30,8 @@ test('signed out: a tab link shows sign-in; a wrong password gets a plain messag
   await renderRouter('src/app', { initialUrl: '/today' });
   expect(await screen.findByText('Sign in to plan your next shoot.')).toBeTruthy();
   expect(screen).toHavePathname('/sign-in');
+  // The coach is for signed-in users only.
+  expect(screen.queryByLabelText('Open the coach')).toBeNull();
 
   const printed: unknown[] = [];
   const spies = (['log', 'warn', 'error', 'info', 'debug'] as const).map((level) =>
